@@ -65,6 +65,7 @@ export default function ProductCard({ product }) {
     product.wallType && { label: 'Wall', value: product.wallType },
     product.colour && product.colour !== 'N/A' && { label: 'Colour', value: product.colour },
     product.unitsPerCase && { label: 'Case qty', value: `${product.unitsPerCase.toLocaleString()} units` },
+    product.cartonDimensions && { label: 'Carton', value: product.cartonDimensions },
   ].filter(Boolean);
 
   return (
