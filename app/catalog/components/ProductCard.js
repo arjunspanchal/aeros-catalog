@@ -66,6 +66,7 @@ export default function ProductCard({ product }) {
     product.colour && product.colour !== 'N/A' && { label: 'Colour', value: product.colour },
     product.unitsPerCase && { label: 'Case qty', value: `${product.unitsPerCase.toLocaleString()} units` },
     product.cartonDimensions && { label: 'Carton', value: product.cartonDimensions },
+    product.casesPerPallet && { label: 'Pallet', value: `${product.casesPerPallet} cases` },
   ].filter(Boolean);
 
   return (
