@@ -20,7 +20,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <Header itemCount={items.length} />
+      <Header itemCount={items.length} activeNav="clearance" />
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
