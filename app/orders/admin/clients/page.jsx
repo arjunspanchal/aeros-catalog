@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminClientsPage() {
   const s = getSession();
   if (!s) redirect("/orders/login");
-  if (s.role !== ROLES.ADMIN) redirect("/orders");
+  if (s.role !== ROLES.ADMIN && s.role !== ROLES.FACTORY_MANAGER) redirect("/orders");
   const clients = await listClients();
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">

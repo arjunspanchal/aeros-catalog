@@ -8,6 +8,7 @@ export default function ManagerJobsView({ jobs, clientMap, userMap, role }) {
   const [q, setQ] = useState("");
   const [stage, setStage] = useState("all");
   const [clientId, setClientId] = useState("all");
+  const [urgentOnly, setUrgentOnly] = useState(false);
 
   const clients = useMemo(() => {
     const seen = new Set();
@@ -21,6 +22,7 @@ export default function ManagerJobsView({ jobs, clientMap, userMap, role }) {
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     return jobs.filter((j) => {
+      if (urgentOnly && !j.urgent) return false;
       if (stage !== "all" && j.stage !== stage) return false;
       if (clientId !== "all" && !j.clientIds.includes(clientId)) return false;
       if (!term) return true;
@@ -28,7 +30,9 @@ export default function ManagerJobsView({ jobs, clientMap, userMap, role }) {
       const hay = `${j.jNumber} ${j.brand} ${j.item} ${j.city} ${j.poNumber} ${clientName} ${j.internalStatus}`.toLowerCase();
       return hay.includes(term);
     });
-  }, [jobs, q, stage, clientId, clientMap]);
+  }, [jobs, q, stage, clientId, urgentOnly, clientMap]);
+
+  const urgentCount = useMemo(() => jobs.filter((j) => j.urgent).length, [jobs]);
 
   const stageCount = useMemo(() => {
     const c = Object.fromEntries(STAGES.map((s) => [s, 0]));
@@ -78,6 +82,13 @@ export default function ManagerJobsView({ jobs, clientMap, userMap, role }) {
           <option value="all">All clients</option>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
+        <button
+          type="button"
+          onClick={() => setUrgentOnly((v) => !v)}
+          className={`shrink-0 px-3 py-2 text-sm rounded-lg border whitespace-nowrap ${urgentOnly ? "bg-red-600 text-white border-red-600" : "bg-white text-red-600 border-red-200 hover:border-red-300 dark:bg-gray-900 dark:border-red-900"}`}
+        >
+          {urgentOnly ? "Urgent only ✓" : `Urgent (${urgentCount})`}
+        </button>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden dark:bg-gray-900 dark:border-gray-800">
@@ -109,7 +120,10 @@ export default function ManagerJobsView({ jobs, clientMap, userMap, role }) {
                       <div className="text-gray-900 dark:text-white">{client || "—"}</div>
                       {j.brand && <div className="text-xs text-gray-500 dark:text-gray-400">{j.brand}</div>}
                     </td>
-                    <td className="px-4 py-2 text-gray-900 dark:text-white">{j.item}</td>
+                    <td className="px-4 py-2 text-gray-900 dark:text-white">
+                      {j.urgent && <span className="inline-flex items-center text-[10px] font-semibold bg-red-100 text-red-800 px-1.5 py-0.5 rounded mr-1.5 align-middle dark:bg-red-900/40 dark:text-red-200">URGENT</span>}
+                      {j.item}
+                    </td>
                     <td className="px-4 py-2 text-right text-gray-900 dark:text-white">
                       {j.qty != null ? j.qty.toLocaleString("en-IN") : "—"}
                     </td>

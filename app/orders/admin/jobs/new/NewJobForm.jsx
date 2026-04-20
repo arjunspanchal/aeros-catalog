@@ -23,7 +23,7 @@ function Section({ title, children }) {
   );
 }
 
-export default function NewJobForm({ clients: initialClients, accountManagers, products = [] }) {
+export default function NewJobForm({ clients: initialClients, accountManagers, products = [], masterPapers = [] }) {
   const router = useRouter();
   const [clients, setClients] = useState(initialClients);
   const [form, setForm] = useState({
@@ -44,6 +44,7 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
     stage: STAGES[0],
     poNumber: "",
     // RM
+    masterPaperId: "",
     rmType: "",
     rmSupplier: "",
     paperType: "",
@@ -62,6 +63,7 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [productQuery, setProductQuery] = useState("");
+  const [masterPaperQuery, setMasterPaperQuery] = useState("");
 
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
 
@@ -87,6 +89,27 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
       category: CATEGORIES.includes(p.category) ? p.category : f.category,
       gsm: p.gsm != null ? String(p.gsm) : f.gsm,
       paperType: p.material || f.paperType,
+    }));
+  }
+
+  // Filter master papers by typed text — material name / supplier / type / GSM.
+  const filteredMasterPapers = useMemo(() => {
+    const q = masterPaperQuery.trim().toLowerCase();
+    if (!q) return masterPapers.slice(0, 200);
+    return masterPapers
+      .filter((mp) => `${mp.materialName} ${mp.supplier} ${mp.type} ${mp.gsm ?? ""}`.toLowerCase().includes(q))
+      .slice(0, 200);
+  }, [masterPapers, masterPaperQuery]);
+
+  function onPickMasterPaper(id) {
+    const mp = masterPapers.find((x) => x.id === id);
+    if (!mp) { set("masterPaperId", ""); return; }
+    setForm((f) => ({
+      ...f,
+      masterPaperId: id,
+      paperType: mp.type || f.paperType,
+      rmSupplier: mp.supplier || f.rmSupplier,
+      gsm: mp.gsm != null ? String(mp.gsm) : f.gsm,
     }));
   }
 
@@ -127,6 +150,7 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
     };
     delete body.newClientName;
     delete body.productId;
+    delete body.masterPaperId;
 
     const res = await fetch("/api/orders/jobs", {
       method: "POST",
@@ -236,6 +260,26 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
       </Section>
 
       <Section title="Raw material">
+        <div className="sm:col-span-2">
+          <label className={labelCls}>Pick from Paper RM Database (auto-fills paper type, GSM, supplier)</label>
+          <input
+            className={`${inputCls} mb-2`}
+            placeholder={`Search ${masterPapers.length} master papers by name / supplier / type / GSM…`}
+            value={masterPaperQuery}
+            onChange={(e) => setMasterPaperQuery(e.target.value)}
+          />
+          <select className={inputCls} value={form.masterPaperId} onChange={(e) => onPickMasterPaper(e.target.value)}>
+            <option value="">— None (enter manually below) —</option>
+            {filteredMasterPapers.map((mp) => (
+              <option key={mp.id} value={mp.id}>
+                {mp.materialName}
+                {mp.gsm != null ? ` · ${mp.gsm} GSM` : ""}
+                {mp.type ? ` · ${mp.type}` : ""}
+                {mp.supplier ? ` · ${mp.supplier}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
         <div>
           <label className={labelCls}>RM type</label>
           <input className={inputCls} value={form.rmType} onChange={(e) => set("rmType", e.target.value)} placeholder="Rolls / Sheets" />

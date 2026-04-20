@@ -88,6 +88,31 @@ Timeline of every stage change.
 
 > For v1 this is optional — Jobs already have a `PO Number` text field that achieves grouping.
 
+### Table: `Raw Materials`
+
+Central paper RM database. Fed into the New Job form as a searchable picker (auto-fills RM Type, Supplier, Paper Type, GSM, Size). Reusable by the Rate Calculator and any future app via the same Airtable token.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| Name | Single line text | **Primary field**. Display label for the dropdown, e.g. `Jodhani · Brown Kraft · 120 GSM · 28 BF · 890mm Roll` |
+| Paper Type | Single line text | e.g. Brown Kraft, Bleach Kraft, OGR, Virgin Kraft |
+| GSM | Number | |
+| BF | Number | Burst factor (optional for non-kraft) |
+| Size (mm) | Single line text | e.g. `890`, `22×36` |
+| Form | Single select | Options: `Rolls`, `Sheets`, `Reams` |
+| Supplier | Single line text | e.g. Jodhani, Om Shivaay, BILT, Ajit Paper |
+| Base Rate (INR/kg) | Currency (INR) | Purchase rate |
+| Discount (INR/kg) | Currency (INR) | Per-kg discount (e.g. Jodhani's ₹5) |
+| Transport (INR/kg) | Currency (INR) | Default transport adder |
+| Wet Strength Extra (INR/kg) | Currency (INR) | Optional |
+| Effective Rate (INR/kg) | Formula | `{Base Rate (INR/kg)} - {Discount (INR/kg)} + {Transport (INR/kg)}` |
+| Notes | Long text | |
+| Active | Checkbox | Default checked. Inactive rows are hidden from the New Job picker. |
+| Created | Created time | Auto |
+| Last Updated | Last modified time | Auto |
+
+> Use Airtable's currency formatting: `₹` symbol, `en-IN` locale, 2 decimals.
+
 ### Table: `OTP Codes`
 
 | Field | Type | Notes |
@@ -117,6 +142,7 @@ AIRTABLE_ORDERS_USERS_TABLE=Users
 AIRTABLE_ORDERS_JOBS_TABLE=Jobs
 AIRTABLE_ORDERS_UPDATES_TABLE=Job Status Updates
 AIRTABLE_ORDERS_OTP_TABLE=OTP Codes
+AIRTABLE_ORDERS_RM_TABLE=Raw Materials
 
 # Admin password for /orders admin login. Set to something strong.
 ORDERS_ADMIN_PASSWORD=change-me

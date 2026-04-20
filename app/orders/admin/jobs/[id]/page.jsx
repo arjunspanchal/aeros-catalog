@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminJobDetail({ params }) {
   const s = getSession();
   if (!s) redirect("/orders/login");
-  if (s.role !== ROLES.ADMIN) redirect("/orders");
+  if (s.role !== ROLES.ADMIN && s.role !== ROLES.FACTORY_MANAGER) redirect("/orders");
   const job = await getJob(params.id);
   if (!job) notFound();
   const [updates, clients] = await Promise.all([listJobUpdates(job.id), listClients()]);

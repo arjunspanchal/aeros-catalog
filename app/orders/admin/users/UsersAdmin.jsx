@@ -133,6 +133,7 @@ export default function UsersAdmin({ initialUsers, clients }) {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase dark:bg-gray-800/50 dark:text-gray-400">
             <tr>
+              <th className="text-left px-4 py-2 font-medium">&nbsp;</th>
               <th className="text-left px-4 py-2 font-medium">Email</th>
               <th className="text-left px-4 py-2 font-medium">Name</th>
               <th className="text-left px-4 py-2 font-medium">Role</th>
@@ -144,6 +145,16 @@ export default function UsersAdmin({ initialUsers, clients }) {
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {users.map((u) => (
               <tr key={u.id} className={editingId === u.id ? "bg-blue-50 dark:bg-blue-900/20" : ""}>
+                <td className="px-4 py-2">
+                  <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center text-[10px] font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-300">
+                    {u.photoUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={u.photoUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      (u.name || u.email || "?").trim().split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase() || "?"
+                    )}
+                  </div>
+                </td>
                 <td className="px-4 py-2 text-gray-900 dark:text-white">{u.email}</td>
                 <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{u.name || "—"}</td>
                 <td className="px-4 py-2 text-xs text-gray-600 capitalize dark:text-gray-300">{u.role.replace("_", " ")}</td>
@@ -165,7 +176,7 @@ export default function UsersAdmin({ initialUsers, clients }) {
                 </td>
               </tr>
             ))}
-            {users.length === 0 && <tr><td colSpan={6} className="text-center text-sm text-gray-500 py-8 dark:text-gray-400">No users yet.</td></tr>}
+            {users.length === 0 && <tr><td colSpan={7} className="text-center text-sm text-gray-500 py-8 dark:text-gray-400">No users yet.</td></tr>}
           </tbody>
         </table>
       </div>

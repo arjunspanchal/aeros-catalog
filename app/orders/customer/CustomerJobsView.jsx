@@ -95,6 +95,7 @@ export default function CustomerJobsView({ jobs, clientMap }) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {j.urgent && <span className="inline-flex items-center text-[10px] font-semibold bg-red-100 text-red-800 px-1.5 py-0.5 rounded mr-1.5 align-middle dark:bg-red-900/40 dark:text-red-200">URGENT</span>}
                         {j.item}
                         {j.brand && <span className="text-gray-500 dark:text-gray-400"> · {j.brand}</span>}
                       </div>

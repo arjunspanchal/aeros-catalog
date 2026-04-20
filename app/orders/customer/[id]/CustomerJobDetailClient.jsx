@@ -10,6 +10,32 @@ export default function CustomerJobDetailClient({ initialJob, initialUpdates }) 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
+  async function toggleUrgent() {
+    setErr(""); setBusy(true);
+    const next = !job.urgent;
+    const res = await fetch(`/api/orders/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urgent: next }),
+    });
+    setBusy(false);
+    if (!res.ok) { setErr((await res.json()).error || "Failed"); return; }
+    const data = await res.json();
+    setJob(data.job);
+    setUpdates((prev) => [
+      {
+        id: `local-${Date.now()}`,
+        stage: job.stage,
+        note: next ? "Customer marked order URGENT" : "Customer cleared urgent flag",
+        updatedByEmail: "",
+        updatedByName: "",
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+    router.refresh();
+  }
+
   async function markDelivered() {
     if (!window.confirm("Mark this order as delivered? Aeros will be notified.")) return;
     setErr(""); setBusy(true);
@@ -44,7 +70,10 @@ export default function CustomerJobDetailClient({ initialJob, initialUpdates }) 
       <div className="mt-4 bg-white border border-gray-200 rounded-xl p-5 dark:bg-gray-900 dark:border-gray-800">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">{job.item}</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              {job.urgent && <span className="inline-flex items-center gap-1 text-xs font-semibold bg-red-100 text-red-800 px-2 py-0.5 rounded-md mr-2 align-middle dark:bg-red-900/40 dark:text-red-200">URGENT</span>}
+              {job.item}
+            </h1>
             <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
               J# {job.jNumber}{job.brand && <> · {job.brand}</>}{job.city && <> · {job.city}</>}
             </p>
@@ -87,11 +116,45 @@ export default function CustomerJobDetailClient({ initialJob, initialUpdates }) 
           </>}
         </dl>
 
+        {job.lrFiles && job.lrFiles.length > 0 && (
+          <div className="mt-5 border-t border-gray-100 dark:border-gray-800 pt-4">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Dispatch documents (LR)</h3>
+            <ul className="space-y-1.5">
+              {job.lrFiles.map((f) => (
+                <li key={f.id} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-700 dark:text-gray-300 truncate">{f.filename}</span>
+                  <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline dark:text-blue-400 ml-3 shrink-0">
+                    Download ↗
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {job.notes && (
           <div className="mt-5 rounded-lg bg-blue-50 border border-blue-100 p-3 text-sm text-blue-900 dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-100">
             {job.notes}
           </div>
         )}
+
+        <div className="mt-5 border-t border-gray-100 dark:border-gray-800 pt-5">
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={!!job.urgent}
+              disabled={busy}
+              onChange={toggleUrgent}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+            />
+            <div className="text-sm">
+              <div className="font-medium text-gray-900 dark:text-white">Mark order urgent</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Flags this order as urgent for Aeros. Visible to their whole team.
+              </div>
+            </div>
+          </label>
+        </div>
 
         {(canMarkDelivered || delivered) && (
           <div className="mt-5 border-t border-gray-100 dark:border-gray-800 pt-5">

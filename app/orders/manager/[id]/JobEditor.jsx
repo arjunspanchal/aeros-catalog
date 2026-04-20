@@ -27,8 +27,40 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [savedAt, setSavedAt] = useState(null);
+  const [lrFile, setLrFile] = useState(null);
+  const [lrBusy, setLrBusy] = useState(false);
+  const [lrErr, setLrErr] = useState("");
 
   const clientName = job.clientIds.map((c) => clientMap[c]?.name).filter(Boolean).join(", ");
+
+  async function uploadLr() {
+    setLrErr("");
+    if (!lrFile) { setLrErr("Pick a file"); return; }
+    const ok = new Set(["application/pdf", "image/jpeg", "image/png"]);
+    if (!ok.has(lrFile.type)) { setLrErr("PDF / JPG / PNG only"); return; }
+    if (lrFile.size > 5 * 1024 * 1024) { setLrErr("Max 5 MB"); return; }
+    setLrBusy(true);
+    const base64 = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => {
+        const s = String(r.result || "");
+        resolve(s.slice(s.indexOf(",") + 1));
+      };
+      r.onerror = reject;
+      r.readAsDataURL(lrFile);
+    });
+    const res = await fetch(`/api/orders/jobs/${job.id}/lr-files`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: lrFile.name, contentType: lrFile.type, fileBase64: base64 }),
+    });
+    setLrBusy(false);
+    if (!res.ok) { setLrErr((await res.json()).error || "Failed"); return; }
+    const data = await res.json();
+    setJob(data.job);
+    setLrFile(null);
+    router.refresh();
+  }
 
   async function save() {
     setErr(""); setBusy(true);
@@ -216,6 +248,42 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
           {savedAt && <span className="text-xs text-green-600 dark:text-green-400">Saved {formatDateTime(savedAt.toISOString())}</span>}
           {err && <span className="text-xs text-red-500">{err}</span>}
         </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-5 dark:bg-gray-900 dark:border-gray-800">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">LR copies</h2>
+        {job.lrFiles && job.lrFiles.length > 0 ? (
+          <ul className="space-y-2 mb-4">
+            {job.lrFiles.map((f) => (
+              <li key={f.id} className="flex items-center justify-between text-sm">
+                <span className="text-gray-700 dark:text-gray-300 truncate">{f.filename}</span>
+                <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline dark:text-blue-400 ml-3 shrink-0">
+                  Download ↗
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-500 mb-4 dark:text-gray-400">No LR copies yet.</p>
+        )}
+        <div className="flex items-center gap-3">
+          <input
+            type="file"
+            accept="application/pdf,image/jpeg,image/png"
+            onChange={(e) => setLrFile(e.target.files?.[0] || null)}
+            className="block text-sm text-gray-700 file:mr-3 file:py-1.5 file:px-3 file:border-0 file:rounded-md file:bg-blue-600 file:text-white file:text-xs hover:file:bg-blue-700 dark:text-gray-300"
+          />
+          <button
+            type="button"
+            onClick={uploadLr}
+            disabled={lrBusy || !lrFile}
+            className="bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-md hover:bg-blue-700 disabled:opacity-60"
+          >
+            {lrBusy ? "Uploading…" : "Upload"}
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-1 dark:text-gray-500">PDF / JPG / PNG, max 5 MB. Customer can download.</p>
+        {lrErr && <p className="text-xs text-red-500 mt-2">{lrErr}</p>}
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-5 dark:bg-gray-900 dark:border-gray-800">

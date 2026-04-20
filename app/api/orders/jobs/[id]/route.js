@@ -64,16 +64,31 @@ export async function PATCH(req, { params }) {
       }
     }
 
-    // Non-internal callers are only allowed to change stage (no other fields).
+    // Customers can: mark Delivered (above), and toggle Urgent.
     if (s.role === ROLES.CUSTOMER) {
-      const patchKeys = Object.keys(body).filter((k) => k !== "stage" && k !== "note");
-      if (patchKeys.length) return Response.json({ error: "Customers can only mark delivered" }, { status: 403 });
-      const updated = stageChanged ? await updateJob(job.id, patch) : job;
+      const allowedKeys = new Set(["stage", "note", "urgent"]);
+      const extra = Object.keys(body).filter((k) => !allowedKeys.has(k));
+      if (extra.length) return Response.json({ error: "Not allowed" }, { status: 403 });
+
+      if (body.urgent !== undefined) patch.urgent = !!body.urgent;
+
+      const willWrite = stageChanged || body.urgent !== undefined;
+      const updated = willWrite ? await updateJob(job.id, patch) : job;
+
       if (stageChanged) {
         await addJobUpdate({
           jobId: job.id,
           stage: patch.stage,
           note: body.note || "Customer confirmed delivery",
+          updatedByEmail: s.email || "",
+          updatedByName: s.name || "",
+        });
+      } else if (body.urgent !== undefined) {
+        // Log urgency toggles so managers see the signal in the timeline.
+        await addJobUpdate({
+          jobId: job.id,
+          stage: job.stage,
+          note: body.urgent ? "Customer marked order URGENT" : "Customer cleared urgent flag",
           updatedByEmail: s.email || "",
           updatedByName: s.name || "",
         });
@@ -99,6 +114,7 @@ export async function PATCH(req, { params }) {
     if (body.printingDueDate !== undefined) patch.printingDueDate = body.printingDueDate;
     if (body.productionDueDate !== undefined) patch.productionDueDate = body.productionDueDate;
     if (body.itemSize !== undefined) patch.itemSize = body.itemSize;
+    if (body.urgent !== undefined) patch.urgent = !!body.urgent;
 
     const updated = Object.keys(patch).length > 0 ? await updateJob(job.id, patch) : job;
 

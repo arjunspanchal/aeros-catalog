@@ -1,7 +1,10 @@
 import { getSession } from "@/lib/orders/session";
-import { findUserByEmail, updateUser } from "@/lib/orders/repo";
+import { findUserByEmail, updateUser, attachUserPhoto, getUser } from "@/lib/orders/repo";
 
 export const runtime = "nodejs";
+
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 // Self-service profile update for any logged-in non-admin user.
 export async function PATCH(req) {
@@ -18,7 +21,32 @@ export async function PATCH(req) {
   if (body.designation !== undefined) allowed.designation = body.designation;
   if (body.phone !== undefined) allowed.phone = body.phone;
 
-  const updated = await updateUser(user.id, allowed);
+  let updated = Object.keys(allowed).length ? await updateUser(user.id, allowed) : user;
+
+  // Optional photo upload alongside the text fields.
+  if (body.photoBase64 && body.photoFilename && body.photoContentType) {
+    if (!PHOTO_TYPES.has(body.photoContentType.toLowerCase())) {
+      return Response.json({ error: "Photo must be JPG, PNG, WebP, or GIF" }, { status: 400 });
+    }
+    const rawBytes = Math.floor((body.photoBase64.length * 3) / 4);
+    if (rawBytes > PHOTO_MAX_BYTES) {
+      return Response.json({ error: "Photo too large. Max 5 MB." }, { status: 413 });
+    }
+    try {
+      await attachUserPhoto({
+        userId: user.id,
+        contentType: body.photoContentType,
+        filename: body.photoFilename,
+        fileBase64: body.photoBase64,
+      });
+      // Re-fetch so the photoUrl is populated.
+      updated = await getUser(user.id) || updated;
+    } catch (e) {
+      console.error(e);
+      return Response.json({ error: e.message || "Photo upload failed" }, { status: 500 });
+    }
+  }
+
   return Response.json({ user: updated });
 }
 

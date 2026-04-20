@@ -64,7 +64,7 @@ export async function middleware(req) {
     }
 
     // Role guards for page routes.
-    if (pathname.startsWith("/orders/admin") && payload.role !== "admin") {
+    if (pathname.startsWith("/orders/admin") && payload.role !== "admin" && payload.role !== "factory_manager") {
       return NextResponse.redirect(new URL("/orders", req.url));
     }
     if (pathname.startsWith("/orders/manager") && payload.role === "customer") {

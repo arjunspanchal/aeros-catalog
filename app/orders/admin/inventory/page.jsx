@@ -1,0 +1,35 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/orders/session";
+import { listRawMaterials } from "@/lib/orders/repo";
+import { listMasterPapers } from "@/lib/paper-rm";
+import { ROLES } from "@/lib/orders/constants";
+import NavBar from "@/app/orders/_components/NavBar";
+import InventoryAdmin from "./InventoryAdmin";
+
+export const dynamic = "force-dynamic";
+
+export default async function AdminInventoryPage() {
+  const s = getSession();
+  if (!s) redirect("/orders/login");
+  if (s.role !== ROLES.ADMIN && s.role !== ROLES.FACTORY_MANAGER) redirect("/orders");
+  const [inventory, masterPapers] = await Promise.all([
+    listRawMaterials(),
+    listMasterPapers().catch((e) => { console.error("Master paper fetch failed:", e); return []; }),
+  ]);
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <NavBar role={s.role} name={s.name} email={s.email} />
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Link href="/orders/admin" className="text-xs text-gray-500 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-400">← Admin</Link>
+        <h1 className="text-2xl font-bold text-gray-900 mt-4 dark:text-white">RM Inventory</h1>
+        <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
+          On-hand paper stock. Link each line to an entry in the{" "}
+          <a href="https://airtable.com/appSllndIZszJSCma" target="_blank" rel="noreferrer" className="underline hover:text-blue-700 dark:hover:text-blue-400">Paper RM Database</a>{" "}
+          master using the picker below.
+        </p>
+        <InventoryAdmin initialInventory={inventory} masterPapers={masterPapers} />
+      </main>
+    </div>
+  );
+}

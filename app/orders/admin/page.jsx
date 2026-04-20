@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboard() {
   const s = getSession();
   if (!s) redirect("/orders/login");
-  if (s.role !== ROLES.ADMIN) redirect("/orders");
+  if (s.role !== ROLES.ADMIN && s.role !== ROLES.FACTORY_MANAGER) redirect("/orders");
 
   const [jobs, clients, users] = await Promise.all([
     listJobsForSession(s),
@@ -45,6 +45,9 @@ export default async function AdminDashboard() {
             </Link>
             <Link href="/orders/admin/users" className="px-3 py-1.5 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
               Manage users
+            </Link>
+            <Link href="/orders/admin/raw-materials" className="px-3 py-1.5 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
+              Raw materials
             </Link>
           </div>
         </header>
