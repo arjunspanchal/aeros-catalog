@@ -13,6 +13,7 @@ function recordToClient(r) {
     company: f.Company || "",
     country: f.Country || "",
     marginPct: f["Margin %"] ?? null,
+    discountPct: f["Discount %"] ?? 0,
     preferredCurrency: f["Preferred Currency"] || "INR",
     preferredUnit: f["Preferred Units"] || "mm",
     status: f.Status || "Active",
@@ -53,6 +54,7 @@ export async function POST(req) {
     Company: body.company || undefined,
     Country: body.country || undefined,
     "Margin %": Number(body.marginPct),
+    "Discount %": body.discountPct !== undefined && body.discountPct !== "" ? Number(body.discountPct) : 0,
     "Preferred Currency": body.preferredCurrency || "INR",
     "Preferred Units": body.preferredUnit || "mm",
     Status: body.status || "Active",
@@ -81,6 +83,7 @@ export async function PATCH(req) {
     fields.Email = email;
   }
   if (body.marginPct !== undefined) fields["Margin %"] = Number(body.marginPct);
+  if (body.discountPct !== undefined) fields["Discount %"] = Number(body.discountPct) || 0;
   if (body.status !== undefined) fields.Status = body.status;
   if (body.name !== undefined) fields.Name = body.name;
   if (body.company !== undefined) fields.Company = body.company;

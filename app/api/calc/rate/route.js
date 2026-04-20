@@ -5,17 +5,32 @@ import { calculate, computeRateCurve, optimizationTips, lookupPaperRate } from "
 import { getSession } from "@/lib/calc/session";
 import { airtableList, escapeFormula, TABLES } from "@/lib/calc/airtable";
 
-async function currentClientMargin(email, fallback) {
+async function currentClientPricing(email, fallbackMargin) {
   try {
     const [rec] = await airtableList(TABLES.clients(), {
       filterByFormula: `LOWER({Email})='${escapeFormula(email)}'`,
       maxRecords: 1,
     });
-    const v = rec?.fields?.["Margin %"];
-    return v !== undefined && v !== null ? Number(v) : fallback;
+    const margin = rec?.fields?.["Margin %"];
+    const discount = rec?.fields?.["Discount %"];
+    return {
+      marginPct: margin !== undefined && margin !== null ? Number(margin) : fallbackMargin,
+      discountPct: discount !== undefined && discount !== null ? Number(discount) : 0,
+    };
   } catch {
-    return fallback;
+    return { marginPct: fallbackMargin, discountPct: 0 };
   }
+}
+
+function applyDiscount(curve, discountPct) {
+  if (!discountPct) return curve;
+  const factor = 1 - discountPct / 100;
+  return curve.map((c) => ({
+    ...c,
+    ratePerBag: Math.round(c.ratePerBag * factor * 10000) / 10000,
+    orderTotal: Math.round(c.ratePerBag * factor * c.qty * 100) / 100,
+    costPerCase: Math.round(c.ratePerBag * factor * (c.orderTotal && c.qty ? c.orderTotal / c.qty / c.ratePerBag : 1) * 100) / 100,
+  }));
 }
 
 export const runtime = "nodejs";
@@ -32,6 +47,11 @@ export async function POST(req) {
     ? lookupPaperRate({ paperType: body.paperType, mill: body.mill, gsm: Number(body.gsm), bf: body.bf })
     : Number(body.paperRate) || 0;
 
+  const fallbackMargin = Number(session.marginPct ?? process.env.DEFAULT_CLIENT_MARGIN ?? 15);
+  const { marginPct, discountPct } = isClient
+    ? await currentClientPricing(session.email, fallbackMargin)
+    : { marginPct: Number(body.profitPercent) || 10, discountPct: Number(body.discountPct) || 0 };
+
   const inputs = {
     bagType: body.bagType,
     width: Number(body.width) || 0,
@@ -40,12 +60,11 @@ export async function POST(req) {
     gsm: Number(body.gsm) || 0,
     paperRate,
     casePack: Number(body.casePack) || 1,
+    orderQty: Number(body.orderQty) || 15000,
     // Admin may override; otherwise calculate.js applies rope=0.85 / flat=1.00 defaults.
     handleCost: body.handleCost !== undefined && body.handleCost !== "" ? Number(body.handleCost) : undefined,
     customWastage: isClient ? "" : (body.customWastage ?? ""),
-    profitPercent: isClient
-      ? await currentClientMargin(session.email, Number(session.marginPct ?? process.env.DEFAULT_CLIENT_MARGIN ?? 15))
-      : Number(body.profitPercent) || 10,
+    profitPercent: marginPct,
     printing: !!body.printing,
     colours: Number(body.colours) || 1,
     coverage: Number(body.coverage) || 30,
@@ -55,10 +74,25 @@ export async function POST(req) {
     return Response.json({ error: "Width, height, and GSM are required." }, { status: 400 });
   }
 
-  const result = calculate(inputs);
-  const curve = computeRateCurve(inputs);
+  // Compute raw result + curve (margin applied, discount not yet).
+  const rawResult = calculate(inputs);
+  const rawCurve = computeRateCurve(inputs);
 
-  const payload = { result, curve, role: session.role };
+  // Apply client discount to the selling price across all qty tiers.
+  const discountFactor = discountPct ? (1 - discountPct / 100) : 1;
+  const result = discountPct
+    ? { ...rawResult, sellingPrice: Math.round(rawResult.sellingPrice * discountFactor * 10000) / 10000 }
+    : rawResult;
+  const curve = discountPct
+    ? rawCurve.map((c) => ({
+        ...c,
+        ratePerBag: Math.round(c.ratePerBag * discountFactor * 10000) / 10000,
+        costPerCase: Math.round(c.ratePerBag * discountFactor * inputs.casePack * 100) / 100,
+        orderTotal: Math.round(c.ratePerBag * discountFactor * c.qty * 100) / 100,
+      }))
+    : rawCurve;
+
+  const payload = { result, curve, role: session.role, discountPct };
   if (session.role === "admin") {
     payload.tips = optimizationTips(inputs, result);
   } else {

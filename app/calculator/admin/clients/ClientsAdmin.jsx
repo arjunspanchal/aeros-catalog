@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Card, Field, inputCls } from "@/app/calculator/_components/ui";
 import { CURRENCY_CODES } from "@/lib/calc/calculator";
 
-const EMPTY_NEW = { email: "", name: "", company: "", country: "", marginPct: "10", preferredCurrency: "INR", preferredUnit: "mm" };
+const EMPTY_NEW = { email: "", name: "", company: "", country: "", marginPct: "10", discountPct: "0", preferredCurrency: "INR", preferredUnit: "mm" };
 
 // Editable row with an explicit Save button. Local state tracks in-progress edits;
 // nothing hits Airtable until the admin clicks Save.
@@ -19,6 +19,7 @@ function ClientRow({ client, onPatched, onDeleted }) {
     draft.company !== client.company ||
     draft.country !== client.country ||
     Number(draft.marginPct) !== Number(client.marginPct) ||
+    Number(draft.discountPct || 0) !== Number(client.discountPct || 0) ||
     draft.preferredCurrency !== client.preferredCurrency ||
     draft.preferredUnit !== client.preferredUnit ||
     draft.status !== client.status;
@@ -33,6 +34,7 @@ function ClientRow({ client, onPatched, onDeleted }) {
     if (draft.company !== client.company) payload.company = draft.company;
     if (draft.country !== client.country) payload.country = draft.country;
     if (Number(draft.marginPct) !== Number(client.marginPct)) payload.marginPct = Number(draft.marginPct);
+    if (Number(draft.discountPct || 0) !== Number(client.discountPct || 0)) payload.discountPct = Number(draft.discountPct || 0);
     if (draft.preferredCurrency !== client.preferredCurrency) payload.preferredCurrency = draft.preferredCurrency;
     if (draft.preferredUnit !== client.preferredUnit) payload.preferredUnit = draft.preferredUnit;
     if (draft.status !== client.status) payload.status = draft.status;
@@ -85,6 +87,13 @@ function ClientRow({ client, onPatched, onDeleted }) {
           className={`${cellInput} w-16 text-right`}
           value={draft.marginPct ?? ""}
           onChange={(e) => set("marginPct", e.target.value)} />
+        <span className="text-gray-400 text-xs ml-1">%</span>
+      </td>
+      <td className="py-2 text-right">
+        <input type="number" step="0.5"
+          className={`${cellInput} w-16 text-right`}
+          value={draft.discountPct ?? 0}
+          onChange={(e) => set("discountPct", e.target.value)} />
         <span className="text-gray-400 text-xs ml-1">%</span>
       </td>
       <td className="py-2">
@@ -188,6 +197,10 @@ export default function ClientsAdmin() {
             <input type="number" step="0.5" required className={inputCls} placeholder="10"
               value={newClient.marginPct} onChange={(e) => setNewClient((n) => ({ ...n, marginPct: e.target.value }))} />
           </Field>
+          <Field label="Discount % (applied after margin)" hint="Leave 0 for standard pricing">
+            <input type="number" step="0.5" className={inputCls} placeholder="0"
+              value={newClient.discountPct} onChange={(e) => setNewClient((n) => ({ ...n, discountPct: e.target.value }))} />
+          </Field>
           <Field label="Preferred currency">
             <select className={inputCls}
               value={newClient.preferredCurrency}
@@ -232,6 +245,7 @@ export default function ClientsAdmin() {
                   <th className="text-left pb-2 font-medium">Company</th>
                   <th className="text-left pb-2 font-medium">Country</th>
                   <th className="text-right pb-2 font-medium">Margin %</th>
+                  <th className="text-right pb-2 font-medium">Discount %</th>
                   <th className="text-left pb-2 font-medium">Currency</th>
                   <th className="text-left pb-2 font-medium">Units</th>
                   <th className="text-left pb-2 font-medium">Status</th>
@@ -247,7 +261,10 @@ export default function ClientsAdmin() {
             </table>
           </div>
         )}
-        <p className="text-xs text-gray-400 mt-4">Edit any cell, then click <strong>Save</strong> to commit. Rows with pending changes are highlighted.</p>
+        <p className="text-xs text-gray-400 mt-4">
+          Edit any cell, then click <strong>Save</strong> to commit. Rows with pending changes are highlighted.<br />
+          Final rate = mfg cost × (1 + margin%) × (1 − discount%). Margin marks up, discount marks down.
+        </p>
       </Card>
     </div>
   );
