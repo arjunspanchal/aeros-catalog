@@ -1,5 +1,4 @@
 import './globals.css';
-import ChatWidget from './components/ChatWidget';
 
 export const metadata = {
   title: 'Aeros Packaging',
@@ -11,7 +10,6 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
         {children}
-        <ChatWidget />
       </body>
     </html>
   );
