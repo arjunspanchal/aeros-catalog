@@ -50,7 +50,19 @@ export default function NavBar({ role, name, email }) {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
-            {name || email} · <span className="capitalize">{role?.replace("_", " ")}</span>
+            {(() => {
+              const who = name || email;
+              const roleLabel = role?.replace("_", " ") || "";
+              // Admin's session name is literally "Admin" — avoid "Admin · admin".
+              if (!who || who.trim().toLowerCase() === roleLabel.toLowerCase()) {
+                return <span className="capitalize">{roleLabel}</span>;
+              }
+              return (
+                <>
+                  {who} · <span className="capitalize">{roleLabel}</span>
+                </>
+              );
+            })()}
           </span>
           <ThemeToggle />
           <button
