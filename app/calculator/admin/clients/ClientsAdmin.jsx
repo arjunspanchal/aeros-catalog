@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Card, Field, inputCls } from "@/app/calculator/_components/ui";
+import { CURRENCY_CODES } from "@/lib/calc/calculator";
 
-const EMPTY_NEW = { email: "", name: "", company: "", country: "", marginPct: "10" };
+const EMPTY_NEW = { email: "", name: "", company: "", country: "", marginPct: "10", preferredCurrency: "INR", preferredUnit: "mm" };
 
 export default function ClientsAdmin() {
   const [clients, setClients] = useState(null);
@@ -83,7 +84,22 @@ export default function ClientsAdmin() {
             <input type="number" step="0.5" required className={inputCls} placeholder="10"
               value={newClient.marginPct} onChange={(e) => setNewClient((n) => ({ ...n, marginPct: e.target.value }))} />
           </Field>
-          <div className="flex items-end">
+          <Field label="Preferred currency">
+            <select className={inputCls}
+              value={newClient.preferredCurrency}
+              onChange={(e) => setNewClient((n) => ({ ...n, preferredCurrency: e.target.value }))}>
+              {CURRENCY_CODES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field label="Preferred units">
+            <select className={inputCls}
+              value={newClient.preferredUnit}
+              onChange={(e) => setNewClient((n) => ({ ...n, preferredUnit: e.target.value }))}>
+              <option value="mm">mm</option>
+              <option value="in">inches</option>
+            </select>
+          </Field>
+          <div className="md:col-span-2 flex items-end">
             <button disabled={adding} className="w-full bg-blue-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60">
               {adding ? "Adding…" : "+ Add client"}
             </button>
@@ -111,6 +127,8 @@ export default function ClientsAdmin() {
                   <th className="text-left pb-2 font-medium">Company</th>
                   <th className="text-left pb-2 font-medium">Country</th>
                   <th className="text-right pb-2 font-medium">Margin %</th>
+                  <th className="text-left pb-2 font-medium">Currency</th>
+                  <th className="text-left pb-2 font-medium">Units</th>
                   <th className="text-left pb-2 font-medium">Status</th>
                   <th className="text-left pb-2 font-medium">Last Login</th>
                   <th className="pb-2"></th>
@@ -155,6 +173,21 @@ export default function ClientsAdmin() {
                           if (!isNaN(v) && v !== c.marginPct) patch(c.id, { marginPct: v });
                         }} />
                       <span className="text-gray-400 text-xs ml-1">%</span>
+                    </td>
+                    <td className="py-2">
+                      <select className="text-sm bg-transparent border-none focus:outline-none"
+                        value={c.preferredCurrency || "INR"}
+                        onChange={(e) => patch(c.id, { preferredCurrency: e.target.value })}>
+                        {CURRENCY_CODES.map((cc) => <option key={cc} value={cc}>{cc}</option>)}
+                      </select>
+                    </td>
+                    <td className="py-2">
+                      <select className="text-sm bg-transparent border-none focus:outline-none"
+                        value={c.preferredUnit || "mm"}
+                        onChange={(e) => patch(c.id, { preferredUnit: e.target.value })}>
+                        <option value="mm">mm</option>
+                        <option value="in">in</option>
+                      </select>
                     </td>
                     <td className="py-2">
                       <select className="text-sm bg-transparent border-none focus:outline-none"

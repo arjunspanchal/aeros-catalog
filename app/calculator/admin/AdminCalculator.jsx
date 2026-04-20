@@ -15,6 +15,13 @@ const MILLS_BY_TYPE = {
   "OGR": ["JK", "BILT", "Pudumjee"],
 };
 
+const GSM_OPTIONS = [60, 70, 80, 90, 100, 110, 120, 130, 140];
+const BF_OPTIONS = [16, 18, 20, 22, 24, 26, 28];
+const COLOUR_OPTIONS = [1, 2, 3, 4];
+const MM_PER_INCH = 25.4;
+const toInches = (mm) => (mm ? +(mm / MM_PER_INCH).toFixed(2) : 0);
+const fromInches = (inches) => (inches ? Math.round(inches * MM_PER_INCH) : 0);
+
 const DEFAULT_FORM = {
   bagType: "sos", selectedCodeId: "",
   width: 230, gusset: 125, height: 335,
@@ -32,10 +39,24 @@ export default function AdminCalculator() {
   const [bagCodes, setBagCodes] = useState([]);
   const [saveStatus, setSaveStatus] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [unit, setUnit] = useState("mm");
 
   useEffect(() => {
     fetch("/api/calc/bag-specs").then((r) => r.ok ? r.json() : []).then(setBagCodes).catch(() => {});
+    const saved = typeof window !== "undefined" ? localStorage.getItem("aeros_dim_unit") : null;
+    if (saved === "in" || saved === "mm") setUnit(saved);
   }, []);
+
+  function updateUnit(u) {
+    setUnit(u);
+    if (typeof window !== "undefined") localStorage.setItem("aeros_dim_unit", u);
+  }
+
+  const setDim = (k, v) => {
+    const n = parseFloat(v) || 0;
+    setForm((f) => ({ ...f, [k]: unit === "in" ? fromInches(n) : Math.round(n), selectedCodeId: "" }));
+  };
+  const showDim = (mm) => (unit === "in" ? toInches(mm) : mm);
 
   const isJodhani = form.millName === "Jodhani";
   const isOmShivaay = form.millName === "Om Shivaay";
@@ -218,7 +239,11 @@ export default function AdminCalculator() {
                 </select>
               </Field>
             ) : (
-              <Field label="GSM"><input type="number" className={inputCls} value={form.gsm} onChange={(e) => num("gsm", e.target.value)} min="1" /></Field>
+              <Field label="GSM">
+                <select className={inputCls} value={form.gsm} onChange={(e) => num("gsm", e.target.value)}>
+                  {GSM_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </Field>
             )}
             <Field label="BF">
               {isJodhani ? (
@@ -236,7 +261,10 @@ export default function AdminCalculator() {
                   <option value="28">28 BF</option>
                 </select>
               ) : (
-                <input type="number" className={inputCls} value={form.bf} onChange={(e) => set("bf", e.target.value)} min="0" step="0.5" placeholder="e.g. 28" />
+                <select className={inputCls} value={form.bf} onChange={(e) => set("bf", e.target.value)}>
+                  <option value="">Select…</option>
+                  {BF_OPTIONS.map((b) => <option key={b} value={b}>{b} BF</option>)}
+                </select>
               )}
             </Field>
           </div>
@@ -262,11 +290,25 @@ export default function AdminCalculator() {
           )}
         </Card>
 
-        <Card title="Dimensions (mm)">
+        <Card title={`Dimensions (${unit === "in" ? "inches" : "mm"})`} right={
+          <div className="flex gap-1">
+            <button onClick={() => updateUnit("mm")} className={`text-xs px-2 py-1 rounded ${unit === "mm" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}>mm</button>
+            <button onClick={() => updateUnit("in")} className={`text-xs px-2 py-1 rounded ${unit === "in" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}>in</button>
+          </div>
+        }>
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Width"><input type="number" className={inputCls} value={form.width} onChange={(e) => { num("width", e.target.value); set("selectedCodeId", ""); }} min="1" /></Field>
-            <Field label="Gusset"><input type="number" className={inputCls} value={form.gusset} onChange={(e) => { num("gusset", e.target.value); set("selectedCodeId", ""); }} min="0" /></Field>
-            <Field label="Height"><input type="number" className={inputCls} value={form.height} onChange={(e) => { num("height", e.target.value); set("selectedCodeId", ""); }} min="1" /></Field>
+            <Field label="Width">
+              <input type="number" step={unit === "in" ? "0.1" : "1"} className={inputCls}
+                value={showDim(form.width)} onChange={(e) => setDim("width", e.target.value)} min="0" />
+            </Field>
+            <Field label="Gusset">
+              <input type="number" step={unit === "in" ? "0.1" : "1"} className={inputCls}
+                value={showDim(form.gusset)} onChange={(e) => setDim("gusset", e.target.value)} min="0" />
+            </Field>
+            <Field label="Height">
+              <input type="number" step={unit === "in" ? "0.1" : "1"} className={inputCls}
+                value={showDim(form.height)} onChange={(e) => setDim("height", e.target.value)} min="0" />
+            </Field>
           </div>
         </Card>
 
@@ -301,7 +343,13 @@ export default function AdminCalculator() {
           <Toggle value={form.printing} onChange={() => set("printing", !form.printing)} label="Printing Required" />
           {form.printing && (
             <div className="mt-3 space-y-3 border-t border-gray-100 pt-3">
-              <Field label="No. of Colours"><input type="number" className={inputCls} value={form.colours} onChange={(e) => num("colours", e.target.value)} min="1" max="8" /></Field>
+              <Field label="No. of Colours">
+                <div className="flex gap-2">
+                  {COLOUR_OPTIONS.map((c) => (
+                    <PillBtn key={c} active={form.colours === c} onClick={() => set("colours", c)}>{c}</PillBtn>
+                  ))}
+                </div>
+              </Field>
               <Field label="Ink Coverage">
                 <div className="flex gap-2">
                   {[[10, "10%"], [30, "30%"], [100, "100%"]].map(([val, lbl]) => (

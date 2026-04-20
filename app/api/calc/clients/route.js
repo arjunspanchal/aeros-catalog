@@ -13,6 +13,8 @@ function recordToClient(r) {
     company: f.Company || "",
     country: f.Country || "",
     marginPct: f["Margin %"] ?? null,
+    preferredCurrency: f["Preferred Currency"] || "INR",
+    preferredUnit: f["Preferred Units"] || "mm",
     status: f.Status || "Active",
     created: f.Created || "",
     lastLogin: f["Last Login"] || "",
@@ -51,6 +53,8 @@ export async function POST(req) {
     Company: body.company || undefined,
     Country: body.country || undefined,
     "Margin %": Number(body.marginPct),
+    "Preferred Currency": body.preferredCurrency || "INR",
+    "Preferred Units": body.preferredUnit || "mm",
     Status: body.status || "Active",
     Created: new Date().toISOString(),
     Notes: body.notes || undefined,
@@ -81,6 +85,8 @@ export async function PATCH(req) {
   if (body.name !== undefined) fields.Name = body.name;
   if (body.company !== undefined) fields.Company = body.company;
   if (body.country !== undefined) fields.Country = body.country;
+  if (body.preferredCurrency !== undefined) fields["Preferred Currency"] = body.preferredCurrency;
+  if (body.preferredUnit !== undefined) fields["Preferred Units"] = body.preferredUnit;
   if (body.notes !== undefined) fields.Notes = body.notes;
 
   const updated = await airtableUpdate(TABLES.clients(), body.id, fields);
