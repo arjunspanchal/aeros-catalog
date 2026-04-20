@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { Card, Field, Toggle, PillBtn, Row, SectionHeader, inputCls } from "@/app/calculator/_components/ui";
+import { exportQuoteCSV, exportQuotePDF } from "@/app/calculator/_components/export";
 import {
   calculate, computeRateCurve, optimizationTips,
   JODHANI_RATES, OM_SHIVAAY_RATES, JODHANI_DISCOUNT, WET_STRENGTH_EXTRA,
@@ -52,18 +53,53 @@ export default function AdminCalculator() {
   const [pastQuotes, setPastQuotes] = useState([]);
   const [loadedQuoteId, setLoadedQuoteId] = useState("");
 
-  async function refreshQuotes() {
+  async function refreshQuotes(autoLoadId) {
     try {
       const res = await fetch("/api/calc/quotes");
-      if (res.ok) setPastQuotes(await res.json());
+      if (res.ok) {
+        const list = await res.json();
+        setPastQuotes(list);
+        if (autoLoadId && list.some((x) => x.id === autoLoadId)) {
+          setTimeout(() => loadQuoteFromList(autoLoadId, list), 0);
+        }
+      }
     } catch {}
+  }
+
+  function loadQuoteFromList(id, list) {
+    const q = list.find((x) => x.id === id);
+    if (!q) return;
+    setLoadedQuoteId(id);
+    setForm((f) => ({
+      ...f,
+      selectedCodeId: "",
+      bagType: bagTypeFromLabel(q.bagType),
+      width: q.width || f.width, gusset: q.gusset || f.gusset, height: q.height || f.height,
+      paperType: q.paperType || f.paperType,
+      millName: q.mill || f.millName,
+      gsm: q.gsm || f.gsm,
+      bf: q.bf ? String(q.bf) : f.bf,
+      casePack: q.casePack || f.casePack,
+      printing: q.plainPrinted === "Printed",
+      colours: q.colours || f.colours,
+      coverage: q.coveragePct || f.coverage,
+      orderQty: q.orderQty || f.orderQty,
+      paperRate: q.paperRate || f.paperRate,
+      basePaperRate: q.paperRate || f.basePaperRate,
+      profitPercent: q.profitPct || f.profitPercent,
+      customWastage: q.wastagePct != null ? String(q.wastagePct) : "",
+      handleCost: q.handleCost || f.handleCost,
+      quoteRef: q.quoteRef || "",
+    }));
+    setSaveStatus(null);
   }
 
   useEffect(() => {
     fetch("/api/calc/bag-specs").then((r) => r.ok ? r.json() : []).then(setBagCodes).catch(() => {});
     const saved = typeof window !== "undefined" ? localStorage.getItem("aeros_dim_unit") : null;
     if (saved === "in" || saved === "cm" || saved === "mm") setUnit(saved);
-    refreshQuotes();
+    const urlQuoteId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("quote") : null;
+    refreshQuotes(urlQuoteId);
   }, []);
 
   const bagTypeFromLabel = (label) => ({
@@ -551,6 +587,43 @@ export default function AdminCalculator() {
                   )}
                 </tbody>
               </table>
+            </Card>
+
+            <Card title="Export">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => exportQuoteCSV({
+                    form: { ...form, brand: bagCodes.find((c) => c.id === form.selectedCodeId)?.brand || "" },
+                    result: {
+                      curve,
+                      result: {
+                        box: result.box, wkg: result.wkg,
+                        handleWeight: result.handleWeight, totalWeight: result.totalWeight,
+                      },
+                    },
+                    currency: "INR",
+                    unit,
+                  })}
+                  className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
+                  Download Excel (.csv)
+                </button>
+                <button
+                  onClick={() => exportQuotePDF({
+                    form: { ...form, brand: bagCodes.find((c) => c.id === form.selectedCodeId)?.brand || "" },
+                    result: {
+                      curve,
+                      result: {
+                        box: result.box, wkg: result.wkg,
+                        handleWeight: result.handleWeight, totalWeight: result.totalWeight,
+                      },
+                    },
+                    currency: "INR",
+                    unit,
+                  })}
+                  className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
+                  Download PDF
+                </button>
+              </div>
             </Card>
 
             <Card title="Save Quote">

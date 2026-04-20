@@ -43,11 +43,40 @@ export default function ClientCalculator() {
   const [pastQuotes, setPastQuotes] = useState([]);
   const [loadedQuoteId, setLoadedQuoteId] = useState("");
 
-  async function refreshQuotes() {
+  async function refreshQuotes(autoLoadId) {
     try {
       const res = await fetch("/api/calc/quotes");
-      if (res.ok) setPastQuotes(await res.json());
+      if (res.ok) {
+        const list = await res.json();
+        setPastQuotes(list);
+        if (autoLoadId && list.some((x) => x.id === autoLoadId)) {
+          // Delay a tick so the select's options render first.
+          setTimeout(() => loadQuoteFromList(autoLoadId, list), 0);
+        }
+      }
     } catch {}
+  }
+
+  function loadQuoteFromList(quoteId, list) {
+    const q = list.find((x) => x.id === quoteId);
+    if (!q) return;
+    setLoadedQuoteId(quoteId);
+    setForm({
+      bagType: bagTypeFromLabel(q.bagType),
+      width: q.width || 0, gusset: q.gusset || 0, height: q.height || 0,
+      paperType: q.paperType || "Brown Kraft",
+      gsm: q.gsm || 120,
+      bf: q.bf || 28,
+      casePack: q.casePack || 100,
+      printing: q.plainPrinted === "Printed",
+      colours: q.colours || 1,
+      coverage: q.coveragePct || 30,
+      orderQty: q.orderQty || 15000,
+      brand: q.brand || "",
+      quoteRef: q.quoteRef || "",
+    });
+    setResult(null);
+    setSaveStatus(null);
   }
 
   useEffect(() => {
@@ -58,7 +87,8 @@ export default function ClientCalculator() {
         if (data?.preferredUnit) setUnit(data.preferredUnit);
       })
       .catch(() => {});
-    refreshQuotes();
+    const urlQuoteId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("quote") : null;
+    refreshQuotes(urlQuoteId);
   }, []);
 
   const bagTypeFromLabel = (label) => ({
