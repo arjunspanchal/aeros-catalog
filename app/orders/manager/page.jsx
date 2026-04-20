@@ -11,12 +11,11 @@ export default async function ManagerPage() {
   const s = getSession();
   if (!s) redirect("/orders/login");
   if (s.role === ROLES.CUSTOMER) redirect("/orders/customer");
-  if (s.role === ROLES.ADMIN) redirect("/orders/admin");
 
   const [jobs, clients, users] = await Promise.all([
     listJobsForSession(s),
     listClients(),
-    s.role === ROLES.FACTORY_MANAGER ? listUsers() : Promise.resolve([]),
+    s.role === ROLES.FACTORY_MANAGER || s.role === ROLES.ADMIN ? listUsers() : Promise.resolve([]),
   ]);
   const clientMap = Object.fromEntries(clients.map((c) => [c.id, c]));
   const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
