@@ -91,6 +91,9 @@ const STATUS_COLORS = {
   "Depleted": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
 };
 
+const TODAY = () => new Date().toISOString().slice(0, 10);
+const EMPTY_LINE = { masterPaperId: "", masterPaperName: "", paperType: "", gsm: "", bf: "", sizeMm: "", form: "", qtyRolls: "", qtyKgs: "" };
+
 export default function InventoryAdmin({ initialInventory, masterPapers = [] }) {
   const [inventory, setInventory] = useState(initialInventory);
   const [editingId, setEditingId] = useState(null);
@@ -100,6 +103,77 @@ export default function InventoryAdmin({ initialInventory, masterPapers = [] }) 
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [masterQuery, setMasterQuery] = useState("");
+
+  // Receive-stock (invoice) flow
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receipt, setReceipt] = useState({
+    invoiceNumber: "",
+    invoiceDate: TODAY(),
+    supplier: "",
+    notes: "",
+    lines: [{ ...EMPTY_LINE }],
+  });
+  const [receiveBusy, setReceiveBusy] = useState(false);
+  const [receiveErr, setReceiveErr] = useState("");
+  const [receiveOk, setReceiveOk] = useState(false);
+
+  function updateLine(idx, patch) {
+    setReceipt((r) => ({ ...r, lines: r.lines.map((l, i) => (i === idx ? { ...l, ...patch } : l)) }));
+  }
+
+  function pickMasterForLine(idx, masterId) {
+    const mp = masterPapers.find((x) => x.id === masterId);
+    if (!mp) { updateLine(idx, { masterPaperId: "" }); return; }
+    updateLine(idx, {
+      masterPaperId: mp.id,
+      masterPaperName: mp.materialName,
+      paperType: mp.type || "",
+      gsm: mp.gsm != null ? String(mp.gsm) : "",
+      bf: mp.bf != null ? String(mp.bf) : "",
+      form: mp.form || "",
+      // infer supplier on the invoice level if empty
+    });
+    setReceipt((r) => (r.supplier ? r : { ...r, supplier: mp.supplier || "" }));
+  }
+
+  function addLine() { setReceipt((r) => ({ ...r, lines: [...r.lines, { ...EMPTY_LINE }] })); }
+  function removeLine(idx) {
+    setReceipt((r) => ({ ...r, lines: r.lines.length === 1 ? r.lines : r.lines.filter((_, i) => i !== idx) }));
+  }
+
+  async function submitReceipt(e) {
+    e.preventDefault();
+    setReceiveErr(""); setReceiveOk(false);
+    if (!receipt.invoiceNumber.trim()) { setReceiveErr("Invoice number required"); return; }
+    const nonEmpty = receipt.lines.filter((l) => l.masterPaperName && (Number(l.qtyRolls) > 0 || Number(l.qtyKgs) > 0));
+    if (nonEmpty.length === 0) { setReceiveErr("Add at least one line with a spec and quantity"); return; }
+    setReceiveBusy(true);
+    const res = await fetch("/api/orders/rm-receipts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        invoiceNumber: receipt.invoiceNumber.trim(),
+        invoiceDate: receipt.invoiceDate || null,
+        supplier: receipt.supplier || "",
+        notes: receipt.notes || "",
+        lines: nonEmpty,
+      }),
+    });
+    setReceiveBusy(false);
+    if (!res.ok) { setReceiveErr((await res.json()).error || "Failed"); return; }
+    // Refetch the inventory so the new rolls/kgs show in the table below.
+    const inv = await fetch("/api/orders/inventory").then((r) => r.json());
+    setInventory(inv.inventory || []);
+    setReceipt({
+      invoiceNumber: "",
+      invoiceDate: TODAY(),
+      supplier: "",
+      notes: "",
+      lines: [{ ...EMPTY_LINE }],
+    });
+    setReceiveOk(true);
+    setTimeout(() => setReceiveOk(false), 2500);
+  }
 
   const isEditing = editingId !== null;
 
@@ -140,7 +214,11 @@ export default function InventoryAdmin({ initialInventory, masterPapers = [] }) 
       masterRmName: mp.materialName,
       paperType: mp.type || f.paperType,
       gsm: mp.gsm != null ? String(mp.gsm) : f.gsm,
+      bf: mp.bf != null ? String(mp.bf) : f.bf,
+      form: mp.form || f.form,
       supplier: mp.supplier || f.supplier,
+      baseRate: mp.baseRate != null ? String(mp.baseRate) : f.baseRate,
+      discount: mp.discount != null ? String(mp.discount) : f.discount,
     }));
   }
 
@@ -193,6 +271,94 @@ export default function InventoryAdmin({ initialInventory, masterPapers = [] }) 
 
   return (
     <div className="mt-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          {inventory.length} SKUs · {totals.rolls.toLocaleString("en-IN")} rolls · {totals.kgs.toLocaleString("en-IN", { maximumFractionDigits: 1 })} kgs
+        </div>
+        <button
+          type="button"
+          onClick={() => setReceiveOpen((v) => !v)}
+          className="bg-emerald-600 text-white text-sm font-medium px-3 py-2 rounded-lg hover:bg-emerald-700"
+        >
+          {receiveOpen ? "Hide receive form" : "+ Record receipt"}
+        </button>
+      </div>
+
+      {receiveOpen && (
+        <form onSubmit={submitReceipt} className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-5 space-y-4 dark:bg-emerald-950/20 dark:border-emerald-900">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Receive stock from supplier</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">One invoice, multiple paper specs. Pick each spec from the Paper RM Database; we'll add the quantity to the matching inventory line (or create it if it doesn't exist yet).</p>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div>
+              <label className={labelCls}>Invoice number</label>
+              <input className={inputCls} value={receipt.invoiceNumber} onChange={(e) => setReceipt({ ...receipt, invoiceNumber: e.target.value })} placeholder="e.g. JODH-2026-042" required />
+            </div>
+            <div>
+              <label className={labelCls}>Invoice date</label>
+              <input type="date" className={inputCls} value={receipt.invoiceDate} onChange={(e) => setReceipt({ ...receipt, invoiceDate: e.target.value })} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Supplier / mill</label>
+              <input className={inputCls} value={receipt.supplier} onChange={(e) => setReceipt({ ...receipt, supplier: e.target.value })} placeholder="Jodhani, BILT, Ajit Mill…" />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {receipt.lines.map((line, idx) => (
+              <div key={idx} className="bg-white border border-gray-200 rounded-lg p-3 dark:bg-gray-900 dark:border-gray-800">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400">Line {idx + 1}</div>
+                  {receipt.lines.length > 1 && (
+                    <button type="button" onClick={() => removeLine(idx)} className="text-xs text-red-600 hover:underline dark:text-red-400">Remove</button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className={labelCls}>Paper spec (from master database)</label>
+                    <select className={inputCls} value={line.masterPaperId} onChange={(e) => pickMasterForLine(idx, e.target.value)} required>
+                      <option value="">— Pick spec —</option>
+                      {masterPapers.map((mp) => (
+                        <option key={mp.id} value={mp.id}>
+                          {mp.materialName}
+                          {mp.bf != null ? ` · ${mp.bf} BF` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {line.masterPaperName && (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{line.paperType}{line.gsm ? ` · ${line.gsm} GSM` : ""}{line.bf ? ` · ${line.bf} BF` : ""}{line.form ? ` · ${line.form}` : ""}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className={labelCls}>Qty (rolls)</label>
+                    <input type="number" className={inputCls} value={line.qtyRolls} onChange={(e) => updateLine(idx, { qtyRolls: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Qty (kgs)</label>
+                    <input type="number" step="0.01" className={inputCls} value={line.qtyKgs} onChange={(e) => updateLine(idx, { qtyKgs: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <button type="button" onClick={addLine} className="text-xs text-blue-600 hover:underline dark:text-blue-400">+ Add another line</button>
+            <div className="flex items-center gap-3">
+              {receiveOk && <span className="text-xs text-green-700 dark:text-green-400">Stock updated</span>}
+              {receiveErr && <span className="text-xs text-red-500">{receiveErr}</span>}
+              <button disabled={receiveBusy} className="bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-emerald-700 disabled:opacity-60">
+                {receiveBusy ? "Saving…" : "Save receipt"}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Notes (optional)</label>
+            <textarea rows={2} className={inputCls} value={receipt.notes} onChange={(e) => setReceipt({ ...receipt, notes: e.target.value })} placeholder="e.g. LR number, vehicle, condition on arrival" />
+          </div>
+        </form>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <StatCard label="SKUs tracked" value={inventory.length} />
         <StatCard label="Stock lines" value={totals.lines} />
@@ -226,9 +392,8 @@ export default function InventoryAdmin({ initialInventory, masterPapers = [] }) 
               {filteredMasters.map((mp) => (
                 <option key={mp.id} value={mp.id}>
                   {mp.materialName}
-                  {mp.gsm != null ? ` · ${mp.gsm} GSM` : ""}
-                  {mp.type ? ` · ${mp.type}` : ""}
-                  {mp.supplier ? ` · ${mp.supplier}` : ""}
+                  {mp.bf != null ? ` · ${mp.bf} BF` : ""}
+                  {mp.effectiveRate != null ? ` · ₹${mp.effectiveRate}/kg` : ""}
                 </option>
               ))}
             </select>

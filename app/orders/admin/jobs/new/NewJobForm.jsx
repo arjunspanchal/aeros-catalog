@@ -92,12 +92,12 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
     }));
   }
 
-  // Filter master papers by typed text — material name / supplier / type / GSM.
+  // Filter master papers by typed text — name / supplier / type / GSM / BF.
   const filteredMasterPapers = useMemo(() => {
     const q = masterPaperQuery.trim().toLowerCase();
     if (!q) return masterPapers.slice(0, 200);
     return masterPapers
-      .filter((mp) => `${mp.materialName} ${mp.supplier} ${mp.type} ${mp.gsm ?? ""}`.toLowerCase().includes(q))
+      .filter((mp) => `${mp.materialName} ${mp.supplier} ${mp.type} ${mp.gsm ?? ""} ${mp.bf ?? ""}`.toLowerCase().includes(q))
       .slice(0, 200);
   }, [masterPapers, masterPaperQuery]);
 
@@ -110,6 +110,7 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
       paperType: mp.type || f.paperType,
       rmSupplier: mp.supplier || f.rmSupplier,
       gsm: mp.gsm != null ? String(mp.gsm) : f.gsm,
+      rmType: mp.form || f.rmType,
     }));
   }
 
@@ -273,9 +274,8 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
             {filteredMasterPapers.map((mp) => (
               <option key={mp.id} value={mp.id}>
                 {mp.materialName}
-                {mp.gsm != null ? ` · ${mp.gsm} GSM` : ""}
-                {mp.type ? ` · ${mp.type}` : ""}
-                {mp.supplier ? ` · ${mp.supplier}` : ""}
+                {mp.bf != null ? ` · ${mp.bf} BF` : ""}
+                {mp.effectiveRate != null ? ` · ₹${mp.effectiveRate}/kg` : ""}
               </option>
             ))}
           </select>
