@@ -88,7 +88,7 @@ Timeline of every stage change.
 
 > For v1 this is optional — Jobs already have a `PO Number` text field that achieves grouping.
 
-### Table: `Raw Materials` (RM Inventory)
+### Table: `RM Inventory`
 
 Tracks **on-hand paper stock**. Each row is a specific lot we currently own. Surfaced at `/orders/admin/inventory`. The *master* paper catalogue lives in a separate base (see §1a below) — each inventory row should be linked to a master record via the `Master RM` text field.
 
@@ -163,7 +163,7 @@ AIRTABLE_ORDERS_USERS_TABLE=Users
 AIRTABLE_ORDERS_JOBS_TABLE=Jobs
 AIRTABLE_ORDERS_UPDATES_TABLE=Job Status Updates
 AIRTABLE_ORDERS_OTP_TABLE=OTP Codes
-AIRTABLE_ORDERS_RM_TABLE=Raw Materials
+AIRTABLE_ORDERS_RM_TABLE=RM Inventory
 
 # --- Paper RM Database (separate base, master paper catalogue) ---
 # Defaults are hard-coded in lib/paper-rm.js; override only if you move them.
