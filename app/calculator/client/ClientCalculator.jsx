@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Card, Field, Toggle, PillBtn, inputCls } from "@/app/calculator/_components/ui";
 import { CURRENCIES, CURRENCY_CODES, formatCurrency } from "@/lib/calc/calculator";
+import { exportQuoteCSV, exportQuotePDF } from "@/app/calculator/_components/export";
 
 const GSM_OPTIONS = [60, 70, 80, 90, 100, 110, 120, 130, 140];
 const BF_OPTIONS = [16, 18, 20, 22, 24, 26, 28];
@@ -377,6 +378,22 @@ export default function ClientCalculator() {
                 </tbody>
               </table>
               <p className="text-xs text-gray-400 mt-3">Printed-bag rates drop at higher qty because plate cost is amortised over more units.</p>
+            </Card>
+
+            <Card title="Export">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => exportQuoteCSV({ form, result, currency, unit })}
+                  className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
+                  Download Excel (.csv)
+                </button>
+                <button
+                  onClick={() => exportQuotePDF({ form, result, currency, unit })}
+                  className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
+                  Download PDF
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">Excel opens in any spreadsheet app; PDF uses your browser&apos;s print dialog (choose &quot;Save as PDF&quot;).</p>
             </Card>
 
             <Card title="Save this quote">
