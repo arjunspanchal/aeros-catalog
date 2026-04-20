@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { inputCls, labelCls } from "@/app/orders/_components/ui";
 import { ROLES, ROLE_OPTIONS } from "@/lib/orders/constants";
 
@@ -12,6 +12,7 @@ export default function UsersAdmin({ initialUsers, clients }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const clientMap = Object.fromEntries(clients.map((c) => [c.id, c]));
+  const formRef = useRef(null);
 
   const isEditing = editingId !== null;
   const needsClient = form.role === ROLES.CUSTOMER;
@@ -26,6 +27,10 @@ export default function UsersAdmin({ initialUsers, clients }) {
       clientIds: u.clientIds || [],
     });
     setErr("");
+    // Pull the edit form into view — easy to miss when it's in the left column.
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   function cancelEdit() {
@@ -71,7 +76,7 @@ export default function UsersAdmin({ initialUsers, clients }) {
 
   return (
     <div className="mt-6 grid grid-cols-1 lg:grid-cols-5 gap-6">
-      <form onSubmit={submit} className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-5 space-y-3 dark:bg-gray-900 dark:border-gray-800">
+      <form ref={formRef} onSubmit={submit} className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-5 space-y-3 dark:bg-gray-900 dark:border-gray-800 lg:sticky lg:top-4 lg:self-start">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
             {isEditing ? "Edit user" : "Invite user"}
