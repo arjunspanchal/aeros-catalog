@@ -44,7 +44,19 @@ export default function ClientsAdmin() {
     if (res.ok) {
       const updated = await res.json();
       setClients((cs) => cs.map((c) => (c.id === id ? updated : c)));
+      return true;
     }
+    const err = await res.json().catch(() => ({}));
+    alert(err.error || "Update failed");
+    return false;
+  }
+
+  async function removeClient(c) {
+    const label = c.name || c.company || c.email;
+    if (!confirm(`Delete client ${label}? This cannot be undone.`)) return;
+    const res = await fetch(`/api/calc/clients?id=${encodeURIComponent(c.id)}`, { method: "DELETE" });
+    if (res.ok) setClients((cs) => cs.filter((x) => x.id !== c.id));
+    else alert("Delete failed");
   }
 
   return (
@@ -101,12 +113,24 @@ export default function ClientsAdmin() {
                   <th className="text-right pb-2 font-medium">Margin %</th>
                   <th className="text-left pb-2 font-medium">Status</th>
                   <th className="text-left pb-2 font-medium">Last Login</th>
+                  <th className="pb-2"></th>
                 </tr>
               </thead>
               <tbody>
                 {clients.map((c) => (
                   <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="py-2 text-gray-800">{c.email}</td>
+                    <td className="py-2">
+                      <input type="email"
+                        className="text-sm bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none px-1 py-0.5 w-56"
+                        defaultValue={c.email}
+                        onBlur={async (e) => {
+                          const v = e.target.value.trim().toLowerCase();
+                          if (v && v !== c.email) {
+                            const ok = await patch(c.id, { email: v });
+                            if (!ok) e.target.value = c.email;
+                          }
+                        }} />
+                    </td>
                     <td className="py-2">
                       <input className="text-sm bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none px-1 py-0.5 w-32"
                         defaultValue={c.name}
@@ -142,6 +166,9 @@ export default function ClientsAdmin() {
                       </select>
                     </td>
                     <td className="py-2 text-gray-500 text-xs">{c.lastLogin ? new Date(c.lastLogin).toLocaleDateString() : "—"}</td>
+                    <td className="py-2 text-right">
+                      <button onClick={() => removeClient(c)} className="text-red-400 hover:text-red-600 text-xs px-2" title="Delete client">✕</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
