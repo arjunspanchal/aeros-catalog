@@ -312,6 +312,27 @@ export default function ClientCalculator() {
               <p className="text-4xl font-bold">{formatCurrency(tier.ratePerBag, currency)}</p>
             </div>
 
+            {result.result?.totalWeight > 0 && (
+              <Card title="Bag weight">
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Paper</p>
+                    <p className="text-xl font-semibold text-gray-900 mt-1">{(result.result.wkg * 1000).toFixed(2)} g</p>
+                  </div>
+                  {result.result.handleWeight > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide">Handle</p>
+                      <p className="text-xl font-semibold text-gray-900 mt-1">{(result.result.handleWeight * 1000).toFixed(0)} g</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Total / bag</p>
+                    <p className="text-xl font-semibold text-blue-700 mt-1">{(result.result.totalWeight * 1000).toFixed(2)} g</p>
+                  </div>
+                </div>
+              </Card>
+            )}
+
             {result.result?.box && (
               <Card title="Approx box dimensions">
                 <div className="grid grid-cols-3 gap-3 text-center">

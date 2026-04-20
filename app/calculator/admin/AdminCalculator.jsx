@@ -508,7 +508,11 @@ export default function AdminCalculator() {
                   <Row label="Pasting Width" value={`${result.pw} mm`} />
                   <Row label="Roll Width" value={`${result.rw} mm`} />
                   <Row label="Height of Tube" value={`${result.th} mm`} />
-                  <Row label="Weight per Bag" value={`${result.wkg.toFixed(6)} kg`} />
+                  <Row label="Paper weight per bag" value={`${(result.wkg * 1000).toFixed(2)} g`} />
+                  {result.handleWeight > 0 && (
+                    <Row label="Handle weight" value={`${(result.handleWeight * 1000).toFixed(0)} g`} />
+                  )}
+                  <Row label="Total weight per bag" value={`${(result.totalWeight * 1000).toFixed(2)} g`} highlight />
                   {result.box && (
                     <Row
                       label="Approx Box Size"

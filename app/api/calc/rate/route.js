@@ -62,10 +62,12 @@ export async function POST(req) {
   if (session.role === "admin") {
     payload.tips = optimizationTips(inputs, result);
   } else {
-    // Strip internal cost breakdown for clients. They see final rates + box dims only.
+    // Strip internal cost breakdown for clients. They see final rates, weight, + box only.
     payload.result = {
       sellingPrice: result.sellingPrice,
       wkg: result.wkg,
+      handleWeight: result.handleWeight,
+      totalWeight: result.totalWeight,
       plateCost: result.plateCost,
       box: result.box,
     };
