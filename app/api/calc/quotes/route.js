@@ -3,7 +3,12 @@ import { getSession } from "@/lib/calc/session";
 
 export const runtime = "nodejs";
 
-const BAG_TYPE_OUT = { sos: "SOS", handle: "Handle", v_bottom_gusset: "V-Bottom" };
+const BAG_TYPE_OUT = {
+  sos: "SOS",
+  rope_handle: "Rope Handle",
+  flat_handle: "Flat Handle",
+  v_bottom_gusset: "V-Bottom",
+};
 
 function recordToQuote(r) {
   const f = r.fields || {};

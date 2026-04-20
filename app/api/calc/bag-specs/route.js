@@ -10,7 +10,13 @@ function recordToSpec(r) {
     code: f.Code || "",
     brand: f.Brand || "",
     item: f.Item || "",
-    bagType: f["Bag Type"] === "Handle" ? "handle" : f["Bag Type"] === "V-Bottom" ? "v_bottom_gusset" : "sos",
+    bagType: (
+      f["Bag Type"] === "Rope Handle" ? "rope_handle" :
+      f["Bag Type"] === "Flat Handle" ? "flat_handle" :
+      f["Bag Type"] === "Handle" ? "rope_handle" : // legacy records default to rope
+      f["Bag Type"] === "V-Bottom" ? "v_bottom_gusset" :
+      "sos"
+    ),
     width: f["Width mm"] ?? 0,
     gusset: f["Gusset mm"] ?? 0,
     height: f["Height mm"] ?? 0,
@@ -32,7 +38,12 @@ export async function GET() {
   return Response.json(records.map(recordToSpec));
 }
 
-const BAG_TYPE_OUT = { sos: "SOS", handle: "Handle", v_bottom_gusset: "V-Bottom" };
+const BAG_TYPE_OUT = {
+  sos: "SOS",
+  rope_handle: "Rope Handle",
+  flat_handle: "Flat Handle",
+  v_bottom_gusset: "V-Bottom",
+};
 
 export async function POST(req) {
   try { requireAdmin(); } catch (r) { return r; }

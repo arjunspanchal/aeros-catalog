@@ -6,7 +6,7 @@ import {
   JODHANI_RATES, OM_SHIVAAY_RATES, JODHANI_DISCOUNT, WET_STRENGTH_EXTRA,
   PRINTING_RATES, PLATE_COST_PER_COLOUR, USD_RATE,
   getJodhaniGsmBucket, getJodhaniRate, getOmShivaayRate, getDefaultWastage,
-  QTY_TIERS,
+  QTY_TIERS, HANDLE_DEFAULT_COST, isHandleBag,
 } from "@/lib/calc/calculator";
 
 const MILLS_BY_TYPE = {
@@ -62,7 +62,10 @@ export default function AdminCalculator() {
     if (!c) { set("selectedCodeId", ""); return; }
     setForm((f) => {
       const next = { ...f, selectedCodeId: id, width: c.width, gusset: c.gusset, height: c.height };
-      if (c.bagType) next.bagType = c.bagType;
+      if (c.bagType) {
+        next.bagType = c.bagType;
+        if (HANDLE_DEFAULT_COST[c.bagType] !== undefined) next.handleCost = HANDLE_DEFAULT_COST[c.bagType];
+      }
       if (c.casePack) next.casePack = c.casePack;
       if (c.paperType) next.paperType = c.paperType;
       if (c.millName) next.millName = c.millName;
@@ -137,7 +140,7 @@ export default function AdminCalculator() {
       costPerCase: result.sellingPrice * form.casePack,
       orderTotal: result.sellingPrice * form.orderQty,
       printing: form.printing, colours: form.colours, coverage: form.coverage,
-      handleCost: form.bagType === "handle" ? form.handleCost : undefined,
+      handleCost: isHandleBag(form.bagType) ? form.handleCost : undefined,
     };
     const res = await fetch("/api/calc/quotes", {
       method: "POST",
@@ -157,8 +160,12 @@ export default function AdminCalculator() {
       <div className="lg:w-2/5 space-y-4">
         <Card title="Bag Type">
           <div className="flex gap-2">
-            {[["sos", "SOS"], ["handle", "Handle"], ["v_bottom_gusset", "V-Bottom"]].map(([val, lbl]) => (
-              <PillBtn key={val} active={form.bagType === val} onClick={() => set("bagType", val)}>{lbl}</PillBtn>
+            {[["sos", "SOS"], ["rope_handle", "Rope Handle"], ["flat_handle", "Flat Handle"], ["v_bottom_gusset", "V-Bottom"]].map(([val, lbl]) => (
+              <PillBtn key={val} active={form.bagType === val} onClick={() => {
+                set("bagType", val);
+                if (val === "rope_handle") set("handleCost", HANDLE_DEFAULT_COST.rope_handle);
+                if (val === "flat_handle") set("handleCost", HANDLE_DEFAULT_COST.flat_handle);
+              }}>{lbl}</PillBtn>
             ))}
           </div>
         </Card>
@@ -276,8 +283,10 @@ export default function AdminCalculator() {
               />
             </Field>
             <Field label="Case Pack"><input type="number" className={inputCls} value={form.casePack} onChange={(e) => num("casePack", e.target.value)} min="1" /></Field>
-            {form.bagType === "handle" && (
-              <Field label="Handle Cost (₹/bag)"><input type="number" className={inputCls} value={form.handleCost} onChange={(e) => num("handleCost", e.target.value)} min="0" step="0.01" /></Field>
+            {isHandleBag(form.bagType) && (
+              <Field label={`Handle Cost (₹/bag) — default ${HANDLE_DEFAULT_COST[form.bagType]}`}>
+                <input type="number" className={inputCls} value={form.handleCost} onChange={(e) => num("handleCost", e.target.value)} min="0" step="0.01" />
+              </Field>
             )}
             <Field label="Order Quantity">
               <select className={inputCls} value={form.orderQty} onChange={(e) => set("orderQty", parseInt(e.target.value))}>
@@ -373,13 +382,20 @@ export default function AdminCalculator() {
                   <Row label="Roll Width" value={`${result.rw} mm`} />
                   <Row label="Height of Tube" value={`${result.th} mm`} />
                   <Row label="Weight per Bag" value={`${result.wkg.toFixed(6)} kg`} />
+                  {result.box && (
+                    <Row
+                      label="Approx Box Size"
+                      value={`${result.box.L} × ${result.box.W} × ${result.box.D} mm`}
+                      sub={`for ${form.casePack} bags / case`}
+                    />
+                  )}
                   <SectionHeader label="Costs (₹ / bag)" />
                   <Row label="Paper" value={`₹${result.paperCost.toFixed(4)}`} />
                   <Row label="Glue" value={`₹${result.glueCost.toFixed(4)}`} />
                   <Row label="Case Packing" value={`₹${result.cpCost.toFixed(4)}`} />
                   <Row label={`Wastage (${result.wastage}%)`} value={`₹${result.wastageCost.toFixed(4)}`} />
                   <Row label={`Conversion Labour (₹${result.convRate}/kg)`} value={`₹${result.labourCost.toFixed(4)}`} />
-                  {form.bagType === "handle" && <Row label="Handle" value={`₹${result.handleCost.toFixed(4)}`} />}
+                  {isHandleBag(form.bagType) && <Row label="Handle" value={`₹${result.handleCost.toFixed(4)}`} />}
                   {form.printing && <Row label={`Printing — ${form.coverage}% (₹${result.printRate}/kg)`} value={`₹${result.printCost.toFixed(4)}`} />}
                   <Row label="Total Manufacturing" value={`₹${result.totalMfg.toFixed(4)}`} highlight />
                   <Row label={`Profit (${result.profitPct}%)`} value={`₹${result.profit.toFixed(4)}`} />

@@ -2,17 +2,11 @@
 import { useState } from "react";
 import { Card, Field, Toggle, PillBtn, inputCls } from "@/app/calculator/_components/ui";
 
-const MILLS_BY_TYPE = {
-  "Brown Kraft": ["Ajit", "Jodhani", "Om Shivaay"],
-  "Bleach Kraft White": ["JK", "BILT", "Pudumjee"],
-  "OGR": ["JK", "BILT", "Pudumjee"],
-};
-
 export default function ClientCalculator() {
   const [form, setForm] = useState({
     bagType: "sos",
     width: 230, gusset: 125, height: 335,
-    paperType: "Brown Kraft", mill: "", gsm: 120, bf: "",
+    paperType: "Brown Kraft", gsm: 120, bf: "",
     casePack: 100,
     printing: false, colours: 1, coverage: 30,
     orderQty: 15000,
@@ -54,7 +48,7 @@ export default function ClientCalculator() {
         quoteRef: form.quoteRef || `Q ${new Date().toISOString().split("T")[0]}`,
         bagType: form.bagType,
         width: form.width, gusset: form.gusset, height: form.height,
-        paperType: form.paperType, mill: form.mill, gsm: form.gsm, bf: form.bf,
+        paperType: form.paperType, gsm: form.gsm, bf: form.bf,
         casePack: form.casePack, orderQty: form.orderQty,
         printing: form.printing, colours: form.colours, coverage: form.coverage,
         sellingPrice: tier.ratePerBag,
@@ -69,8 +63,8 @@ export default function ClientCalculator() {
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       <div className="lg:col-span-2 space-y-4">
         <Card title="Bag Type">
-          <div className="flex gap-2">
-            {[["sos", "SOS"], ["handle", "Handle"], ["v_bottom_gusset", "V-Bottom"]].map(([val, lbl]) => (
+          <div className="grid grid-cols-2 gap-2">
+            {[["sos", "SOS"], ["rope_handle", "Rope Handle"], ["flat_handle", "Flat Handle"], ["v_bottom_gusset", "V-Bottom"]].map(([val, lbl]) => (
               <PillBtn key={val} active={form.bagType === val} onClick={() => set("bagType", val)}>{lbl}</PillBtn>
             ))}
           </div>
@@ -87,16 +81,10 @@ export default function ClientCalculator() {
         <Card title="Paper">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Type">
-              <select className={inputCls} value={form.paperType} onChange={(e) => { set("paperType", e.target.value); set("mill", ""); }}>
+              <select className={inputCls} value={form.paperType} onChange={(e) => set("paperType", e.target.value)}>
                 <option value="Brown Kraft">Brown Kraft</option>
                 <option value="Bleach Kraft White">Bleach Kraft White</option>
                 <option value="OGR">OGR</option>
-              </select>
-            </Field>
-            <Field label="Mill (optional)">
-              <select className={inputCls} value={form.mill} onChange={(e) => set("mill", e.target.value)}>
-                <option value="">—</option>
-                {(MILLS_BY_TYPE[form.paperType] || []).map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             </Field>
             <Field label="GSM"><input type="number" className={inputCls} value={form.gsm} onChange={(e) => num("gsm", e.target.value)} min="1" /></Field>
@@ -162,6 +150,11 @@ export default function ClientCalculator() {
               <p className="text-4xl font-bold">
                 ₹{(result.curve.find((c) => c.qty === form.orderQty) || result.curve[0]).ratePerBag.toFixed(2)}
               </p>
+              {result.result?.box && (
+                <p className="text-blue-200 text-xs mt-3">
+                  Approx box size: <span className="text-white font-medium">{result.result.box.L} × {result.result.box.W} × {result.result.box.D} mm</span> <span className="text-blue-300">({form.casePack} bags / case)</span>
+                </p>
+              )}
             </div>
 
             <Card title="Rate curve by quantity">

@@ -40,7 +40,8 @@ export async function POST(req) {
     gsm: Number(body.gsm) || 0,
     paperRate,
     casePack: Number(body.casePack) || 1,
-    handleCost: Number(body.handleCost) || (body.bagType === "handle" ? 0.85 : 0),
+    // Admin may override; otherwise calculate.js applies rope=0.85 / flat=1.00 defaults.
+    handleCost: body.handleCost !== undefined && body.handleCost !== "" ? Number(body.handleCost) : undefined,
     customWastage: isClient ? "" : (body.customWastage ?? ""),
     profitPercent: isClient
       ? await currentClientMargin(session.email, Number(session.marginPct ?? process.env.DEFAULT_CLIENT_MARGIN ?? 15))
@@ -61,11 +62,12 @@ export async function POST(req) {
   if (session.role === "admin") {
     payload.tips = optimizationTips(inputs, result);
   } else {
-    // Strip internal cost breakdown for clients. They see final rates only.
+    // Strip internal cost breakdown for clients. They see final rates + box dims only.
     payload.result = {
       sellingPrice: result.sellingPrice,
       wkg: result.wkg,
       plateCost: result.plateCost,
+      box: result.box,
     };
   }
   return Response.json(payload);
