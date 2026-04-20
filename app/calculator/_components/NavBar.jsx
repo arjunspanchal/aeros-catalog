@@ -6,12 +6,13 @@ export function NavBar({ role, email }) {
   const path = usePathname();
   const router = useRouter();
   const adminLinks = [
-    { href: "/calculator/admin", label: "Calculator" },
+    { href: "/calculator/admin", label: "Paper Bag Rate Calculator" },
     { href: "/calculator/admin/history", label: "Quote History" },
     { href: "/calculator/admin/clients", label: "Clients" },
+    { href: "/calculator/admin/rates", label: "Mill Rates" },
   ];
   const clientLinks = [
-    { href: "/calculator/client", label: "Calculator" },
+    { href: "/calculator/client", label: "Paper Bag Rate Calculator" },
     { href: "/calculator/client/quotes", label: "My Quotes" },
   ];
   const links = role === "admin" ? adminLinks : clientLinks;
