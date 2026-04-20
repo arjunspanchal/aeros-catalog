@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import WhatsAppButton from "./components/WhatsAppButton";
 
 const OPTIONS = [
   {
@@ -159,6 +160,7 @@ export default function HomeClient({ footer }) {
           </p>
         </div>
       </main>
+      <WhatsAppButton />
       {footer}
     </div>
   );
