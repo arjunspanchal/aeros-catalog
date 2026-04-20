@@ -57,6 +57,7 @@ export default function LoginForm() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-sm p-6">
+        <a href="/" className="inline-block text-xs text-gray-500 hover:text-blue-700 mb-3">← Back to Aeros home</a>
         <h1 className="text-xl font-bold text-gray-900">Aeros Paper Bag Rate Calculator</h1>
         <p className="text-sm text-gray-500 mt-1">Sign in to continue</p>
 
