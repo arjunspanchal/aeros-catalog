@@ -528,14 +528,25 @@ export default function AdminCalculator() {
                   <Row label={`Conversion Labour (₹${result.convRate}/kg)`} value={`₹${result.labourCost.toFixed(4)}`} />
                   {isHandleBag(form.bagType) && <Row label="Handle" value={`₹${result.handleCost.toFixed(4)}`} />}
                   {form.printing && <Row label={`Printing — ${form.coverage}% (₹${result.printRate}/kg)`} value={`₹${result.printCost.toFixed(4)}`} />}
+                  <Row
+                    label="Setup (amortised)"
+                    value={`₹${result.setupAmortised.toFixed(4)}`}
+                    sub={`₹${result.setupCost.toLocaleString()} run setup over ${form.orderQty.toLocaleString()} bags`}
+                  />
+                  {form.printing && result.plateCost > 0 && (
+                    <Row
+                      label="Plate (amortised)"
+                      value={`₹${result.plateAmortised.toFixed(4)}`}
+                      sub={`${form.colours} colour × ₹5,000 over ${form.orderQty.toLocaleString()} bags`}
+                    />
+                  )}
                   <Row label="Total Manufacturing" value={`₹${result.totalMfg.toFixed(4)}`} highlight />
                   <Row label={`Profit (${result.profitPct}%)`} value={`₹${result.profit.toFixed(4)}`} />
                   <Row label="Selling Price" value={`₹${result.sellingPrice.toFixed(4)}`} highlight />
                   {form.printing && result.plateCost > 0 && (
                     <>
-                      <SectionHeader label="Plate (One-time)" />
+                      <SectionHeader label="Plate (one-time total)" />
                       <Row label={`${form.colours} Colour${form.colours > 1 ? "s" : ""} × ₹5,000`} value={`₹${result.plateCost.toLocaleString()}`} />
-                      <Row label="Per Bag (amortised)" value={`₹${plateCostPerBag.toFixed(4)}`} sub={`over ${form.orderQty.toLocaleString()} bags`} />
                     </>
                   )}
                 </tbody>
