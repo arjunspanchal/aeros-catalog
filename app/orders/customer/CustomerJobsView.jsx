@@ -1,19 +1,26 @@
 "use client";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { StageBadge, StageTimeline, formatDate } from "@/app/orders/_components/ui";
+import { StageBadge, StageTimeline, formatDate, inputCls } from "@/app/orders/_components/ui";
+import StatusChart from "@/app/orders/_components/StatusChart";
 
 export default function CustomerJobsView({ jobs, clientMap }) {
   const [filter, setFilter] = useState("open");
+  const [q, setQ] = useState("");
 
   const filtered = useMemo(() => {
-    if (filter === "all") return jobs;
-    if (filter === "open") return jobs.filter((j) => j.stage !== "Dispatched");
-    if (filter === "dispatched") return jobs.filter((j) => j.stage === "Dispatched");
-    return jobs;
-  }, [jobs, filter]);
+    const term = q.trim().toLowerCase();
+    return jobs.filter((j) => {
+      if (filter === "open" && (j.stage === "Dispatched" || j.stage === "Delivered")) return false;
+      if (filter === "dispatched" && j.stage !== "Dispatched") return false;
+      if (filter === "delivered" && j.stage !== "Delivered") return false;
+      if (!term) return true;
+      const hay = `${j.jNumber} ${j.brand} ${j.item} ${j.city} ${j.poNumber}`.toLowerCase();
+      return hay.includes(term);
+    });
+  }, [jobs, filter, q]);
 
-  // Group by PO Number so orders like "aB Coffee PO-42: cups + lids + foils" show together.
+  // Group by PO Number so multi-item POs show together.
   const grouped = useMemo(() => {
     const map = new Map();
     for (const j of filtered) {
@@ -27,13 +34,14 @@ export default function CustomerJobsView({ jobs, clientMap }) {
   }, [filtered]);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Your orders</h1>
         <div className="flex gap-1 bg-white border border-gray-200 rounded-lg p-1 text-xs dark:bg-gray-900 dark:border-gray-800">
           {[
             ["open", "In progress"],
             ["dispatched", "Dispatched"],
+            ["delivered", "Delivered"],
             ["all", "All"],
           ].map(([k, label]) => (
             <button
@@ -49,9 +57,18 @@ export default function CustomerJobsView({ jobs, clientMap }) {
         </div>
       </div>
 
+      <StatusChart jobs={jobs} title="Your order status overview" />
+
+      <input
+        className={inputCls}
+        placeholder="Search by PO number, item, J#, city…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
+
       {grouped.length === 0 && (
         <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-sm text-gray-500 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-400">
-          No orders to show.
+          {q ? "Nothing matches your search." : "No orders to show."}
         </div>
       )}
 
@@ -93,7 +110,7 @@ export default function CustomerJobsView({ jobs, clientMap }) {
                     <StageTimeline stage={j.stage} />
                     <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                       <span>Current: {j.stage}</span>
-                      {j.expectedDispatchDate && <span>Dispatch by {formatDate(j.expectedDispatchDate)}</span>}
+                      {j.estimatedDeliveryDate && <span>ETA {formatDate(j.estimatedDeliveryDate)}</span>}
                     </div>
                   </div>
                 </Link>

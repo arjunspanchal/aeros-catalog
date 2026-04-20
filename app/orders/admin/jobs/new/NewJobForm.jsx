@@ -40,6 +40,7 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
     qty: "",
     orderDate: new Date().toISOString().slice(0, 10),
     expectedDispatchDate: "",
+    estimatedDeliveryDate: "",
     stage: STAGES[0],
     poNumber: "",
     // RM
@@ -119,6 +120,7 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
       customerManagerId: form.customerManagerId || undefined,
       orderDate: form.orderDate || undefined,
       expectedDispatchDate: form.expectedDispatchDate || undefined,
+      estimatedDeliveryDate: form.estimatedDeliveryDate || undefined,
       rmDeliveryDate: form.rmDeliveryDate || undefined,
       printingDueDate: form.printingDueDate || undefined,
       productionDueDate: form.productionDueDate || undefined,
@@ -226,6 +228,10 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
         <div>
           <label className={labelCls}>Expected dispatch</label>
           <input type="date" className={inputCls} value={form.expectedDispatchDate} onChange={(e) => set("expectedDispatchDate", e.target.value)} />
+        </div>
+        <div>
+          <label className={labelCls}>Estimated delivery (customer-facing ETA)</label>
+          <input type="date" className={inputCls} value={form.estimatedDeliveryDate} onChange={(e) => set("estimatedDeliveryDate", e.target.value)} />
         </div>
       </Section>
 

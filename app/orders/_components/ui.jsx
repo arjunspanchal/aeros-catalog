@@ -11,6 +11,7 @@ const STAGE_COLORS = {
   "Packing": "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200",
   "Ready for Dispatch": "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
   "Dispatched": "bg-green-600 text-white",
+  "Delivered": "bg-teal-700 text-white",
 };
 
 export function StageBadge({ stage }) {

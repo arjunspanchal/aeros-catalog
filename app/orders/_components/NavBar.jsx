@@ -19,9 +19,14 @@ export default function NavBar({ role, name, email }) {
             Aeros Orders
           </Link>
           {isInternal && (
-            <Link href="/orders/manager" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
-              Jobs
-            </Link>
+            <>
+              <Link href="/orders/manager" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
+                Jobs
+              </Link>
+              <Link href="/orders/manager/pos" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
+                Customer POs
+              </Link>
+            </>
           )}
           {role === "admin" && (
             <>
@@ -31,9 +36,17 @@ export default function NavBar({ role, name, email }) {
             </>
           )}
           {role === "customer" && (
-            <Link href="/orders/customer" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
-              My orders
-            </Link>
+            <>
+              <Link href="/orders/customer" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
+                My orders
+              </Link>
+              <Link href="/orders/customer/pos" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
+                Purchase orders
+              </Link>
+              <Link href="/orders/customer/profile" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
+                Profile
+              </Link>
+            </>
           )}
         </div>
         <div className="flex items-center gap-3">

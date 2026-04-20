@@ -13,6 +13,7 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
   const [internalStatus, setInternalStatus] = useState(initialJob.internalStatus);
   const [actionPoints, setActionPoints] = useState(initialJob.actionPoints);
   const [expectedDispatchDate, setExpectedDispatchDate] = useState(initialJob.expectedDispatchDate || "");
+  const [estimatedDeliveryDate, setEstimatedDeliveryDate] = useState(initialJob.estimatedDeliveryDate || "");
   // RM + production editable fields
   const [rmSupplier, setRmSupplier] = useState(initialJob.rmSupplier);
   const [paperType, setPaperType] = useState(initialJob.paperType);
@@ -40,6 +41,7 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
         internalStatus,
         actionPoints,
         expectedDispatchDate: expectedDispatchDate || null,
+        estimatedDeliveryDate: estimatedDeliveryDate || null,
         rmSupplier,
         paperType,
         gsm: gsm === "" ? null : Number(gsm),
@@ -163,6 +165,15 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
               className={inputCls}
               value={expectedDispatchDate ? expectedDispatchDate.slice(0, 10) : ""}
               onChange={(e) => setExpectedDispatchDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Estimated delivery date (shown to customer)</label>
+            <input
+              type="date"
+              className={inputCls}
+              value={estimatedDeliveryDate ? estimatedDeliveryDate.slice(0, 10) : ""}
+              onChange={(e) => setEstimatedDeliveryDate(e.target.value)}
             />
           </div>
           <div className="sm:col-span-2">

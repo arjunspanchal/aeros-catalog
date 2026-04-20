@@ -1,4 +1,4 @@
-import { requireSession, requireInternal } from "@/lib/orders/session";
+import { requireSession } from "@/lib/orders/session";
 import {
   getJob,
   updateJob,
@@ -38,7 +38,7 @@ export async function GET(_req, { params }) {
 
 export async function PATCH(req, { params }) {
   try {
-    const s = requireInternal();
+    const s = requireSession();
     const job = await getJob(params.id);
     if (!job) return Response.json({ error: "Not found" }, { status: 404 });
     if (!sessionCanSeeJob(s, job)) return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -47,18 +47,44 @@ export async function PATCH(req, { params }) {
     const patch = {};
     let stageChanged = false;
 
+    // Customers have one very specific permission: mark a Dispatched job as Delivered.
+    const isCustomerDeliver =
+      s.role === ROLES.CUSTOMER &&
+      body.stage === "Delivered" &&
+      job.stage === "Dispatched";
+
     if (body.stage !== undefined) {
-      if (!canUpdateStage(s.role)) return Response.json({ error: "Not allowed" }, { status: 403 });
+      if (!canUpdateStage(s.role) && !isCustomerDeliver) {
+        return Response.json({ error: "Not allowed" }, { status: 403 });
+      }
       if (!STAGES.includes(body.stage)) return Response.json({ error: "Invalid stage" }, { status: 400 });
       if (body.stage !== job.stage) {
         patch.stage = body.stage;
         stageChanged = true;
       }
     }
+
+    // Non-internal callers are only allowed to change stage (no other fields).
+    if (s.role === ROLES.CUSTOMER) {
+      const patchKeys = Object.keys(body).filter((k) => k !== "stage" && k !== "note");
+      if (patchKeys.length) return Response.json({ error: "Customers can only mark delivered" }, { status: 403 });
+      const updated = stageChanged ? await updateJob(job.id, patch) : job;
+      if (stageChanged) {
+        await addJobUpdate({
+          jobId: job.id,
+          stage: patch.stage,
+          note: body.note || "Customer confirmed delivery",
+          updatedByEmail: s.email || "",
+          updatedByName: s.name || "",
+        });
+      }
+      return Response.json({ job: updated });
+    }
     if (body.internalStatus !== undefined) patch.internalStatus = body.internalStatus;
     if (body.actionPoints !== undefined) patch.actionPoints = body.actionPoints;
     if (body.notes !== undefined) patch.notes = body.notes;
     if (body.expectedDispatchDate !== undefined) patch.expectedDispatchDate = body.expectedDispatchDate;
+    if (body.estimatedDeliveryDate !== undefined) patch.estimatedDeliveryDate = body.estimatedDeliveryDate;
     // RM + production updates
     if (body.rmType !== undefined) patch.rmType = body.rmType;
     if (body.rmSupplier !== undefined) patch.rmSupplier = body.rmSupplier;

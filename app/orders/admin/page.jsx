@@ -4,6 +4,7 @@ import { getSession } from "@/lib/orders/session";
 import { listJobsForSession, listClients, listUsers } from "@/lib/orders/repo";
 import { ROLES, STAGES } from "@/lib/orders/constants";
 import NavBar from "@/app/orders/_components/NavBar";
+import StatusChart from "@/app/orders/_components/StatusChart";
 import { StageBadge, formatDate } from "@/app/orders/_components/ui";
 
 export const dynamic = "force-dynamic";
@@ -36,16 +37,16 @@ export default async function AdminDashboard() {
               {jobs.length} jobs · {clients.length} clients · {users.length} users
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Link href="/orders/admin/clients" className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">Clients</Link>
             <Link href="/orders/admin/users" className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">Users</Link>
+            <Link href="/orders/manager/pos" className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">Customer POs</Link>
             <Link href="/orders/admin/jobs/new" className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">+ New job</Link>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-6">
-          <Card label="All" value={jobs.length} />
-          {STAGES.map((st) => <Card key={st} label={st} value={stageCount[st]} />)}
+        <div className="mb-6">
+          <StatusChart jobs={jobs} title="Jobs by stage" />
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden dark:bg-gray-900 dark:border-gray-800">
