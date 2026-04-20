@@ -1,25 +1,25 @@
 // Shared UI primitives used across the calculator + admin pages.
 
 export const inputCls =
-  "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white";
-export const labelCls = "block text-xs font-medium text-gray-500 mb-1";
+  "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:focus:ring-blue-400";
+export const labelCls = "block text-xs font-medium text-gray-500 mb-1 dark:text-gray-400";
 
 export function Field({ label, children, hint }) {
   return (
     <div>
       <label className={labelCls}>{label}</label>
       {children}
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-gray-400 mt-1 dark:text-gray-500">{hint}</p>}
     </div>
   );
 }
 
 export function Card({ title, children, className = "", right }) {
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-4 ${className}`}>
+    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-4 dark:bg-gray-900 dark:border-gray-800 ${className}`}>
       {(title || right) && (
         <div className="flex items-center justify-between mb-3">
-          {title && <h2 className="text-sm font-semibold text-gray-700">{title}</h2>}
+          {title && <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</h2>}
           {right}
         </div>
       )}
@@ -30,12 +30,12 @@ export function Card({ title, children, className = "", right }) {
 
 export function Row({ label, value, highlight, sub }) {
   return (
-    <tr className={highlight ? "bg-blue-50 font-semibold" : "hover:bg-gray-50"}>
-      <td className="py-2 px-3 text-sm border-b border-gray-100">
-        <span className={highlight ? "text-blue-700" : "text-gray-600"}>{label}</span>
-        {sub && <span className="block text-xs text-gray-400 font-normal">{sub}</span>}
+    <tr className={highlight ? "bg-blue-50 font-semibold dark:bg-blue-900/30" : "hover:bg-gray-50 dark:hover:bg-gray-800"}>
+      <td className="py-2 px-3 text-sm border-b border-gray-100 dark:border-gray-800">
+        <span className={highlight ? "text-blue-700 dark:text-blue-300" : "text-gray-600 dark:text-gray-400"}>{label}</span>
+        {sub && <span className="block text-xs text-gray-400 font-normal dark:text-gray-500">{sub}</span>}
       </td>
-      <td className={`py-2 px-3 text-sm text-right border-b border-gray-100 ${highlight ? "text-blue-700" : "text-gray-800"}`}>
+      <td className={`py-2 px-3 text-sm text-right border-b border-gray-100 dark:border-gray-800 ${highlight ? "text-blue-700 dark:text-blue-300" : "text-gray-800 dark:text-gray-200"}`}>
         {value}
       </td>
     </tr>
@@ -44,8 +44,8 @@ export function Row({ label, value, highlight, sub }) {
 
 export function SectionHeader({ label }) {
   return (
-    <tr className="bg-gray-50">
-      <td colSpan={2} className="py-1.5 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+    <tr className="bg-gray-50 dark:bg-gray-800">
+      <td colSpan={2} className="py-1.5 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide dark:text-gray-500">
         {label}
       </td>
     </tr>
@@ -57,14 +57,14 @@ export function Toggle({ value, onChange, label, sub }) {
     <label className="flex items-center gap-3 cursor-pointer select-none">
       <div
         onClick={onChange}
-        className={`relative w-10 h-5 rounded-full transition-colors ${value ? "bg-blue-600" : "bg-gray-300"}`}
+        className={`relative w-10 h-5 rounded-full transition-colors ${value ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-700"}`}
       >
         <div
           className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? "translate-x-5" : "translate-x-0.5"}`}
         />
       </div>
-      <span className="text-sm text-gray-700">{label}</span>
-      {sub && <span className="text-xs text-gray-400">{sub}</span>}
+      <span className="text-sm text-gray-700 dark:text-gray-200">{label}</span>
+      {sub && <span className="text-xs text-gray-400 dark:text-gray-500">{sub}</span>}
     </label>
   );
 }
@@ -74,7 +74,7 @@ export function PillBtn({ active, onClick, children }) {
     <button
       onClick={onClick}
       className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-        active ? "bg-blue-600 text-white shadow" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+        active ? "bg-blue-600 text-white shadow" : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
       }`}
     >
       {children}
@@ -86,8 +86,8 @@ export function Header({ title, subtitle, right }) {
   return (
     <div className="mb-6 flex items-start justify-between">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-        {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{title}</h1>
+        {subtitle && <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">{subtitle}</p>}
       </div>
       {right}
     </div>

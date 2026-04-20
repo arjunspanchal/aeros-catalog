@@ -194,7 +194,7 @@ export default function ClientCalculator() {
       <div className="lg:col-span-2 space-y-4">
         {pastQuotes.length > 0 && (
           <Card title="Load a past quote" right={loadedQuoteId && (
-            <button onClick={() => loadQuote("")} className="text-xs text-gray-500 hover:text-gray-700">Clear</button>
+            <button onClick={() => loadQuote("")} className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">Clear</button>
           )}>
             <select className={inputCls} value={loadedQuoteId} onChange={(e) => loadQuote(e.target.value)}>
               <option value="">— New quote —</option>
@@ -205,7 +205,7 @@ export default function ClientCalculator() {
               ))}
             </select>
             {loadedQuoteId && (
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-gray-500 mt-2 dark:text-gray-400">
                 Editing <strong>{pastQuotes.find((q) => q.id === loadedQuoteId)?.quoteRef}</strong>. After calculating you can update it or save as a new quote.
               </p>
             )}
@@ -229,7 +229,7 @@ export default function ClientCalculator() {
               </div>
             </Field>
           </div>
-          <p className="text-xs text-gray-400 mt-2">Saved to your profile. Rates shown in {currency}; bag sizes in {unit === "in" ? "inches" : unit === "cm" ? "centimetres" : "millimetres"}.</p>
+          <p className="text-xs text-gray-400 mt-2 dark:text-gray-500">Saved to your profile. Rates shown in {currency}; bag sizes in {unit === "in" ? "inches" : unit === "cm" ? "centimetres" : "millimetres"}.</p>
         </Card>
 
         <Card title="Bag Type">
@@ -299,7 +299,7 @@ export default function ClientCalculator() {
         <Card title="Printing">
           <Toggle value={form.printing} onChange={() => set("printing", !form.printing)} label="Printing Required" />
           {form.printing && (
-            <div className="mt-3 space-y-3 border-t border-gray-100 pt-3">
+            <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
               <Field label="No. of Colours">
                 <div className="flex gap-2">
                   {COLOUR_OPTIONS.map((c) => (
@@ -331,7 +331,7 @@ export default function ClientCalculator() {
       <div className="lg:col-span-3 space-y-4">
         {!result && (
           <Card>
-            <p className="text-sm text-gray-500 text-center py-10">
+            <p className="text-sm text-gray-500 text-center py-10 dark:text-gray-400">
               Enter your bag specs on the left and click <strong>Calculate Rate</strong>.
             </p>
           </Card>
@@ -347,18 +347,18 @@ export default function ClientCalculator() {
               <Card title="Bag weight">
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wide">Paper</p>
-                    <p className="text-xl font-semibold text-gray-900 mt-1">{(result.result.wkg * 1000).toFixed(2)} g</p>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide dark:text-gray-500">Paper</p>
+                    <p className="text-xl font-semibold text-gray-900 mt-1 dark:text-white">{(result.result.wkg * 1000).toFixed(2)} g</p>
                   </div>
                   {result.result.handleWeight > 0 && (
                     <div>
-                      <p className="text-xs text-gray-400 uppercase tracking-wide">Handle</p>
-                      <p className="text-xl font-semibold text-gray-900 mt-1">{(result.result.handleWeight * 1000).toFixed(0)} g</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide dark:text-gray-500">Handle</p>
+                      <p className="text-xl font-semibold text-gray-900 mt-1 dark:text-white">{(result.result.handleWeight * 1000).toFixed(0)} g</p>
                     </div>
                   )}
                   <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wide">Total / bag</p>
-                    <p className="text-xl font-semibold text-blue-700 mt-1">{(result.result.totalWeight * 1000).toFixed(2)} g</p>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide dark:text-gray-500">Total / bag</p>
+                    <p className="text-xl font-semibold text-blue-700 mt-1 dark:text-blue-300">{(result.result.totalWeight * 1000).toFixed(2)} g</p>
                   </div>
                 </div>
               </Card>
@@ -368,19 +368,19 @@ export default function ClientCalculator() {
               <Card title="Approx box dimensions">
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wide">Length</p>
-                    <p className="text-xl font-semibold text-gray-900 mt-1">{toDisplay(result.result.box.L, unit)} {unitLabel[unit]}</p>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide dark:text-gray-500">Length</p>
+                    <p className="text-xl font-semibold text-gray-900 mt-1 dark:text-white">{toDisplay(result.result.box.L, unit)} {unitLabel[unit]}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wide">Width</p>
-                    <p className="text-xl font-semibold text-gray-900 mt-1">{toDisplay(result.result.box.W, unit)} {unitLabel[unit]}</p>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide dark:text-gray-500">Width</p>
+                    <p className="text-xl font-semibold text-gray-900 mt-1 dark:text-white">{toDisplay(result.result.box.W, unit)} {unitLabel[unit]}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wide">Depth</p>
-                    <p className="text-xl font-semibold text-gray-900 mt-1">{toDisplay(result.result.box.D, unit)} {unitLabel[unit]}</p>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide dark:text-gray-500">Depth</p>
+                    <p className="text-xl font-semibold text-gray-900 mt-1 dark:text-white">{toDisplay(result.result.box.D, unit)} {unitLabel[unit]}</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mt-3 text-center">
+                <p className="text-xs text-gray-400 mt-3 text-center dark:text-gray-500">
                   {form.casePack} bags per case · {Math.ceil(form.orderQty / form.casePack).toLocaleString()} cases for your order
                 </p>
               </Card>
@@ -389,7 +389,7 @@ export default function ClientCalculator() {
             <Card title="Rate curve by quantity">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                  <tr className="text-xs text-gray-400 uppercase border-b border-gray-100 dark:text-gray-500 dark:border-gray-800">
                     <th className="text-left pb-2 font-medium">Order Qty</th>
                     <th className="text-right pb-2 font-medium">Rate / Bag</th>
                     <th className="text-right pb-2 font-medium">Cost / Case</th>
@@ -398,32 +398,32 @@ export default function ClientCalculator() {
                 </thead>
                 <tbody>
                   {result.curve.map((c) => (
-                    <tr key={c.qty} className={c.qty === form.orderQty ? "bg-blue-50" : "border-b border-gray-50"}>
-                      <td className="py-2 font-medium">{c.qty.toLocaleString()}</td>
-                      <td className="py-2 text-right">{formatCurrency(c.ratePerBag, currency)}</td>
-                      <td className="py-2 text-right">{formatCurrency(c.costPerCase, currency)}</td>
-                      <td className="py-2 text-right font-medium">{formatCurrency(c.orderTotal, currency, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+                    <tr key={c.qty} className={c.qty === form.orderQty ? "bg-blue-50 dark:bg-blue-900/30" : "border-b border-gray-50 dark:border-gray-800"}>
+                      <td className="py-2 font-medium dark:text-gray-200">{c.qty.toLocaleString()}</td>
+                      <td className="py-2 text-right dark:text-gray-200">{formatCurrency(c.ratePerBag, currency)}</td>
+                      <td className="py-2 text-right dark:text-gray-200">{formatCurrency(c.costPerCase, currency)}</td>
+                      <td className="py-2 text-right font-medium dark:text-gray-200">{formatCurrency(c.orderTotal, currency, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <p className="text-xs text-gray-400 mt-3">Printed-bag rates drop at higher qty because plate cost is amortised over more units.</p>
+              <p className="text-xs text-gray-400 mt-3 dark:text-gray-500">Printed-bag rates drop at higher qty because plate cost is amortised over more units.</p>
             </Card>
 
             <Card title="Export">
               <div className="flex gap-2">
                 <button
                   onClick={() => exportQuoteCSV({ form, result, currency, unit })}
-                  className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
+                  className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700">
                   Download Excel (.csv)
                 </button>
                 <button
                   onClick={() => exportQuotePDF({ form, result, currency, unit })}
-                  className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
+                  className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700">
                   Download PDF
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-2">Excel opens in any spreadsheet app; PDF uses your browser&apos;s print dialog (choose &quot;Save as PDF&quot;).</p>
+              <p className="text-xs text-gray-400 mt-2 dark:text-gray-500">Excel opens in any spreadsheet app; PDF uses your browser&apos;s print dialog (choose &quot;Save as PDF&quot;).</p>
             </Card>
 
             <Card title="Save this quote">
@@ -444,7 +444,7 @@ export default function ClientCalculator() {
                     Update this quote
                   </button>
                   <button onClick={() => saveQuote({ asNew: true })}
-                    className="flex-1 bg-white border border-blue-600 text-blue-700 text-sm font-medium py-2 rounded-lg hover:bg-blue-50">
+                    className="flex-1 bg-white border border-blue-600 text-blue-700 text-sm font-medium py-2 rounded-lg hover:bg-blue-50 dark:bg-transparent dark:text-blue-400 dark:hover:bg-blue-900/30">
                     Save as new
                   </button>
                 </div>

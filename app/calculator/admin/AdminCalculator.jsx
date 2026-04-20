@@ -275,7 +275,7 @@ export default function AdminCalculator() {
       <div className="lg:w-2/5 space-y-4">
         {pastQuotes.length > 0 && (
           <Card title="Load a past quote" right={loadedQuoteId && (
-            <button onClick={() => loadQuote("")} className="text-xs text-gray-500 hover:text-gray-700">Clear</button>
+            <button onClick={() => loadQuote("")} className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">Clear</button>
           )}>
             <select className={inputCls} value={loadedQuoteId} onChange={(e) => loadQuote(e.target.value)}>
               <option value="">— New quote —</option>
@@ -286,7 +286,7 @@ export default function AdminCalculator() {
               ))}
             </select>
             {loadedQuoteId && (
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-gray-500 mt-2 dark:text-gray-400">
                 Editing <strong>{pastQuotes.find((q) => q.id === loadedQuoteId)?.quoteRef}</strong>. After recalculating you can update it or save as a new quote.
               </p>
             )}
@@ -314,7 +314,7 @@ export default function AdminCalculator() {
               </option>
             ))}
           </select>
-          {form.selectedCodeId && <p className="text-xs text-gray-400 mt-1.5">Specs auto-applied — edit below if needed.</p>}
+          {form.selectedCodeId && <p className="text-xs text-gray-400 mt-1.5 dark:text-gray-500">Specs auto-applied — edit below if needed.</p>}
         </Card>
 
         <Card title="Paper Specifications">
@@ -383,7 +383,7 @@ export default function AdminCalculator() {
             </Field>
           </div>
           {isJodhani && (
-            <div className="mt-4 space-y-3 border-t border-gray-100 pt-3">
+            <div className="mt-4 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
               <Toggle value={form.wetStrength} onChange={() => setJodhani({ wetStrength: !form.wetStrength })} label="Wet Strength Paper" sub="+₹5/kg" />
               <Field label="Transport (₹/kg)">
                 <input type="number" className={inputCls} value={form.transportRate} onChange={(e) => setJodhani({ transportRate: e.target.value })} min="0" step="0.5" />
@@ -396,7 +396,7 @@ export default function AdminCalculator() {
             </div>
           )}
           {!isJodhani && !isOmShivaay && form.millName && (
-            <div className="mt-4 border-t border-gray-100 pt-3">
+            <div className="mt-4 border-t border-gray-100 pt-3 dark:border-gray-800">
               <Field label="TPT (₹/kg)">
                 <input type="number" className={inputCls} value={form.tptRate} onChange={(e) => setTpt(e.target.value)} min="0" step="0.5" />
               </Field>
@@ -407,7 +407,7 @@ export default function AdminCalculator() {
         <Card title={`Dimensions (${unitLabel[unit]})`} right={
           <div className="flex gap-1">
             {["mm", "cm", "in"].map((u) => (
-              <button key={u} onClick={() => updateUnit(u)} className={`text-xs px-2 py-1 rounded ${unit === u ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}>{u}</button>
+              <button key={u} onClick={() => updateUnit(u)} className={`text-xs px-2 py-1 rounded ${unit === u ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"}`}>{u}</button>
             ))}
           </div>
         }>
@@ -517,7 +517,7 @@ export default function AdminCalculator() {
             <Card title="Rate Curve by Quantity">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                  <tr className="text-xs text-gray-400 uppercase border-b border-gray-100 dark:text-gray-500 dark:border-gray-800">
                     <th className="text-left pb-2 font-medium">Qty</th>
                     <th className="text-right pb-2 font-medium">Mfg / Bag</th>
                     <th className="text-right pb-2 font-medium">Rate / Bag</th>
@@ -526,11 +526,11 @@ export default function AdminCalculator() {
                 </thead>
                 <tbody>
                   {curve.map((c) => (
-                    <tr key={c.qty} className={c.qty === form.orderQty ? "bg-blue-50" : "border-b border-gray-50"}>
-                      <td className="py-2 font-medium">{c.qty.toLocaleString()}</td>
-                      <td className="py-2 text-right">₹{c.mfgPerBag.toFixed(4)}</td>
-                      <td className="py-2 text-right">₹{c.ratePerBag.toFixed(4)}</td>
-                      <td className="py-2 text-right font-medium">₹{c.orderTotal.toLocaleString("en-IN")}</td>
+                    <tr key={c.qty} className={c.qty === form.orderQty ? "bg-blue-50 dark:bg-blue-900/30" : "border-b border-gray-50 dark:border-gray-800"}>
+                      <td className="py-2 font-medium dark:text-gray-200">{c.qty.toLocaleString()}</td>
+                      <td className="py-2 text-right dark:text-gray-200">₹{c.mfgPerBag.toFixed(4)}</td>
+                      <td className="py-2 text-right dark:text-gray-200">₹{c.ratePerBag.toFixed(4)}</td>
+                      <td className="py-2 text-right font-medium dark:text-gray-200">₹{c.orderTotal.toLocaleString("en-IN")}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -604,7 +604,7 @@ export default function AdminCalculator() {
                     currency: "INR",
                     unit,
                   })}
-                  className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
+                  className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700">
                   Download Excel (.csv)
                 </button>
                 <button
@@ -620,7 +620,7 @@ export default function AdminCalculator() {
                     currency: "INR",
                     unit,
                   })}
-                  className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
+                  className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700">
                   Download PDF
                 </button>
               </div>
@@ -635,7 +635,7 @@ export default function AdminCalculator() {
                     {saving ? "Saving…" : "Update this quote"}
                   </button>
                   <button onClick={() => saveQuote({ asNew: true })} disabled={saving}
-                    className="flex-1 bg-white border border-blue-600 text-blue-700 text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-50 disabled:opacity-60">
+                    className="flex-1 bg-white border border-blue-600 text-blue-700 text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-50 disabled:opacity-60 dark:bg-transparent dark:text-blue-400 dark:hover:bg-blue-900/30">
                     Save as new
                   </button>
                 </div>

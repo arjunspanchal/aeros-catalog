@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import ThemeToggle from "./components/ThemeToggle";
 
 const OPTIONS = [
   {
@@ -24,82 +24,18 @@ const OPTIONS = [
 ];
 
 export default function HomeClient({ footer }) {
-  const [dark, setDark] = useState(false);
-
-  // Initial preference: saved override → OS preference → light.
-  useEffect(() => {
-    const saved = typeof window !== "undefined" ? localStorage.getItem("aeros_theme") : null;
-    if (saved === "dark") setDark(true);
-    else if (saved === "light") setDark(false);
-    else if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
-      setDark(true);
-    }
-  }, []);
-
-  function toggle() {
-    setDark((d) => {
-      const next = !d;
-      if (typeof window !== "undefined") localStorage.setItem("aeros_theme", next ? "dark" : "light");
-      return next;
-    });
-  }
-
-  // Tailwind doesn't like dynamic class names at build time, so precompute full strings.
-  const theme = dark
-    ? {
-        bg: "bg-gradient-to-b from-gray-950 to-gray-900",
-        title: "text-white",
-        subtitle: "text-gray-400",
-        card: "bg-gray-900 border-gray-800 hover:border-gray-700",
-        cardTitle: "text-white",
-        cardDesc: "text-gray-400",
-        cardCta: "text-blue-400 group-hover:text-blue-300",
-        muted: "text-gray-500",
-        storeBtnDisabledText: "text-gray-500",
-        toggleBg: "bg-gray-800 text-yellow-300 hover:bg-gray-700",
-        rebrandNote: "text-gray-500",
-      }
-    : {
-        bg: "bg-gradient-to-b from-gray-50 to-white",
-        title: "text-gray-900",
-        subtitle: "text-gray-600",
-        card: "bg-white border-gray-200 hover:border-gray-300",
-        cardTitle: "text-gray-900",
-        cardDesc: "text-gray-600",
-        cardCta: "text-blue-700 group-hover:text-blue-800",
-        muted: "text-gray-500",
-        storeBtnDisabledText: "text-gray-500",
-        toggleBg: "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100",
-        rebrandNote: "text-gray-400",
-      };
-
   return (
-    <div className={`min-h-screen flex flex-col ${theme.bg}`}>
-      <button
-        onClick={toggle}
-        aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-        className={`fixed top-4 right-4 z-40 flex h-10 w-10 items-center justify-center rounded-full shadow-sm transition-colors ${theme.toggleBg}`}
-      >
-        {dark ? (
-          // Sun
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5">
-            <circle cx="12" cy="12" r="4" />
-            <path strokeLinecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-          </svg>
-        ) : (
-          // Moon
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
-          </svg>
-        )}
-      </button>
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white dark:bg-none dark:bg-gray-950">
+      <div className="fixed top-4 right-4 z-40">
+        <ThemeToggle />
+      </div>
 
       <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
         <div className="text-center mb-10 sm:mb-16">
-          <h1 className={`text-3xl sm:text-5xl font-bold tracking-tight ${theme.title}`}>
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-gray-900 dark:text-white">
             Welcome to Aeros
           </h1>
-          <p className={`mt-3 sm:mt-4 text-base sm:text-lg max-w-2xl mx-auto ${theme.subtitle}`}>
+          <p className="mt-3 sm:mt-4 text-base sm:text-lg max-w-2xl mx-auto text-gray-600 dark:text-gray-400">
             Paper packaging manufactured in India. Pick what you&apos;re here for.
           </p>
         </div>
@@ -109,18 +45,20 @@ export default function HomeClient({ footer }) {
             <Link
               key={o.href}
               href={o.href}
-              className={`group relative overflow-hidden rounded-2xl border p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 ${theme.card}`}
+              className="group relative overflow-hidden rounded-2xl border p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 bg-white border-gray-200 hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800 dark:hover:border-gray-700"
             >
               <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${o.accent}`} />
-              <h2 className={`text-lg sm:text-xl font-semibold mt-1 ${theme.cardTitle}`}>{o.title}</h2>
-              <p className={`mt-2 text-sm leading-relaxed ${theme.cardDesc}`}>{o.description}</p>
-              <p className={`mt-4 text-sm font-medium ${theme.cardCta}`}>Enter →</p>
+              <h2 className="text-lg sm:text-xl font-semibold mt-1 text-gray-900 dark:text-white">{o.title}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{o.description}</p>
+              <p className="mt-4 text-sm font-medium text-blue-700 group-hover:text-blue-800 dark:text-blue-400 dark:group-hover:text-blue-300">
+                Enter →
+              </p>
             </Link>
           ))}
         </div>
 
         <div className="mt-10 sm:mt-16 text-center">
-          <p className={`text-sm mb-3 ${theme.muted}`}>Prefer the mobile app?</p>
+          <p className="text-sm mb-3 text-gray-500 dark:text-gray-400">Prefer the mobile app?</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
               href="https://apps.apple.com/in/app/bosone/id6502510427"
@@ -154,7 +92,7 @@ export default function HomeClient({ footer }) {
               </span>
             </a>
           </div>
-          <p className={`text-xs mt-4 ${theme.rebrandNote}`}>
+          <p className="text-xs mt-4 text-gray-400 dark:text-gray-500">
             Currently listed as <em>Bosone</em> while the Aeros rebrand is in progress.
           </p>
         </div>

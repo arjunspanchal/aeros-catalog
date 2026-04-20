@@ -2,9 +2,9 @@ export default function ItemCard({ item }) {
   const outOfStock = item.stockQuantity === 0;
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:shadow-md">
+    <div className="group flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
       {/* Image or placeholder */}
-      <div className="relative aspect-square overflow-hidden bg-gray-100">
+      <div className="relative aspect-square overflow-hidden bg-gray-100 dark:bg-gray-800">
         {item.photoUrl ? (
           // Use plain <img> instead of next/image to avoid optimization pipeline
           // for Airtable URLs (which expire). Simpler and reliable.
@@ -18,7 +18,7 @@ export default function ItemCard({ item }) {
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <svg
-              className="h-16 w-16 text-gray-300"
+              className="h-16 w-16 text-gray-300 dark:text-gray-600"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -34,7 +34,7 @@ export default function ItemCard({ item }) {
         )}
         {outOfStock && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-900">
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-900 dark:bg-gray-900 dark:text-gray-100">
               Out of Stock
             </span>
           </div>
@@ -44,22 +44,22 @@ export default function ItemCard({ item }) {
       {/* Body */}
       <div className="flex flex-1 flex-col p-4">
         <div className="mb-2 flex items-start justify-between gap-2">
-          <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
+          <span className="inline-block rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700 dark:bg-amber-900/40 dark:text-amber-300">
             {item.category}
           </span>
           {item.brand && item.brand !== 'Other' && (
-            <span className="truncate text-xs text-gray-500">{item.brand}</span>
+            <span className="truncate text-xs text-gray-500 dark:text-gray-400">{item.brand}</span>
           )}
         </div>
 
-        <h3 className="mb-1 line-clamp-2 text-sm font-semibold text-gray-900">
+        <h3 className="mb-1 line-clamp-2 text-sm font-semibold text-gray-900 dark:text-white">
           {item.itemName}
         </h3>
 
-        <p className="mb-4 text-xs text-gray-600">
+        <p className="mb-4 text-xs text-gray-600 dark:text-gray-400">
           {item.stockQuantity !== null ? (
             <>
-              <span className="font-semibold text-gray-900">
+              <span className="font-semibold text-gray-900 dark:text-gray-200">
                 {item.stockQuantity.toLocaleString()}
               </span>{' '}
               {item.unit} available
@@ -88,7 +88,7 @@ export default function ItemCard({ item }) {
           {item.emailUrl && (
             <a
               href={item.emailUrl}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-gray-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-700"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-gray-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600"
               aria-label={`Inquire about ${item.itemName} by email`}
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

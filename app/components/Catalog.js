@@ -33,7 +33,7 @@ export default function Catalog({ items, categories }) {
       <div className="mb-6 space-y-4">
         <div className="relative">
           <svg
-            className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+            className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 dark:text-gray-500"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -50,7 +50,7 @@ export default function Catalog({ items, categories }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by item name, brand, or category…"
-            className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-10 pr-4 text-base shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-10 pr-4 text-base shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
           />
         </div>
 
@@ -72,38 +72,38 @@ export default function Catalog({ items, categories }) {
           ))}
         </div>
 
-        <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+        <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
           <input
             type="checkbox"
             checked={showOutOfStock}
             onChange={(e) => setShowOutOfStock(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+            className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
           />
           Show out-of-stock items
         </label>
       </div>
 
       {/* Results count */}
-      <p className="mb-4 text-sm text-gray-600">
-        Showing <span className="font-semibold text-gray-900">{filteredItems.length}</span>{' '}
+      <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+        Showing <span className="font-semibold text-gray-900 dark:text-white">{filteredItems.length}</span>{' '}
         {filteredItems.length === 1 ? 'item' : 'items'}
         {query && (
           <>
             {' '}
-            for &ldquo;<span className="font-semibold text-gray-900">{query}</span>&rdquo;
+            for &ldquo;<span className="font-semibold text-gray-900 dark:text-white">{query}</span>&rdquo;
           </>
         )}
         {selectedCategory !== 'All' && (
           <>
-            {' '}in <span className="font-semibold text-gray-900">{selectedCategory}</span>
+            {' '}in <span className="font-semibold text-gray-900 dark:text-white">{selectedCategory}</span>
           </>
         )}
       </p>
 
       {/* Grid */}
       {filteredItems.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-12 text-center">
-          <p className="text-gray-500">No items match your search. Try a different term or category.</p>
+        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-12 text-center dark:border-gray-700 dark:bg-gray-900">
+          <p className="text-gray-500 dark:text-gray-400">No items match your search. Try a different term or category.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -124,7 +124,7 @@ function CategoryChip({ active, onClick, children }) {
         'rounded-full px-4 py-1.5 text-sm font-medium transition ' +
         (active
           ? 'bg-brand-600 text-white shadow-sm'
-          : 'bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50')
+          : 'bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-700 dark:hover:bg-gray-800')
       }
     >
       {children}

@@ -65,10 +65,10 @@ function ClientRow({ client, onPatched, onDeleted }) {
     else alert("Delete failed");
   }
 
-  const cellInput = "text-sm bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none px-1 py-0.5";
+  const cellInput = "text-sm bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none px-1 py-0.5 dark:text-gray-200 dark:hover:border-gray-700 dark:focus:border-blue-400";
 
   return (
-    <tr className={`border-b border-gray-50 ${dirty ? "bg-amber-50/30" : "hover:bg-gray-50"}`}>
+    <tr className={`border-b border-gray-50 dark:border-gray-800 ${dirty ? "bg-amber-50/30 dark:bg-amber-900/20" : "hover:bg-gray-50 dark:hover:bg-gray-800"}`}>
       <td className="py-2">
         <input type="email" className={`${cellInput} w-56`}
           value={draft.email} onChange={(e) => set("email", e.target.value)} />
@@ -87,24 +87,24 @@ function ClientRow({ client, onPatched, onDeleted }) {
           className={`${cellInput} w-16 text-right`}
           value={draft.marginPct ?? ""}
           onChange={(e) => set("marginPct", e.target.value)} />
-        <span className="text-gray-400 text-xs ml-1">%</span>
+        <span className="text-gray-400 text-xs ml-1 dark:text-gray-500">%</span>
       </td>
       <td className="py-2 text-right">
         <input type="number" step="0.5"
           className={`${cellInput} w-16 text-right`}
           value={draft.discountPct ?? 0}
           onChange={(e) => set("discountPct", e.target.value)} />
-        <span className="text-gray-400 text-xs ml-1">%</span>
+        <span className="text-gray-400 text-xs ml-1 dark:text-gray-500">%</span>
       </td>
       <td className="py-2">
-        <select className="text-sm bg-transparent border-none focus:outline-none"
+        <select className="text-sm bg-transparent border-none focus:outline-none dark:text-gray-200 dark:[&>option]:bg-gray-800"
           value={draft.preferredCurrency || "INR"}
           onChange={(e) => set("preferredCurrency", e.target.value)}>
           {CURRENCY_CODES.map((cc) => <option key={cc} value={cc}>{cc}</option>)}
         </select>
       </td>
       <td className="py-2">
-        <select className="text-sm bg-transparent border-none focus:outline-none"
+        <select className="text-sm bg-transparent border-none focus:outline-none dark:text-gray-200 dark:[&>option]:bg-gray-800"
           value={draft.preferredUnit || "mm"}
           onChange={(e) => set("preferredUnit", e.target.value)}>
           <option value="mm">mm</option>
@@ -113,7 +113,7 @@ function ClientRow({ client, onPatched, onDeleted }) {
         </select>
       </td>
       <td className="py-2">
-        <select className="text-sm bg-transparent border-none focus:outline-none"
+        <select className="text-sm bg-transparent border-none focus:outline-none dark:text-gray-200 dark:[&>option]:bg-gray-800"
           value={draft.status}
           onChange={(e) => set("status", e.target.value)}>
           <option value="Active">Active</option>
@@ -121,7 +121,7 @@ function ClientRow({ client, onPatched, onDeleted }) {
           <option value="Blocked">Blocked</option>
         </select>
       </td>
-      <td className="py-2 text-gray-500 text-xs">{client.lastLogin ? new Date(client.lastLogin).toLocaleDateString() : "—"}</td>
+      <td className="py-2 text-gray-500 text-xs dark:text-gray-400">{client.lastLogin ? new Date(client.lastLogin).toLocaleDateString() : "—"}</td>
       <td className="py-2 text-right whitespace-nowrap">
         {dirty ? (
           <>
@@ -129,10 +129,10 @@ function ClientRow({ client, onPatched, onDeleted }) {
               className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded hover:bg-blue-700 disabled:opacity-60 mr-1">
               {saving ? "Saving…" : "Save"}
             </button>
-            <button onClick={cancel} className="text-xs text-gray-500 hover:text-gray-700 px-1">Cancel</button>
+            <button onClick={cancel} className="text-xs text-gray-500 hover:text-gray-700 px-1 dark:text-gray-400 dark:hover:text-gray-200">Cancel</button>
           </>
         ) : (
-          <button onClick={remove} className="text-red-400 hover:text-red-600 text-xs px-2" title="Delete client">✕</button>
+          <button onClick={remove} className="text-red-400 hover:text-red-600 text-xs px-2 dark:text-red-400 dark:hover:text-red-300" title="Delete client">✕</button>
         )}
       </td>
     </tr>
@@ -225,21 +225,21 @@ export default function ClientsAdmin() {
         </form>
         {addErr && <p className="text-xs text-red-500 mt-2">{addErr}</p>}
         {addOk && <p className="text-xs text-green-600 mt-2">✓ Client added. They can now log in with that email.</p>}
-        <p className="text-xs text-gray-400 mt-3">
+        <p className="text-xs text-gray-400 mt-3 dark:text-gray-500">
           Client logs in at <code>/calculator/login</code> using the email above and a one-time code sent to it. Their margin is applied to all rate quotes automatically.
         </p>
       </Card>
 
       <Card title="All clients">
         {clients === null ? (
-          <p className="text-sm text-gray-500">Loading…</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
         ) : clients.length === 0 ? (
-          <p className="text-sm text-gray-500">No clients yet. Add one above, or let them self-register by logging in with their email.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No clients yet. Add one above, or let them self-register by logging in with their email.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                <tr className="text-xs text-gray-400 uppercase border-b border-gray-100 dark:text-gray-500 dark:border-gray-800">
                   <th className="text-left pb-2 font-medium">Email</th>
                   <th className="text-left pb-2 font-medium">Name</th>
                   <th className="text-left pb-2 font-medium">Company</th>
@@ -261,7 +261,7 @@ export default function ClientsAdmin() {
             </table>
           </div>
         )}
-        <p className="text-xs text-gray-400 mt-4">
+        <p className="text-xs text-gray-400 mt-4 dark:text-gray-500">
           Edit any cell, then click <strong>Save</strong> to commit. Rows with pending changes are highlighted.<br />
           Final rate = mfg cost × (1 + margin%) × (1 − discount%). Margin marks up, discount marks down.
         </p>

@@ -55,20 +55,20 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-sm p-6">
-        <a href="/" className="inline-block text-xs text-gray-500 hover:text-blue-700 mb-3">← Back to Aeros home</a>
-        <h1 className="text-xl font-bold text-gray-900">Aeros Paper Bag Rate Calculator</h1>
-        <p className="text-sm text-gray-500 mt-1">Sign in to continue</p>
+    <div className="min-h-screen flex items-center justify-center p-4 dark:bg-gray-950">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-sm p-6 dark:bg-gray-900 dark:border-gray-800">
+        <a href="/" className="inline-block text-xs text-gray-500 hover:text-blue-700 mb-3 dark:text-gray-400 dark:hover:text-blue-400">← Back to Aeros home</a>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Aeros Paper Bag Rate Calculator</h1>
+        <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">Sign in to continue</p>
 
         <div className="mt-5 flex gap-2 mb-5">
           <button
             onClick={() => { setMode("client"); setErr(""); setStage("enter"); }}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium ${mode === "client" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium ${mode === "client" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"}`}
           >Client</button>
           <button
             onClick={() => { setMode("admin"); setErr(""); }}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium ${mode === "admin" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium ${mode === "admin" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"}`}
           >Admin</button>
         </div>
 
@@ -89,7 +89,7 @@ export default function LoginForm() {
         )}
         {mode === "client" && stage === "otp" && (
           <form onSubmit={verifyOtp} className="space-y-3">
-            <p className="text-xs text-gray-500">We sent a 6-digit code to <strong>{email}</strong>.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">We sent a 6-digit code to <strong>{email}</strong>.</p>
             <input
               type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6}
               className={`${inputCls} text-center tracking-widest font-mono`}
@@ -101,7 +101,7 @@ export default function LoginForm() {
             <button disabled={busy} className="w-full bg-blue-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60">
               {busy ? "Verifying…" : "Verify & sign in"}
             </button>
-            <button type="button" onClick={() => setStage("enter")} className="w-full text-xs text-gray-500 hover:text-gray-700">
+            <button type="button" onClick={() => setStage("enter")} className="w-full text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
               Use a different email
             </button>
           </form>

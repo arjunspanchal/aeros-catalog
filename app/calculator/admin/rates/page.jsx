@@ -32,24 +32,24 @@ export default function AdminRatesPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <NavBar role="admin" />
       <div className="max-w-5xl mx-auto px-4 pb-10">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Mill Rates & Calculator Constants</h1>
-        <p className="text-sm text-gray-500 mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-1 dark:text-white">Mill Rates & Calculator Constants</h1>
+        <p className="text-sm text-gray-500 mb-6 dark:text-gray-400">
           Read-only reference. These are the numbers the calculator is using right now.
-          To change any of them, edit <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">lib/calc/calculator.js</code> and redeploy.
+          To change any of them, edit <code className="text-xs bg-gray-100 px-1 py-0.5 rounded dark:bg-gray-800 dark:text-gray-200">lib/calc/calculator.js</code> and redeploy.
         </p>
 
         <div className="space-y-6">
           <Card title="Jodhani — Brown Kraft (effective ₹/kg)">
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="text-xs text-gray-500 mb-3 dark:text-gray-400">
               Effective = base rate − ₹{JODHANI_DISCOUNT} discount + ₹{defaultTransport} default transport. Wet strength adds another ₹{WET_STRENGTH_EXTRA}/kg.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                  <tr className="text-xs text-gray-400 uppercase border-b border-gray-100 dark:text-gray-500 dark:border-gray-800">
                     <th className="text-left pb-2 font-medium">GSM</th>
                     {jodhaniBFs.map((bf) => (
                       <th key={bf} className="text-right pb-2 font-medium">{bf} BF</th>
@@ -58,15 +58,15 @@ export default function AdminRatesPage() {
                 </thead>
                 <tbody>
                   {jodhaniGSMs.map((gsm) => (
-                    <tr key={gsm} className="border-b border-gray-50">
-                      <td className="py-2 font-medium text-gray-700">{gsm}</td>
+                    <tr key={gsm} className="border-b border-gray-50 dark:border-gray-800">
+                      <td className="py-2 font-medium text-gray-700 dark:text-gray-200">{gsm}</td>
                       {jodhaniBFs.map((bf) => {
                         const base = JODHANI_RATES[gsm]?.[bf];
-                        if (!base) return <td key={bf} className="py-2 text-right text-gray-300">—</td>;
+                        if (!base) return <td key={bf} className="py-2 text-right text-gray-300 dark:text-gray-600">—</td>;
                         return (
                           <td key={bf} className="py-2 text-right">
-                            <span className="font-medium text-gray-900">₹{jodhaniEffective(base).toFixed(2)}</span>
-                            <span className="block text-xs text-gray-400">base ₹{base}</span>
+                            <span className="font-medium text-gray-900 dark:text-white">₹{jodhaniEffective(base).toFixed(2)}</span>
+                            <span className="block text-xs text-gray-400 dark:text-gray-500">base ₹{base}</span>
                           </td>
                         );
                       })}
@@ -78,19 +78,19 @@ export default function AdminRatesPage() {
           </Card>
 
           <Card title="Om Shivaay — Brown Kraft (₹/kg)">
-            <p className="text-xs text-gray-500 mb-3">No discount or transport applied — flat rate.</p>
+            <p className="text-xs text-gray-500 mb-3 dark:text-gray-400">No discount or transport applied — flat rate.</p>
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                <tr className="text-xs text-gray-400 uppercase border-b border-gray-100 dark:text-gray-500 dark:border-gray-800">
                   <th className="text-left pb-2 font-medium">GSM</th>
                   <th className="text-right pb-2 font-medium">28 BF</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(OM_SHIVAAY_RATES).map(([gsm, bfs]) => (
-                  <tr key={gsm} className="border-b border-gray-50">
-                    <td className="py-2 font-medium text-gray-700">{gsm}</td>
-                    <td className="py-2 text-right font-medium text-gray-900">₹{bfs[28]?.toFixed(2)}</td>
+                  <tr key={gsm} className="border-b border-gray-50 dark:border-gray-800">
+                    <td className="py-2 font-medium text-gray-700 dark:text-gray-200">{gsm}</td>
+                    <td className="py-2 text-right font-medium text-gray-900 dark:text-white">₹{bfs[28]?.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -98,21 +98,21 @@ export default function AdminRatesPage() {
           </Card>
 
           <Card title="Fallback rates (for mills not in the main tables)">
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="text-xs text-gray-500 mb-3 dark:text-gray-400">
               Used by the client calculator when no Jodhani/Om Shivaay match applies. Admin can override manually on the calculator form.
             </p>
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                <tr className="text-xs text-gray-400 uppercase border-b border-gray-100 dark:text-gray-500 dark:border-gray-800">
                   <th className="text-left pb-2 font-medium">Paper type</th>
                   <th className="text-right pb-2 font-medium">Rate (₹/kg)</th>
                 </tr>
               </thead>
               <tbody>
                 {fallbackRates.map((row) => (
-                  <tr key={row.type} className="border-b border-gray-50">
-                    <td className="py-2 text-gray-700">{row.type}</td>
-                    <td className="py-2 text-right font-medium text-gray-900">₹{row.rate}</td>
+                  <tr key={row.type} className="border-b border-gray-50 dark:border-gray-800">
+                    <td className="py-2 text-gray-700 dark:text-gray-200">{row.type}</td>
+                    <td className="py-2 text-right font-medium text-gray-900 dark:text-white">₹{row.rate}</td>
                   </tr>
                 ))}
               </tbody>
@@ -149,7 +149,7 @@ export default function AdminRatesPage() {
           </Card>
 
           <Card title="Default wastage %">
-            <p className="text-xs text-gray-500 mb-3">Applied to paper cost when admin doesn&apos;t override.</p>
+            <p className="text-xs text-gray-500 mb-3 dark:text-gray-400">Applied to paper cost when admin doesn&apos;t override.</p>
             <table className="w-full">
               <tbody>
                 <Row label="SOS" value="10%" />

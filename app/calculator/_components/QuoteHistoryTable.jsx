@@ -43,25 +43,25 @@ function DetailView({ quote, showClientColumn }) {
   }).filter(Boolean);
 
   return (
-    <div className="bg-gray-50 p-4 border-b border-gray-100">
+    <div className="bg-gray-50 p-4 border-b border-gray-100 dark:bg-gray-800 dark:border-gray-700">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
         {rows.map((r) => (
-          <div key={r.label} className="flex justify-between text-sm py-1 border-b border-gray-100">
-            <span className="text-gray-500">{r.label}</span>
-            <span className={r.highlight ? "font-semibold text-blue-700" : "text-gray-900"}>{r.value}</span>
+          <div key={r.label} className="flex justify-between text-sm py-1 border-b border-gray-100 dark:border-gray-700">
+            <span className="text-gray-500 dark:text-gray-400">{r.label}</span>
+            <span className={r.highlight ? "font-semibold text-blue-700 dark:text-blue-300" : "text-gray-900 dark:text-gray-200"}>{r.value}</span>
           </div>
         ))}
         {showClientColumn && quote.clientEmail && (
-          <div className="flex justify-between text-sm py-1 border-b border-gray-100">
-            <span className="text-gray-500">Client email</span>
-            <span className="text-gray-900 break-all">{quote.clientEmail}</span>
+          <div className="flex justify-between text-sm py-1 border-b border-gray-100 dark:border-gray-700">
+            <span className="text-gray-500 dark:text-gray-400">Client email</span>
+            <span className="text-gray-900 break-all dark:text-gray-200">{quote.clientEmail}</span>
           </div>
         )}
       </div>
       {quote.notes && (
         <div className="mt-3 text-sm">
-          <span className="text-gray-500">Notes: </span>
-          <span className="text-gray-800">{quote.notes}</span>
+          <span className="text-gray-500 dark:text-gray-400">Notes: </span>
+          <span className="text-gray-800 dark:text-gray-200">{quote.notes}</span>
         </div>
       )}
     </div>
@@ -87,8 +87,8 @@ export default function QuoteHistoryTable({ showClientColumn }) {
     );
   }, [quotes, q]);
 
-  if (quotes === null) return <Card><p className="text-sm text-gray-500">Loading…</p></Card>;
-  if (quotes.length === 0) return <Card><p className="text-sm text-gray-500">No quotes saved yet.</p></Card>;
+  if (quotes === null) return <Card><p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p></Card>;
+  if (quotes.length === 0) return <Card><p className="text-sm text-gray-500 dark:text-gray-400">No quotes saved yet.</p></Card>;
 
   const colspan = showClientColumn ? 9 : 8;
 
@@ -98,7 +98,7 @@ export default function QuoteHistoryTable({ showClientColumn }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+            <tr className="text-xs text-gray-400 uppercase border-b border-gray-100 dark:text-gray-500 dark:border-gray-800">
               <th className="text-left pb-2 font-medium">Date</th>
               <th className="text-left pb-2 font-medium">Ref</th>
               <th className="text-left pb-2 font-medium">Bag</th>
@@ -117,37 +117,37 @@ export default function QuoteHistoryTable({ showClientColumn }) {
                 <>
                   <tr key={quote.id}
                     onClick={() => setExpandedId(isOpen ? null : quote.id)}
-                    className={`cursor-pointer border-b border-gray-50 hover:bg-gray-50 ${isOpen ? "bg-blue-50/40" : ""}`}>
-                    <td className="py-2 text-gray-500 text-xs">{quote.date}</td>
-                    <td className="py-2 font-medium">
-                      <span className="text-gray-400 mr-1">{isOpen ? "▾" : "▸"}</span>
+                    className={`cursor-pointer border-b border-gray-50 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800 ${isOpen ? "bg-blue-50/40 dark:bg-blue-900/20" : ""}`}>
+                    <td className="py-2 text-gray-500 text-xs dark:text-gray-400">{quote.date}</td>
+                    <td className="py-2 font-medium dark:text-gray-200">
+                      <span className="text-gray-400 mr-1 dark:text-gray-500">{isOpen ? "▾" : "▸"}</span>
                       {quote.quoteRef}
                     </td>
                     <td className="py-2">
                       <span className="inline-flex gap-1 items-center">
-                        <span className="text-gray-700">{quote.bagType}</span>
-                        <span className="text-xs text-gray-400">{quote.plainPrinted}</span>
+                        <span className="text-gray-700 dark:text-gray-300">{quote.bagType}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{quote.plainPrinted}</span>
                       </span>
                     </td>
-                    <td className="py-2 text-gray-500 text-xs">{[quote.brand, quote.item].filter(Boolean).join(" · ") || "—"}</td>
-                    <td className="py-2 text-gray-500 text-xs">
+                    <td className="py-2 text-gray-500 text-xs dark:text-gray-400">{[quote.brand, quote.item].filter(Boolean).join(" · ") || "—"}</td>
+                    <td className="py-2 text-gray-500 text-xs dark:text-gray-400">
                       {quote.width}×{quote.gusset}×{quote.height}mm · {quote.gsm}G{quote.bf ? `/${quote.bf}BF` : ""}
                     </td>
-                    <td className="py-2 text-right">{quote.orderQty ? quote.orderQty.toLocaleString() : "—"}</td>
-                    <td className="py-2 text-right">{quote.sellingPrice != null ? `₹${Number(quote.sellingPrice).toFixed(2)}` : "—"}</td>
-                    <td className="py-2 text-right font-medium">{quote.orderTotal != null ? `₹${Number(quote.orderTotal).toLocaleString("en-IN")}` : "—"}</td>
-                    {showClientColumn && <td className="py-2 text-gray-500 text-xs">{quote.clientEmail || quote.generatedBy}</td>}
+                    <td className="py-2 text-right dark:text-gray-200">{quote.orderQty ? quote.orderQty.toLocaleString() : "—"}</td>
+                    <td className="py-2 text-right dark:text-gray-200">{quote.sellingPrice != null ? `₹${Number(quote.sellingPrice).toFixed(2)}` : "—"}</td>
+                    <td className="py-2 text-right font-medium dark:text-gray-200">{quote.orderTotal != null ? `₹${Number(quote.orderTotal).toLocaleString("en-IN")}` : "—"}</td>
+                    {showClientColumn && <td className="py-2 text-gray-500 text-xs dark:text-gray-400">{quote.clientEmail || quote.generatedBy}</td>}
                   </tr>
                   {isOpen && (
                     <tr key={`${quote.id}-detail`}>
                       <td colSpan={colspan} className="p-0">
                         <DetailView quote={quote} showClientColumn={showClientColumn} />
-                        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-3">
+                        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-3 dark:bg-gray-800 dark:border-gray-700">
                           <Link href={showClientColumn ? `/calculator/admin?quote=${quote.id}` : `/calculator/client?quote=${quote.id}`}
                             className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700">
                             Re-open in calculator
                           </Link>
-                          <span className="text-xs text-gray-400">Opens the calculator pre-filled with this quote so you can update or save as new.</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">Opens the calculator pre-filled with this quote so you can update or save as new.</span>
                         </div>
                       </td>
                     </tr>
@@ -158,7 +158,7 @@ export default function QuoteHistoryTable({ showClientColumn }) {
           </tbody>
         </table>
       </div>
-      {filtered.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No matches.</p>}
+      {filtered.length === 0 && <p className="text-sm text-gray-400 text-center py-4 dark:text-gray-500">No matches.</p>}
     </Card>
   );
 }
