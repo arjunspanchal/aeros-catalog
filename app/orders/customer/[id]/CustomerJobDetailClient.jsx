@@ -116,19 +116,35 @@ export default function CustomerJobDetailClient({ initialJob, initialUpdates }) 
           </>}
         </dl>
 
-        {job.lrFiles && job.lrFiles.length > 0 && (
+        {(job.transportMode || job.lrOrVehicleNumber || job.driverContact || (job.lrFiles && job.lrFiles.length > 0)) && (
           <div className="mt-5 border-t border-gray-100 dark:border-gray-800 pt-4">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Dispatch documents (LR)</h3>
-            <ul className="space-y-1.5">
-              {job.lrFiles.map((f) => (
-                <li key={f.id} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-700 dark:text-gray-300 truncate">{f.filename}</span>
-                  <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline dark:text-blue-400 ml-3 shrink-0">
-                    Download ↗
-                  </a>
-                </li>
-              ))}
-            </ul>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Tracking</h3>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-3">
+              {job.transportMode && (<>
+                <dt className="text-gray-500 dark:text-gray-400">Mode</dt>
+                <dd className="text-gray-900 dark:text-white">{job.transportMode}</dd>
+              </>)}
+              {job.lrOrVehicleNumber && (<>
+                <dt className="text-gray-500 dark:text-gray-400">{job.transportMode === "Direct Vehicle" ? "Vehicle no." : "LR no."}</dt>
+                <dd className="text-gray-900 dark:text-white">{job.lrOrVehicleNumber}</dd>
+              </>)}
+              {job.driverContact && (<>
+                <dt className="text-gray-500 dark:text-gray-400">Driver</dt>
+                <dd className="text-gray-900 dark:text-white">{job.driverContact}</dd>
+              </>)}
+            </dl>
+            {job.lrFiles && job.lrFiles.length > 0 && (
+              <ul className="space-y-1.5">
+                {job.lrFiles.map((f) => (
+                  <li key={f.id} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-700 dark:text-gray-300 truncate">{f.filename}</span>
+                    <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline dark:text-blue-400 ml-3 shrink-0">
+                      Download ↗
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 

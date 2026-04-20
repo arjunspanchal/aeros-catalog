@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import ThemeToggle from "@/app/components/ThemeToggle";
 
 export default function NavBar({ role, name, email }) {
   const router = useRouter();
@@ -51,6 +52,7 @@ export default function NavBar({ role, name, email }) {
           <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
             {name || email} · <span className="capitalize">{role?.replace("_", " ")}</span>
           </span>
+          <ThemeToggle />
           <button
             onClick={logout}
             className="text-xs text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"

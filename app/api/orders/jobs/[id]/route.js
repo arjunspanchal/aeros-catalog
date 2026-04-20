@@ -115,6 +115,9 @@ export async function PATCH(req, { params }) {
     if (body.productionDueDate !== undefined) patch.productionDueDate = body.productionDueDate;
     if (body.itemSize !== undefined) patch.itemSize = body.itemSize;
     if (body.urgent !== undefined) patch.urgent = !!body.urgent;
+    if (body.transportMode !== undefined) patch.transportMode = body.transportMode;
+    if (body.lrOrVehicleNumber !== undefined) patch.lrOrVehicleNumber = body.lrOrVehicleNumber;
+    if (body.driverContact !== undefined) patch.driverContact = body.driverContact;
 
     const updated = Object.keys(patch).length > 0 ? await updateJob(job.id, patch) : job;
 

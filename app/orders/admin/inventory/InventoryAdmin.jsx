@@ -7,6 +7,8 @@ const STATUSES = ["", "In Stock", "Reserved", "Low", "Depleted"];
 
 const EMPTY = {
   name: "",
+  masterPaperId: "",
+  masterRmName: "",
   paperType: "",
   gsm: "",
   bf: "",
@@ -29,6 +31,8 @@ const EMPTY = {
 function toForm(rm) {
   return {
     name: rm.name || "",
+    masterPaperId: "",
+    masterRmName: rm.masterRmName || "",
     paperType: rm.paperType || "",
     gsm: rm.gsm != null ? String(rm.gsm) : "",
     bf: rm.bf != null ? String(rm.bf) : "",
@@ -53,6 +57,7 @@ function toBody(form) {
   const num = (v) => (v === "" ? undefined : Number(v));
   return {
     name: form.name.trim(),
+    masterRmName: form.masterRmName.trim(),
     paperType: form.paperType.trim(),
     gsm: num(form.gsm),
     bf: num(form.bf),
@@ -86,41 +91,65 @@ const STATUS_COLORS = {
   "Depleted": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
 };
 
-export default function RawMaterialsAdmin({ initialRawMaterials }) {
-  const [rawMaterials, setRawMaterials] = useState(initialRawMaterials);
+export default function InventoryAdmin({ initialInventory, masterPapers = [] }) {
+  const [inventory, setInventory] = useState(initialInventory);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [masterQuery, setMasterQuery] = useState("");
 
   const isEditing = editingId !== null;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return rawMaterials.filter((rm) => {
+    return inventory.filter((rm) => {
       if (statusFilter !== "all" && rm.status !== statusFilter) return false;
       if (!q) return true;
-      return `${rm.name} ${rm.supplier} ${rm.paperType} ${rm.gsm ?? ""} ${rm.bf ?? ""} ${rm.sizeMm ?? ""} ${rm.form} ${rm.location}`.toLowerCase().includes(q);
+      return `${rm.name} ${rm.masterRmName} ${rm.supplier} ${rm.paperType} ${rm.gsm ?? ""} ${rm.bf ?? ""} ${rm.sizeMm ?? ""} ${rm.form} ${rm.location}`.toLowerCase().includes(q);
     });
-  }, [rawMaterials, query, statusFilter]);
+  }, [inventory, query, statusFilter]);
 
-  // Stock totals for the summary cards.
   const totals = useMemo(() => {
     const t = { rolls: 0, kgs: 0, lines: 0, low: 0 };
-    for (const rm of rawMaterials) {
+    for (const rm of inventory) {
       if (rm.qtyRolls) t.rolls += rm.qtyRolls;
       if (rm.qtyKgs) t.kgs += rm.qtyKgs;
       if (rm.qtyRolls || rm.qtyKgs) t.lines++;
       if (rm.status === "Low" || rm.status === "Depleted") t.low++;
     }
     return t;
-  }, [rawMaterials]);
+  }, [inventory]);
+
+  const filteredMasters = useMemo(() => {
+    const q = masterQuery.trim().toLowerCase();
+    if (!q) return masterPapers.slice(0, 200);
+    return masterPapers
+      .filter((mp) => `${mp.materialName} ${mp.supplier} ${mp.type} ${mp.gsm ?? ""}`.toLowerCase().includes(q))
+      .slice(0, 200);
+  }, [masterPapers, masterQuery]);
+
+  function onPickMaster(id) {
+    const mp = masterPapers.find((x) => x.id === id);
+    if (!mp) { setForm((f) => ({ ...f, masterPaperId: "" })); return; }
+    setForm((f) => ({
+      ...f,
+      masterPaperId: id,
+      masterRmName: mp.materialName,
+      paperType: mp.type || f.paperType,
+      gsm: mp.gsm != null ? String(mp.gsm) : f.gsm,
+      supplier: mp.supplier || f.supplier,
+    }));
+  }
 
   function startEdit(rm) {
     setEditingId(rm.id);
-    setForm(toForm(rm));
+    const populated = toForm(rm);
+    // If the saved masterRmName matches a master record, remember its id so the picker shows it selected.
+    const match = rm.masterRmName ? masterPapers.find((mp) => mp.materialName === rm.masterRmName) : null;
+    setForm(match ? { ...populated, masterPaperId: match.id } : populated);
     setErr("");
   }
 
@@ -134,7 +163,7 @@ export default function RawMaterialsAdmin({ initialRawMaterials }) {
     e.preventDefault();
     setErr("");
     setBusy(true);
-    const url = isEditing ? `/api/orders/raw-materials/${editingId}` : "/api/orders/raw-materials";
+    const url = isEditing ? `/api/orders/inventory/${editingId}` : "/api/orders/inventory";
     const method = isEditing ? "PATCH" : "POST";
     const res = await fetch(url, {
       method,
@@ -144,8 +173,8 @@ export default function RawMaterialsAdmin({ initialRawMaterials }) {
     setBusy(false);
     if (!res.ok) { setErr((await res.json()).error || "Failed"); return; }
     const data = await res.json();
-    const rm = data.rawMaterial;
-    setRawMaterials((prev) => {
+    const rm = data.stockLine;
+    setInventory((prev) => {
       const next = isEditing ? prev.map((x) => (x.id === editingId ? rm : x)) : [...prev, rm];
       return next.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     });
@@ -155,17 +184,17 @@ export default function RawMaterialsAdmin({ initialRawMaterials }) {
   async function requestDelete(rm) {
     if (!window.confirm(`Delete "${rm.name || "this stock line"}"? This cannot be undone.`)) return;
     setBusy(true);
-    const res = await fetch(`/api/orders/raw-materials/${rm.id}`, { method: "DELETE" });
+    const res = await fetch(`/api/orders/inventory/${rm.id}`, { method: "DELETE" });
     setBusy(false);
     if (!res.ok) { alert(`Delete failed: ${(await res.json()).error || "unknown"}`); return; }
-    setRawMaterials((prev) => prev.filter((x) => x.id !== rm.id));
+    setInventory((prev) => prev.filter((x) => x.id !== rm.id));
     if (editingId === rm.id) cancelEdit();
   }
 
   return (
     <div className="mt-6 space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <StatCard label="SKUs tracked" value={rawMaterials.length} />
+        <StatCard label="SKUs tracked" value={inventory.length} />
         <StatCard label="Stock lines" value={totals.lines} />
         <StatCard label="Total rolls" value={totals.rolls.toLocaleString("en-IN")} />
         <StatCard label="Total kgs" value={totals.kgs.toLocaleString("en-IN", { maximumFractionDigits: 1 })} tone={totals.low ? "warn" : "ok"} sub={totals.low ? `${totals.low} low/depleted` : null} />
@@ -175,12 +204,36 @@ export default function RawMaterialsAdmin({ initialRawMaterials }) {
         <form onSubmit={submit} className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-5 space-y-3 dark:bg-gray-900 dark:border-gray-800">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-              {isEditing ? "Edit raw material" : "Add raw material"}
+              {isEditing ? "Edit stock line" : "Add stock line"}
             </h2>
             {isEditing && (
               <button type="button" onClick={cancelEdit} className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                 Cancel
               </button>
+            )}
+          </div>
+
+          <div>
+            <label className={labelCls}>Link to Paper RM Database (autofills supplier, paper type, GSM)</label>
+            <input
+              className={`${inputCls} mb-2`}
+              placeholder={`Search ${masterPapers.length} master papers…`}
+              value={masterQuery}
+              onChange={(e) => setMasterQuery(e.target.value)}
+            />
+            <select className={inputCls} value={form.masterPaperId} onChange={(e) => onPickMaster(e.target.value)}>
+              <option value="">— None (enter manually below) —</option>
+              {filteredMasters.map((mp) => (
+                <option key={mp.id} value={mp.id}>
+                  {mp.materialName}
+                  {mp.gsm != null ? ` · ${mp.gsm} GSM` : ""}
+                  {mp.type ? ` · ${mp.type}` : ""}
+                  {mp.supplier ? ` · ${mp.supplier}` : ""}
+                </option>
+              ))}
+            </select>
+            {form.masterRmName && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Linked: <span className="font-medium text-gray-700 dark:text-gray-200">{form.masterRmName}</span></p>
             )}
           </div>
 
@@ -277,10 +330,10 @@ export default function RawMaterialsAdmin({ initialRawMaterials }) {
           </div>
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-            Active (show in New Job picker)
+            Active
           </label>
           <button disabled={busy} className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60">
-            {busy ? (isEditing ? "Saving…" : "Adding…") : (isEditing ? "Save changes" : "Add raw material")}
+            {busy ? (isEditing ? "Saving…" : "Adding…") : (isEditing ? "Save changes" : "Add stock line")}
           </button>
           {err && <p className="text-xs text-red-500">{err}</p>}
         </form>
@@ -289,7 +342,7 @@ export default function RawMaterialsAdmin({ initialRawMaterials }) {
           <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row gap-2">
             <input
               className={`${inputCls} flex-1`}
-              placeholder={`Search ${rawMaterials.length} raw materials…`}
+              placeholder={`Search ${inventory.length} stock lines…`}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -303,7 +356,7 @@ export default function RawMaterialsAdmin({ initialRawMaterials }) {
               <thead className="bg-gray-50 text-xs text-gray-500 uppercase dark:bg-gray-800/50 dark:text-gray-400">
                 <tr>
                   <th className="text-left px-4 py-2 font-medium">Name / Spec</th>
-                  <th className="text-left px-4 py-2 font-medium">Supplier</th>
+                  <th className="text-left px-4 py-2 font-medium">Master RM</th>
                   <th className="text-right px-4 py-2 font-medium">Rolls</th>
                   <th className="text-right px-4 py-2 font-medium">Kgs</th>
                   <th className="text-left px-4 py-2 font-medium">Status</th>
@@ -326,7 +379,14 @@ export default function RawMaterialsAdmin({ initialRawMaterials }) {
                           {rm.form ? ` · ${rm.form}` : ""}
                         </div>
                       </td>
-                      <td className="px-4 py-2 text-gray-700 dark:text-gray-200">{rm.supplier || "—"}</td>
+                      <td className="px-4 py-2 text-xs">
+                        {rm.masterRmName ? (
+                          <span className="text-gray-700 dark:text-gray-200">{rm.masterRmName}</span>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500">unlinked</span>
+                        )}
+                        {rm.supplier && <div className="text-gray-500 dark:text-gray-400">{rm.supplier}</div>}
+                      </td>
                       <td className="px-4 py-2 text-right tabular-nums text-gray-900 dark:text-white">{rm.qtyRolls != null ? rm.qtyRolls.toLocaleString("en-IN") : "—"}</td>
                       <td className="px-4 py-2 text-right tabular-nums text-gray-900 dark:text-white">{rm.qtyKgs != null ? rm.qtyKgs.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}</td>
                       <td className="px-4 py-2">
@@ -346,7 +406,7 @@ export default function RawMaterialsAdmin({ initialRawMaterials }) {
                     </tr>
                   );
                 })}
-                {filtered.length === 0 && <tr><td colSpan={7} className="text-center text-sm text-gray-500 py-8 dark:text-gray-400">{rawMaterials.length === 0 ? "No raw materials yet." : "No matches."}</td></tr>}
+                {filtered.length === 0 && <tr><td colSpan={7} className="text-center text-sm text-gray-500 py-8 dark:text-gray-400">{inventory.length === 0 ? "No stock lines yet." : "No matches."}</td></tr>}
               </tbody>
             </table>
           </div>

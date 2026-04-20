@@ -30,6 +30,11 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
   const [lrFile, setLrFile] = useState(null);
   const [lrBusy, setLrBusy] = useState(false);
   const [lrErr, setLrErr] = useState("");
+  const [transportMode, setTransportMode] = useState(initialJob.transportMode || "");
+  const [lrOrVehicleNumber, setLrOrVehicleNumber] = useState(initialJob.lrOrVehicleNumber || "");
+  const [driverContact, setDriverContact] = useState(initialJob.driverContact || "");
+  const [trackingBusy, setTrackingBusy] = useState(false);
+  const [trackingSaved, setTrackingSaved] = useState(false);
 
   const clientName = job.clientIds.map((c) => clientMap[c]?.name).filter(Boolean).join(", ");
 
@@ -251,7 +256,63 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-5 dark:bg-gray-900 dark:border-gray-800">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">LR copies</h2>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Tracking details</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Mode of transport</label>
+            <select className={inputCls} value={transportMode} onChange={(e) => setTransportMode(e.target.value)}>
+              <option value="">—</option>
+              <option value="Delhivery">Delhivery</option>
+              <option value="Bluedart">Bluedart</option>
+              <option value="Direct Vehicle">Direct Vehicle</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>LR / Vehicle number</label>
+            <input
+              className={inputCls}
+              value={lrOrVehicleNumber}
+              onChange={(e) => setLrOrVehicleNumber(e.target.value)}
+              placeholder={transportMode === "Direct Vehicle" ? "MH-12-AB-1234" : "LR number"}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Driver contact</label>
+            <input
+              className={inputCls}
+              value={driverContact}
+              onChange={(e) => setDriverContact(e.target.value)}
+              placeholder="Ravi — +91 98xx xx xxxx"
+            />
+          </div>
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="button"
+            disabled={trackingBusy}
+            onClick={async () => {
+              setTrackingBusy(true); setTrackingSaved(false);
+              const res = await fetch(`/api/orders/jobs/${job.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ transportMode, lrOrVehicleNumber, driverContact }),
+              });
+              setTrackingBusy(false);
+              if (!res.ok) { setLrErr((await res.json()).error || "Failed"); return; }
+              const data = await res.json();
+              setJob(data.job);
+              setTrackingSaved(true);
+              setTimeout(() => setTrackingSaved(false), 2000);
+            }}
+            className="bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-md hover:bg-blue-700 disabled:opacity-60"
+          >
+            {trackingBusy ? "Saving…" : "Save tracking details"}
+          </button>
+          {trackingSaved && <span className="text-xs text-green-600 dark:text-green-400">Saved</span>}
+        </div>
+
+        <h3 className="text-xs uppercase tracking-wide text-gray-500 font-semibold mt-6 mb-2 dark:text-gray-400">LR copies</h3>
         {job.lrFiles && job.lrFiles.length > 0 ? (
           <ul className="space-y-2 mb-4">
             {job.lrFiles.map((f) => (

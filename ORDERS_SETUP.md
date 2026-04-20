@@ -88,30 +88,51 @@ Timeline of every stage change.
 
 > For v1 this is optional — Jobs already have a `PO Number` text field that achieves grouping.
 
-### Table: `Raw Materials`
+### Table: `Raw Materials` (RM Inventory)
 
-Central paper RM database. Fed into the New Job form as a searchable picker (auto-fills RM Type, Supplier, Paper Type, GSM, Size). Reusable by the Rate Calculator and any future app via the same Airtable token.
+Tracks **on-hand paper stock**. Each row is a specific lot we currently own. Surfaced at `/orders/admin/inventory`. The *master* paper catalogue lives in a separate base (see §1a below) — each inventory row should be linked to a master record via the `Master RM` text field.
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| Name | Single line text | **Primary field**. Display label for the dropdown, e.g. `Jodhani · Brown Kraft · 120 GSM · 28 BF · 890mm Roll` |
-| Paper Type | Single line text | e.g. Brown Kraft, Bleach Kraft, OGR, Virgin Kraft |
+| Label | Single line text | **Primary field** (existing). Not written by code — kept for human-friendly display in Airtable. |
+| Name | Single line text | Display label rendered in the admin UI. Auto-composed (`Supplier · Type · GSM · BF · Size · Form`) if the user leaves it blank. |
+| Master RM | Single line text | **NEW** — holds the linked master's `Material Name` from the Paper RM Database. Airtable can't natively link across bases, so this is free text populated by the inventory picker. |
+| Paper Type | Single line text | |
 | GSM | Number | |
-| BF | Number | Burst factor (optional for non-kraft) |
-| Size (mm) | Single line text | e.g. `890`, `22×36` |
-| Form | Single select | Options: `Rolls`, `Sheets`, `Reams` |
-| Supplier | Single line text | e.g. Jodhani, Om Shivaay, BILT, Ajit Paper |
-| Base Rate (INR/kg) | Currency (INR) | Purchase rate |
-| Discount (INR/kg) | Currency (INR) | Per-kg discount (e.g. Jodhani's ₹5) |
-| Transport (INR/kg) | Currency (INR) | Default transport adder |
-| Wet Strength Extra (INR/kg) | Currency (INR) | Optional |
-| Effective Rate (INR/kg) | Formula | `{Base Rate (INR/kg)} - {Discount (INR/kg)} + {Transport (INR/kg)}` |
+| BF | Number | |
+| Size (mm) | Number | |
+| Form | Single select | `Rolls`, `Sheets`, `Reams` |
+| Supplier | Single line text | |
+| Mill | Single line text | Legacy column kept in sync with Supplier on write. |
+| Coating | Single line text | |
+| Location | Single line text | |
+| Status | Single select | `In Stock`, `Reserved`, `Low`, `Depleted` |
+| Qty (Rolls) | Number | On-hand count |
+| Qty (kgs) | Number | On-hand weight |
+| Base Rate (INR/kg) | Currency (INR) | Purchase rate for this lot |
+| Discount (INR/kg) | Currency (INR) | |
+| Transport (INR/kg) | Currency (INR) | |
+| Wet Strength Extra (INR/kg) | Currency (INR) | |
 | Notes | Long text | |
-| Active | Checkbox | Default checked. Inactive rows are hidden from the New Job picker. |
+| Active | Checkbox | Default checked. |
 | Created | Created time | Auto |
 | Last Updated | Last modified time | Auto |
 
-> Use Airtable's currency formatting: `₹` symbol, `en-IN` locale, 2 decimals.
+> The `Master RM` column above doesn't exist yet — add it (Single line text). Until you do, the picker-to-master linkage silently no-ops and everything else still works.
+
+## 1a. Paper RM Database (separate base — master catalogue)
+
+The master paper catalogue is a separate base (`Paper RM Database` → default `appSllndIZszJSCma`) so it can be shared across Aeros apps (Orders, Rate Calculator, future tools) via the same PAT. It's **read-only** from this codebase — manage it in Airtable's UI.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| Material Name | Single line text | **Primary field**. Display label for the job picker. |
+| GSM | Number | |
+| Type | Single line text | e.g. Kraft, Bleached Board, Coated Paper |
+| Supplier | Single line text | |
+| Specifications | Long text | Free-form spec details |
+
+> Already set up by you. The `AIRTABLE_TOKEN` PAT must have this base added under its Access list.
 
 ### Table: `OTP Codes`
 
@@ -143,6 +164,11 @@ AIRTABLE_ORDERS_JOBS_TABLE=Jobs
 AIRTABLE_ORDERS_UPDATES_TABLE=Job Status Updates
 AIRTABLE_ORDERS_OTP_TABLE=OTP Codes
 AIRTABLE_ORDERS_RM_TABLE=Raw Materials
+
+# --- Paper RM Database (separate base, master paper catalogue) ---
+# Defaults are hard-coded in lib/paper-rm.js; override only if you move them.
+AIRTABLE_PAPER_RM_BASE_ID=appSllndIZszJSCma
+AIRTABLE_PAPER_RM_TABLE=Raw Materials
 
 # Admin password for /orders admin login. Set to something strong.
 ORDERS_ADMIN_PASSWORD=change-me
