@@ -35,7 +35,7 @@ export default async function ClearancePage() {
           <Catalog items={items} categories={categories} />
         )}
       </main>
-      <Footer />
+      <Footer note="All items subject to availability. Inquire for current pricing." />
     </>
   );
 }
