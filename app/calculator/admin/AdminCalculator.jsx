@@ -18,9 +18,18 @@ const MILLS_BY_TYPE = {
 const GSM_OPTIONS = [60, 70, 80, 90, 100, 110, 120, 130, 140];
 const BF_OPTIONS = [16, 18, 20, 22, 24, 26, 28];
 const COLOUR_OPTIONS = [1, 2, 3, 4];
-const MM_PER_INCH = 25.4;
-const toInches = (mm) => (mm ? +(mm / MM_PER_INCH).toFixed(2) : 0);
-const fromInches = (inches) => (inches ? Math.round(inches * MM_PER_INCH) : 0);
+const MM_PER_UNIT = { mm: 1, cm: 10, in: 25.4 };
+const toDisplay = (mm, unit) => {
+  if (!mm) return 0;
+  if (unit === "mm") return mm;
+  return +(mm / MM_PER_UNIT[unit]).toFixed(unit === "cm" ? 1 : 2);
+};
+const fromDisplay = (v, unit) => {
+  const n = parseFloat(v) || 0;
+  if (unit === "mm") return Math.round(n);
+  return Math.round(n * MM_PER_UNIT[unit]);
+};
+const unitLabel = { mm: "mm", cm: "cm", in: "in" };
 
 const DEFAULT_FORM = {
   bagType: "sos", selectedCodeId: "",
@@ -40,23 +49,64 @@ export default function AdminCalculator() {
   const [saveStatus, setSaveStatus] = useState(null);
   const [saving, setSaving] = useState(false);
   const [unit, setUnit] = useState("mm");
+  const [pastQuotes, setPastQuotes] = useState([]);
+  const [loadedQuoteId, setLoadedQuoteId] = useState("");
+
+  async function refreshQuotes() {
+    try {
+      const res = await fetch("/api/calc/quotes");
+      if (res.ok) setPastQuotes(await res.json());
+    } catch {}
+  }
 
   useEffect(() => {
     fetch("/api/calc/bag-specs").then((r) => r.ok ? r.json() : []).then(setBagCodes).catch(() => {});
     const saved = typeof window !== "undefined" ? localStorage.getItem("aeros_dim_unit") : null;
-    if (saved === "in" || saved === "mm") setUnit(saved);
+    if (saved === "in" || saved === "cm" || saved === "mm") setUnit(saved);
+    refreshQuotes();
   }, []);
+
+  const bagTypeFromLabel = (label) => ({
+    "SOS": "sos", "Rope Handle": "rope_handle", "Flat Handle": "flat_handle",
+    "V-Bottom": "v_bottom_gusset", "Handle": "rope_handle",
+  })[label] || "sos";
+
+  function loadQuote(id) {
+    setLoadedQuoteId(id);
+    if (!id) return;
+    const q = pastQuotes.find((x) => x.id === id);
+    if (!q) return;
+    setForm((f) => ({
+      ...f,
+      selectedCodeId: "",
+      bagType: bagTypeFromLabel(q.bagType),
+      width: q.width || f.width, gusset: q.gusset || f.gusset, height: q.height || f.height,
+      paperType: q.paperType || f.paperType,
+      millName: q.mill || f.millName,
+      gsm: q.gsm || f.gsm,
+      bf: q.bf ? String(q.bf) : f.bf,
+      casePack: q.casePack || f.casePack,
+      printing: q.plainPrinted === "Printed",
+      colours: q.colours || f.colours,
+      coverage: q.coveragePct || f.coverage,
+      orderQty: q.orderQty || f.orderQty,
+      paperRate: q.paperRate || f.paperRate,
+      basePaperRate: q.paperRate || f.basePaperRate,
+      profitPercent: q.profitPct || f.profitPercent,
+      customWastage: q.wastagePct != null ? String(q.wastagePct) : "",
+      handleCost: q.handleCost || f.handleCost,
+      quoteRef: q.quoteRef || "",
+    }));
+    setSaveStatus(null);
+  }
 
   function updateUnit(u) {
     setUnit(u);
     if (typeof window !== "undefined") localStorage.setItem("aeros_dim_unit", u);
   }
 
-  const setDim = (k, v) => {
-    const n = parseFloat(v) || 0;
-    setForm((f) => ({ ...f, [k]: unit === "in" ? fromInches(n) : Math.round(n), selectedCodeId: "" }));
-  };
-  const showDim = (mm) => (unit === "in" ? toInches(mm) : mm);
+  const setDim = (k, v) => setForm((f) => ({ ...f, [k]: fromDisplay(v, unit), selectedCodeId: "" }));
+  const showDim = (mm) => toDisplay(mm, unit);
 
   const isJodhani = form.millName === "Jodhani";
   const isOmShivaay = form.millName === "Om Shivaay";
@@ -141,7 +191,7 @@ export default function AdminCalculator() {
     setForm((f) => ({ ...f, tptRate: v, paperRate: Math.round((f.basePaperRate + tpt) * 100) / 100 }));
   }
 
-  async function saveQuote() {
+  async function saveQuote({ asNew }) {
     if (!result) return;
     setSaving(true); setSaveStatus(null);
     const selected = bagCodes.find((c) => c.id === form.selectedCodeId);
@@ -163,14 +213,22 @@ export default function AdminCalculator() {
       printing: form.printing, colours: form.colours, coverage: form.coverage,
       handleCost: isHandleBag(form.bagType) ? form.handleCost : undefined,
     };
+    const method = loadedQuoteId && !asNew ? "PATCH" : "POST";
+    if (method === "PATCH") payload.id = loadedQuoteId;
     const res = await fetch("/api/calc/quotes", {
-      method: "POST",
+      method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     setSaving(false);
-    setSaveStatus(res.ok ? "success" : "error");
-    if (res.ok) setForm((f) => ({ ...f, quoteRef: "" }));
+    if (res.ok) {
+      setSaveStatus(asNew ? "success_new" : loadedQuoteId ? "success_update" : "success");
+      const saved = await res.json().catch(() => null);
+      if (method === "POST" && saved?.id) setLoadedQuoteId(saved.id);
+      refreshQuotes();
+    } else {
+      setSaveStatus("error");
+    }
   }
 
   const plateCostPerBag = form.printing && form.orderQty > 0
@@ -179,6 +237,26 @@ export default function AdminCalculator() {
   return (
     <div className="flex flex-col lg:flex-row gap-6">
       <div className="lg:w-2/5 space-y-4">
+        {pastQuotes.length > 0 && (
+          <Card title="Load a past quote" right={loadedQuoteId && (
+            <button onClick={() => loadQuote("")} className="text-xs text-gray-500 hover:text-gray-700">Clear</button>
+          )}>
+            <select className={inputCls} value={loadedQuoteId} onChange={(e) => loadQuote(e.target.value)}>
+              <option value="">— New quote —</option>
+              {pastQuotes.map((q) => (
+                <option key={q.id} value={q.id}>
+                  {q.quoteRef}{q.brand ? ` — ${q.brand}` : ""}{q.clientEmail ? ` · ${q.clientEmail}` : ""}{q.date ? ` · ${q.date}` : ""}
+                </option>
+              ))}
+            </select>
+            {loadedQuoteId && (
+              <p className="text-xs text-gray-500 mt-2">
+                Editing <strong>{pastQuotes.find((q) => q.id === loadedQuoteId)?.quoteRef}</strong>. After recalculating you can update it or save as a new quote.
+              </p>
+            )}
+          </Card>
+        )}
+
         <Card title="Bag Type">
           <div className="flex gap-2">
             {[["sos", "SOS"], ["rope_handle", "Rope Handle"], ["flat_handle", "Flat Handle"], ["v_bottom_gusset", "V-Bottom"]].map(([val, lbl]) => (
@@ -290,23 +368,24 @@ export default function AdminCalculator() {
           )}
         </Card>
 
-        <Card title={`Dimensions (${unit === "in" ? "inches" : "mm"})`} right={
+        <Card title={`Dimensions (${unitLabel[unit]})`} right={
           <div className="flex gap-1">
-            <button onClick={() => updateUnit("mm")} className={`text-xs px-2 py-1 rounded ${unit === "mm" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}>mm</button>
-            <button onClick={() => updateUnit("in")} className={`text-xs px-2 py-1 rounded ${unit === "in" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}>in</button>
+            {["mm", "cm", "in"].map((u) => (
+              <button key={u} onClick={() => updateUnit(u)} className={`text-xs px-2 py-1 rounded ${unit === u ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}>{u}</button>
+            ))}
           </div>
         }>
           <div className="grid grid-cols-3 gap-3">
             <Field label="Width">
-              <input type="number" step={unit === "in" ? "0.1" : "1"} className={inputCls}
+              <input type="number" step={unit === "mm" ? "1" : "0.1"} className={inputCls}
                 value={showDim(form.width)} onChange={(e) => setDim("width", e.target.value)} min="0" />
             </Field>
             <Field label="Gusset">
-              <input type="number" step={unit === "in" ? "0.1" : "1"} className={inputCls}
+              <input type="number" step={unit === "mm" ? "1" : "0.1"} className={inputCls}
                 value={showDim(form.gusset)} onChange={(e) => setDim("gusset", e.target.value)} min="0" />
             </Field>
             <Field label="Height">
-              <input type="number" step={unit === "in" ? "0.1" : "1"} className={inputCls}
+              <input type="number" step={unit === "mm" ? "1" : "0.1"} className={inputCls}
                 value={showDim(form.height)} onChange={(e) => setDim("height", e.target.value)} min="0" />
             </Field>
           </div>
@@ -460,13 +539,27 @@ export default function AdminCalculator() {
             </Card>
 
             <Card title="Save Quote">
-              <div className="flex gap-2">
-                <input className={inputCls} placeholder="Quote ref (e.g. Q042 — Zepto SOS)" value={form.quoteRef} onChange={(e) => set("quoteRef", e.target.value)} />
-                <button onClick={saveQuote} disabled={saving} className="shrink-0 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60">
+              <input className={`${inputCls} mb-3`} placeholder="Quote ref (e.g. Q042 — Zepto SOS)" value={form.quoteRef} onChange={(e) => set("quoteRef", e.target.value)} />
+              {loadedQuoteId ? (
+                <div className="flex gap-2">
+                  <button onClick={() => saveQuote({ asNew: false })} disabled={saving}
+                    className="flex-1 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60">
+                    {saving ? "Saving…" : "Update this quote"}
+                  </button>
+                  <button onClick={() => saveQuote({ asNew: true })} disabled={saving}
+                    className="flex-1 bg-white border border-blue-600 text-blue-700 text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-50 disabled:opacity-60">
+                    Save as new
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => saveQuote({ asNew: false })} disabled={saving}
+                  className="w-full bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60">
                   {saving ? "Saving…" : "Save"}
                 </button>
-              </div>
+              )}
               {saveStatus === "success" && <p className="text-xs text-green-600 mt-2">✓ Saved to Quotes.</p>}
+              {saveStatus === "success_update" && <p className="text-xs text-green-600 mt-2">✓ Quote updated.</p>}
+              {saveStatus === "success_new" && <p className="text-xs text-green-600 mt-2">✓ Saved as new quote.</p>}
               {saveStatus === "error" && <p className="text-xs text-red-500 mt-2">Save failed. Try again.</p>}
             </Card>
 

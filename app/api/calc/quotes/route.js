@@ -1,4 +1,4 @@
-import { airtableList, airtableCreate, escapeFormula, TABLES } from "@/lib/calc/airtable";
+import { airtableList, airtableCreate, airtableUpdate, escapeFormula, TABLES } from "@/lib/calc/airtable";
 import { getSession } from "@/lib/calc/session";
 
 export const runtime = "nodejs";
@@ -99,4 +99,57 @@ export async function POST(req) {
 
   const created = await airtableCreate(TABLES.quotes(), fields);
   return Response.json(recordToQuote(created));
+}
+
+// Update an existing quote. Clients may only patch quotes they generated
+// (matching Client Email); admin may patch any.
+export async function PATCH(req) {
+  const session = getSession();
+  if (!session) return new Response("Unauthorized", { status: 401 });
+  const body = await req.json();
+  if (!body.id) return Response.json({ error: "id required" }, { status: 400 });
+
+  if (session.role === "client") {
+    const [existing] = await airtableList(TABLES.quotes(), {
+      filterByFormula: `RECORD_ID()='${body.id}'`,
+      maxRecords: 1,
+    });
+    if (!existing) return Response.json({ error: "Quote not found" }, { status: 404 });
+    const owner = (existing.fields["Client Email"] || "").toLowerCase();
+    if (owner !== session.email.toLowerCase()) {
+      return Response.json({ error: "You can only edit your own quotes" }, { status: 403 });
+    }
+  }
+
+  const fields = {
+    "Quote Ref": body.quoteRef || undefined,
+    Brand: body.brand !== undefined ? (body.brand || "") : undefined,
+    Item: body.item !== undefined ? (body.item || "") : undefined,
+    "Bag Type": BAG_TYPE_OUT[body.bagType] || undefined,
+    "Plain/Printed": body.printing !== undefined ? (body.printing ? "Printed" : "Plain") : undefined,
+    "Paper Type": body.paperType || undefined,
+    Mill: body.mill || undefined,
+    GSM: body.gsm ? Number(body.gsm) : undefined,
+    BF: body.bf ? Number(body.bf) : undefined,
+    "Width mm": body.width !== undefined ? Number(body.width) : undefined,
+    "Gusset mm": body.gusset !== undefined ? Number(body.gusset) : undefined,
+    "Height mm": body.height !== undefined ? Number(body.height) : undefined,
+    "Paper Rate": body.paperRate !== undefined ? Number(body.paperRate) : undefined,
+    "Case Pack": body.casePack ? Number(body.casePack) : undefined,
+    "Order Qty": body.orderQty ? Number(body.orderQty) : undefined,
+    "Wastage %": body.wastagePct !== undefined ? Number(body.wastagePct) : undefined,
+    "Profit %": body.profitPct !== undefined ? Number(body.profitPct) : undefined,
+    "Mfg Cost INR": body.mfgCost !== undefined ? Number(body.mfgCost) : undefined,
+    "Selling Price INR": body.sellingPrice !== undefined ? Number(body.sellingPrice) : undefined,
+    "Cost per Case INR": body.costPerCase !== undefined ? Number(body.costPerCase) : undefined,
+    "Order Total INR": body.orderTotal !== undefined ? Number(body.orderTotal) : undefined,
+    Colours: body.colours ? Number(body.colours) : undefined,
+    "Coverage %": body.coverage ? Number(body.coverage) : undefined,
+    "Handle Cost": body.handleCost ? Number(body.handleCost) : undefined,
+    Notes: body.notes !== undefined ? (body.notes || "") : undefined,
+  };
+  Object.keys(fields).forEach((k) => fields[k] === undefined && delete fields[k]);
+
+  const updated = await airtableUpdate(TABLES.quotes(), body.id, fields);
+  return Response.json(recordToQuote(updated));
 }

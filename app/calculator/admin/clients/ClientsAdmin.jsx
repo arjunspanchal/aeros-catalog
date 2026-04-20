@@ -5,6 +5,131 @@ import { CURRENCY_CODES } from "@/lib/calc/calculator";
 
 const EMPTY_NEW = { email: "", name: "", company: "", country: "", marginPct: "10", preferredCurrency: "INR", preferredUnit: "mm" };
 
+// Editable row with an explicit Save button. Local state tracks in-progress edits;
+// nothing hits Airtable until the admin clicks Save.
+function ClientRow({ client, onPatched, onDeleted }) {
+  const [draft, setDraft] = useState(client);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => setDraft(client), [client]);
+
+  const dirty =
+    draft.email !== client.email ||
+    draft.name !== client.name ||
+    draft.company !== client.company ||
+    draft.country !== client.country ||
+    Number(draft.marginPct) !== Number(client.marginPct) ||
+    draft.preferredCurrency !== client.preferredCurrency ||
+    draft.preferredUnit !== client.preferredUnit ||
+    draft.status !== client.status;
+
+  const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }));
+
+  async function save() {
+    setSaving(true);
+    const payload = { id: client.id };
+    if (draft.email !== client.email) payload.email = draft.email.trim().toLowerCase();
+    if (draft.name !== client.name) payload.name = draft.name;
+    if (draft.company !== client.company) payload.company = draft.company;
+    if (draft.country !== client.country) payload.country = draft.country;
+    if (Number(draft.marginPct) !== Number(client.marginPct)) payload.marginPct = Number(draft.marginPct);
+    if (draft.preferredCurrency !== client.preferredCurrency) payload.preferredCurrency = draft.preferredCurrency;
+    if (draft.preferredUnit !== client.preferredUnit) payload.preferredUnit = draft.preferredUnit;
+    if (draft.status !== client.status) payload.status = draft.status;
+
+    const res = await fetch("/api/calc/clients", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "Save failed");
+      return;
+    }
+    onPatched(await res.json());
+  }
+
+  function cancel() {
+    setDraft(client);
+  }
+
+  async function remove() {
+    const label = client.name || client.company || client.email;
+    if (!confirm(`Delete client ${label}? This cannot be undone.`)) return;
+    const res = await fetch(`/api/calc/clients?id=${encodeURIComponent(client.id)}`, { method: "DELETE" });
+    if (res.ok) onDeleted(client.id);
+    else alert("Delete failed");
+  }
+
+  const cellInput = "text-sm bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none px-1 py-0.5";
+
+  return (
+    <tr className={`border-b border-gray-50 ${dirty ? "bg-amber-50/30" : "hover:bg-gray-50"}`}>
+      <td className="py-2">
+        <input type="email" className={`${cellInput} w-56`}
+          value={draft.email} onChange={(e) => set("email", e.target.value)} />
+      </td>
+      <td className="py-2">
+        <input className={`${cellInput} w-32`} value={draft.name || ""} onChange={(e) => set("name", e.target.value)} />
+      </td>
+      <td className="py-2">
+        <input className={`${cellInput} w-32`} value={draft.company || ""} onChange={(e) => set("company", e.target.value)} />
+      </td>
+      <td className="py-2">
+        <input className={`${cellInput} w-24`} value={draft.country || ""} onChange={(e) => set("country", e.target.value)} />
+      </td>
+      <td className="py-2 text-right">
+        <input type="number" step="0.5"
+          className={`${cellInput} w-16 text-right`}
+          value={draft.marginPct ?? ""}
+          onChange={(e) => set("marginPct", e.target.value)} />
+        <span className="text-gray-400 text-xs ml-1">%</span>
+      </td>
+      <td className="py-2">
+        <select className="text-sm bg-transparent border-none focus:outline-none"
+          value={draft.preferredCurrency || "INR"}
+          onChange={(e) => set("preferredCurrency", e.target.value)}>
+          {CURRENCY_CODES.map((cc) => <option key={cc} value={cc}>{cc}</option>)}
+        </select>
+      </td>
+      <td className="py-2">
+        <select className="text-sm bg-transparent border-none focus:outline-none"
+          value={draft.preferredUnit || "mm"}
+          onChange={(e) => set("preferredUnit", e.target.value)}>
+          <option value="mm">mm</option>
+          <option value="cm">cm</option>
+          <option value="in">in</option>
+        </select>
+      </td>
+      <td className="py-2">
+        <select className="text-sm bg-transparent border-none focus:outline-none"
+          value={draft.status}
+          onChange={(e) => set("status", e.target.value)}>
+          <option value="Active">Active</option>
+          <option value="Pending">Pending</option>
+          <option value="Blocked">Blocked</option>
+        </select>
+      </td>
+      <td className="py-2 text-gray-500 text-xs">{client.lastLogin ? new Date(client.lastLogin).toLocaleDateString() : "—"}</td>
+      <td className="py-2 text-right whitespace-nowrap">
+        {dirty ? (
+          <>
+            <button onClick={save} disabled={saving}
+              className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded hover:bg-blue-700 disabled:opacity-60 mr-1">
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button onClick={cancel} className="text-xs text-gray-500 hover:text-gray-700 px-1">Cancel</button>
+          </>
+        ) : (
+          <button onClick={remove} className="text-red-400 hover:text-red-600 text-xs px-2" title="Delete client">✕</button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
 export default function ClientsAdmin() {
   const [clients, setClients] = useState(null);
   const [newClient, setNewClient] = useState(EMPTY_NEW);
@@ -36,29 +161,8 @@ export default function ClientsAdmin() {
     setTimeout(() => setAddOk(false), 3000);
   }
 
-  async function patch(id, updates) {
-    const res = await fetch("/api/calc/clients", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, ...updates }),
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      setClients((cs) => cs.map((c) => (c.id === id ? updated : c)));
-      return true;
-    }
-    const err = await res.json().catch(() => ({}));
-    alert(err.error || "Update failed");
-    return false;
-  }
-
-  async function removeClient(c) {
-    const label = c.name || c.company || c.email;
-    if (!confirm(`Delete client ${label}? This cannot be undone.`)) return;
-    const res = await fetch(`/api/calc/clients?id=${encodeURIComponent(c.id)}`, { method: "DELETE" });
-    if (res.ok) setClients((cs) => cs.filter((x) => x.id !== c.id));
-    else alert("Delete failed");
-  }
+  const onPatched = (updated) => setClients((cs) => cs.map((c) => (c.id === updated.id ? updated : c)));
+  const onDeleted = (id) => setClients((cs) => cs.filter((x) => x.id !== id));
 
   return (
     <div className="space-y-6">
@@ -96,6 +200,7 @@ export default function ClientsAdmin() {
               value={newClient.preferredUnit}
               onChange={(e) => setNewClient((n) => ({ ...n, preferredUnit: e.target.value }))}>
               <option value="mm">mm</option>
+              <option value="cm">cm</option>
               <option value="in">inches</option>
             </select>
           </Field>
@@ -136,79 +241,13 @@ export default function ClientsAdmin() {
               </thead>
               <tbody>
                 {clients.map((c) => (
-                  <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="py-2">
-                      <input type="email"
-                        className="text-sm bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none px-1 py-0.5 w-56"
-                        defaultValue={c.email}
-                        onBlur={async (e) => {
-                          const v = e.target.value.trim().toLowerCase();
-                          if (v && v !== c.email) {
-                            const ok = await patch(c.id, { email: v });
-                            if (!ok) e.target.value = c.email;
-                          }
-                        }} />
-                    </td>
-                    <td className="py-2">
-                      <input className="text-sm bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none px-1 py-0.5 w-32"
-                        defaultValue={c.name}
-                        onBlur={(e) => e.target.value !== c.name && patch(c.id, { name: e.target.value })} />
-                    </td>
-                    <td className="py-2">
-                      <input className="text-sm bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none px-1 py-0.5 w-32"
-                        defaultValue={c.company}
-                        onBlur={(e) => e.target.value !== c.company && patch(c.id, { company: e.target.value })} />
-                    </td>
-                    <td className="py-2">
-                      <input className="text-sm bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none px-1 py-0.5 w-24"
-                        defaultValue={c.country}
-                        onBlur={(e) => e.target.value !== c.country && patch(c.id, { country: e.target.value })} />
-                    </td>
-                    <td className="py-2 text-right">
-                      <input type="number" step="0.5"
-                        className="w-16 text-right text-sm bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none px-1 py-0.5"
-                        defaultValue={c.marginPct ?? ""}
-                        onBlur={(e) => {
-                          const v = parseFloat(e.target.value);
-                          if (!isNaN(v) && v !== c.marginPct) patch(c.id, { marginPct: v });
-                        }} />
-                      <span className="text-gray-400 text-xs ml-1">%</span>
-                    </td>
-                    <td className="py-2">
-                      <select className="text-sm bg-transparent border-none focus:outline-none"
-                        value={c.preferredCurrency || "INR"}
-                        onChange={(e) => patch(c.id, { preferredCurrency: e.target.value })}>
-                        {CURRENCY_CODES.map((cc) => <option key={cc} value={cc}>{cc}</option>)}
-                      </select>
-                    </td>
-                    <td className="py-2">
-                      <select className="text-sm bg-transparent border-none focus:outline-none"
-                        value={c.preferredUnit || "mm"}
-                        onChange={(e) => patch(c.id, { preferredUnit: e.target.value })}>
-                        <option value="mm">mm</option>
-                        <option value="in">in</option>
-                      </select>
-                    </td>
-                    <td className="py-2">
-                      <select className="text-sm bg-transparent border-none focus:outline-none"
-                        value={c.status}
-                        onChange={(e) => patch(c.id, { status: e.target.value })}>
-                        <option value="Active">Active</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Blocked">Blocked</option>
-                      </select>
-                    </td>
-                    <td className="py-2 text-gray-500 text-xs">{c.lastLogin ? new Date(c.lastLogin).toLocaleDateString() : "—"}</td>
-                    <td className="py-2 text-right">
-                      <button onClick={() => removeClient(c)} className="text-red-400 hover:text-red-600 text-xs px-2" title="Delete client">✕</button>
-                    </td>
-                  </tr>
+                  <ClientRow key={c.id} client={c} onPatched={onPatched} onDeleted={onDeleted} />
                 ))}
               </tbody>
             </table>
           </div>
         )}
-        <p className="text-xs text-gray-400 mt-4">Edits save on blur. Margin changes apply to the client&apos;s next rate calculation.</p>
+        <p className="text-xs text-gray-400 mt-4">Edit any cell, then click <strong>Save</strong> to commit. Rows with pending changes are highlighted.</p>
       </Card>
     </div>
   );

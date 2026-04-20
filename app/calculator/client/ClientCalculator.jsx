@@ -7,11 +7,20 @@ const GSM_OPTIONS = [60, 70, 80, 90, 100, 110, 120, 130, 140];
 const BF_OPTIONS = [16, 18, 20, 22, 24, 26, 28];
 const COLOUR_OPTIONS = [1, 2, 3, 4];
 
-// mm <-> inches helpers. Internal form state is always mm (because the calculator
-// engine works in mm); we convert only for display and when reading user input.
-const MM_PER_INCH = 25.4;
-const toInches = (mm) => (mm ? +(mm / MM_PER_INCH).toFixed(2) : 0);
-const fromInches = (inches) => (inches ? Math.round(inches * MM_PER_INCH) : 0);
+// Unit conversion. Internal form state is always mm (the calculator engine is in mm);
+// we convert only for display and when reading user input.
+const MM_PER_UNIT = { mm: 1, cm: 10, in: 25.4 };
+const toDisplay = (mm, unit) => {
+  if (!mm) return 0;
+  if (unit === "mm") return mm;
+  return +(mm / MM_PER_UNIT[unit]).toFixed(unit === "cm" ? 1 : 2);
+};
+const fromDisplay = (v, unit) => {
+  const n = parseFloat(v) || 0;
+  if (unit === "mm") return Math.round(n);
+  return Math.round(n * MM_PER_UNIT[unit]);
+};
+const unitLabel = { mm: "mm", cm: "cm", in: "in" };
 
 export default function ClientCalculator() {
   const [form, setForm] = useState({
@@ -30,6 +39,15 @@ export default function ClientCalculator() {
   const [result, setResult] = useState(null);
   const [saveStatus, setSaveStatus] = useState(null);
   const [err, setErr] = useState("");
+  const [pastQuotes, setPastQuotes] = useState([]);
+  const [loadedQuoteId, setLoadedQuoteId] = useState("");
+
+  async function refreshQuotes() {
+    try {
+      const res = await fetch("/api/calc/quotes");
+      if (res.ok) setPastQuotes(await res.json());
+    } catch {}
+  }
 
   useEffect(() => {
     fetch("/api/calc/me")
@@ -39,17 +57,42 @@ export default function ClientCalculator() {
         if (data?.preferredUnit) setUnit(data.preferredUnit);
       })
       .catch(() => {});
+    refreshQuotes();
   }, []);
+
+  const bagTypeFromLabel = (label) => ({
+    "SOS": "sos", "Rope Handle": "rope_handle", "Flat Handle": "flat_handle",
+    "V-Bottom": "v_bottom_gusset", "Handle": "rope_handle",
+  })[label] || "sos";
+
+  function loadQuote(quoteId) {
+    setLoadedQuoteId(quoteId);
+    if (!quoteId) return;
+    const q = pastQuotes.find((x) => x.id === quoteId);
+    if (!q) return;
+    setForm({
+      bagType: bagTypeFromLabel(q.bagType),
+      width: q.width || 0, gusset: q.gusset || 0, height: q.height || 0,
+      paperType: q.paperType || "Brown Kraft",
+      gsm: q.gsm || 120,
+      bf: q.bf || 28,
+      casePack: q.casePack || 100,
+      printing: q.plainPrinted === "Printed",
+      colours: q.colours || 1,
+      coverage: q.coveragePct || 30,
+      orderQty: q.orderQty || 15000,
+      brand: q.brand || "",
+      quoteRef: q.quoteRef || "",
+    });
+    setResult(null);
+    setSaveStatus(null);
+  }
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const num = (k, v) => set(k, parseFloat(v) || 0);
 
-  // Stores incoming user input (maybe inches) in the form state as mm.
-  const setDim = (k, v) => {
-    const n = parseFloat(v) || 0;
-    set(k, unit === "in" ? fromInches(n) : Math.round(n));
-  };
-  const showDim = (mm) => (unit === "in" ? toInches(mm) : mm);
+  const setDim = (k, v) => set(k, fromDisplay(v, unit));
+  const showDim = (mm) => toDisplay(mm, unit);
 
   async function updatePrefs(updates) {
     if (updates.preferredCurrency) setCurrency(updates.preferredCurrency);
@@ -80,27 +123,37 @@ export default function ClientCalculator() {
     } finally { setLoading(false); }
   }
 
-  async function saveQuote() {
+  async function saveQuote({ asNew }) {
     if (!result) return;
     setSaveStatus(null);
     const tier = result.curve.find((c) => c.qty === form.orderQty) || result.curve[0];
+    const payload = {
+      quoteRef: form.quoteRef || `Q ${new Date().toISOString().split("T")[0]}`,
+      bagType: form.bagType,
+      brand: form.brand || undefined,
+      width: form.width, gusset: form.gusset, height: form.height,
+      paperType: form.paperType, gsm: form.gsm, bf: form.bf,
+      casePack: form.casePack, orderQty: form.orderQty,
+      printing: form.printing, colours: form.colours, coverage: form.coverage,
+      sellingPrice: tier.ratePerBag,
+      costPerCase: tier.costPerCase,
+      orderTotal: tier.orderTotal,
+    };
+    const method = loadedQuoteId && !asNew ? "PATCH" : "POST";
+    if (method === "PATCH") payload.id = loadedQuoteId;
     const res = await fetch("/api/calc/quotes", {
-      method: "POST",
+      method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        quoteRef: form.quoteRef || `Q ${new Date().toISOString().split("T")[0]}`,
-        bagType: form.bagType,
-        brand: form.brand || undefined,
-        width: form.width, gusset: form.gusset, height: form.height,
-        paperType: form.paperType, gsm: form.gsm, bf: form.bf,
-        casePack: form.casePack, orderQty: form.orderQty,
-        printing: form.printing, colours: form.colours, coverage: form.coverage,
-        sellingPrice: tier.ratePerBag,
-        costPerCase: tier.costPerCase,
-        orderTotal: tier.orderTotal,
-      }),
+      body: JSON.stringify(payload),
     });
-    setSaveStatus(res.ok ? "success" : "error");
+    if (res.ok) {
+      setSaveStatus(asNew ? "success_new" : loadedQuoteId ? "success_update" : "success");
+      const saved = await res.json().catch(() => null);
+      if (method === "POST" && saved?.id) setLoadedQuoteId(saved.id);
+      refreshQuotes();
+    } else {
+      setSaveStatus("error");
+    }
   }
 
   const tier = result?.curve?.find((c) => c.qty === form.orderQty) || result?.curve?.[0];
@@ -108,6 +161,26 @@ export default function ClientCalculator() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       <div className="lg:col-span-2 space-y-4">
+        {pastQuotes.length > 0 && (
+          <Card title="Load a past quote" right={loadedQuoteId && (
+            <button onClick={() => loadQuote("")} className="text-xs text-gray-500 hover:text-gray-700">Clear</button>
+          )}>
+            <select className={inputCls} value={loadedQuoteId} onChange={(e) => loadQuote(e.target.value)}>
+              <option value="">— New quote —</option>
+              {pastQuotes.map((q) => (
+                <option key={q.id} value={q.id}>
+                  {q.quoteRef}{q.brand ? ` — ${q.brand}` : ""}{q.date ? ` · ${q.date}` : ""}
+                </option>
+              ))}
+            </select>
+            {loadedQuoteId && (
+              <p className="text-xs text-gray-500 mt-2">
+                Editing <strong>{pastQuotes.find((q) => q.id === loadedQuoteId)?.quoteRef}</strong>. After calculating you can update it or save as a new quote.
+              </p>
+            )}
+          </Card>
+        )}
+
         <Card title="Preferences">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Currency">
@@ -120,11 +193,12 @@ export default function ClientCalculator() {
             <Field label="Dimension Units">
               <div className="flex gap-2">
                 <PillBtn active={unit === "mm"} onClick={() => updatePrefs({ preferredUnit: "mm" })}>mm</PillBtn>
+                <PillBtn active={unit === "cm"} onClick={() => updatePrefs({ preferredUnit: "cm" })}>cm</PillBtn>
                 <PillBtn active={unit === "in"} onClick={() => updatePrefs({ preferredUnit: "in" })}>inches</PillBtn>
               </div>
             </Field>
           </div>
-          <p className="text-xs text-gray-400 mt-2">Saved to your profile. Rates shown in {currency}; bag sizes entered in {unit === "in" ? "inches" : "millimetres"}.</p>
+          <p className="text-xs text-gray-400 mt-2">Saved to your profile. Rates shown in {currency}; bag sizes in {unit === "in" ? "inches" : unit === "cm" ? "centimetres" : "millimetres"}.</p>
         </Card>
 
         <Card title="Bag Type">
@@ -135,18 +209,18 @@ export default function ClientCalculator() {
           </div>
         </Card>
 
-        <Card title={`Dimensions (${unit === "in" ? "inches" : "mm"})`}>
+        <Card title={`Dimensions (${unitLabel[unit]})`}>
           <div className="grid grid-cols-3 gap-3">
             <Field label="Width">
-              <input type="number" step={unit === "in" ? "0.1" : "1"} className={inputCls}
+              <input type="number" step={unit === "mm" ? "1" : "0.1"} className={inputCls}
                 value={showDim(form.width)} onChange={(e) => setDim("width", e.target.value)} min="0" />
             </Field>
             <Field label="Gusset">
-              <input type="number" step={unit === "in" ? "0.1" : "1"} className={inputCls}
+              <input type="number" step={unit === "mm" ? "1" : "0.1"} className={inputCls}
                 value={showDim(form.gusset)} onChange={(e) => setDim("gusset", e.target.value)} min="0" />
             </Field>
             <Field label="Height">
-              <input type="number" step={unit === "in" ? "0.1" : "1"} className={inputCls}
+              <input type="number" step={unit === "mm" ? "1" : "0.1"} className={inputCls}
                 value={showDim(form.height)} onChange={(e) => setDim("height", e.target.value)} min="0" />
             </Field>
           </div>
@@ -236,18 +310,29 @@ export default function ClientCalculator() {
             <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-5 text-white shadow">
               <p className="text-blue-200 text-xs mb-1">Rate per bag @ {form.orderQty.toLocaleString()} ({currency})</p>
               <p className="text-4xl font-bold">{formatCurrency(tier.ratePerBag, currency)}</p>
-              {result.result?.box && (
-                <p className="text-blue-200 text-xs mt-3">
-                  Approx box size:{" "}
-                  <span className="text-white font-medium">
-                    {unit === "in"
-                      ? `${toInches(result.result.box.L)} × ${toInches(result.result.box.W)} × ${toInches(result.result.box.D)} in`
-                      : `${result.result.box.L} × ${result.result.box.W} × ${result.result.box.D} mm`}
-                  </span>{" "}
-                  <span className="text-blue-300">({form.casePack} bags / case)</span>
-                </p>
-              )}
             </div>
+
+            {result.result?.box && (
+              <Card title="Approx box dimensions">
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Length</p>
+                    <p className="text-xl font-semibold text-gray-900 mt-1">{toDisplay(result.result.box.L, unit)} {unitLabel[unit]}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Width</p>
+                    <p className="text-xl font-semibold text-gray-900 mt-1">{toDisplay(result.result.box.W, unit)} {unitLabel[unit]}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Depth</p>
+                    <p className="text-xl font-semibold text-gray-900 mt-1">{toDisplay(result.result.box.D, unit)} {unitLabel[unit]}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mt-3 text-center">
+                  {form.casePack} bags per case · {Math.ceil(form.orderQty / form.casePack).toLocaleString()} cases for your order
+                </p>
+              </Card>
+            )}
 
             <Card title="Rate curve by quantity">
               <table className="w-full text-sm">
@@ -284,11 +369,26 @@ export default function ClientCalculator() {
                     value={form.quoteRef} onChange={(e) => set("quoteRef", e.target.value)} />
                 </Field>
               </div>
-              <button onClick={saveQuote}
-                className="w-full bg-blue-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-blue-700">
-                Save quote
-              </button>
+              {loadedQuoteId ? (
+                <div className="flex gap-2">
+                  <button onClick={() => saveQuote({ asNew: false })}
+                    className="flex-1 bg-blue-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-blue-700">
+                    Update this quote
+                  </button>
+                  <button onClick={() => saveQuote({ asNew: true })}
+                    className="flex-1 bg-white border border-blue-600 text-blue-700 text-sm font-medium py-2 rounded-lg hover:bg-blue-50">
+                    Save as new
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => saveQuote({ asNew: false })}
+                  className="w-full bg-blue-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-blue-700">
+                  Save quote
+                </button>
+              )}
               {saveStatus === "success" && <p className="text-xs text-green-600 mt-2">✓ Saved to your quote history.</p>}
+              {saveStatus === "success_update" && <p className="text-xs text-green-600 mt-2">✓ Quote updated.</p>}
+              {saveStatus === "success_new" && <p className="text-xs text-green-600 mt-2">✓ Saved as new quote.</p>}
               {saveStatus === "error" && <p className="text-xs text-red-500 mt-2">Save failed. Try again.</p>}
             </Card>
           </>

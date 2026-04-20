@@ -19,7 +19,7 @@ export async function POST(req) {
     fields["Preferred Currency"] = body.preferredCurrency;
   }
   if (body.preferredUnit !== undefined) {
-    if (!["mm", "in"].includes(body.preferredUnit)) {
+    if (!["mm", "cm", "in"].includes(body.preferredUnit)) {
       return Response.json({ error: "Unsupported unit" }, { status: 400 });
     }
     fields["Preferred Units"] = body.preferredUnit;
