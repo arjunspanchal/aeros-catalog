@@ -13,6 +13,16 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
   const [internalStatus, setInternalStatus] = useState(initialJob.internalStatus);
   const [actionPoints, setActionPoints] = useState(initialJob.actionPoints);
   const [expectedDispatchDate, setExpectedDispatchDate] = useState(initialJob.expectedDispatchDate || "");
+  // RM + production editable fields
+  const [rmSupplier, setRmSupplier] = useState(initialJob.rmSupplier);
+  const [paperType, setPaperType] = useState(initialJob.paperType);
+  const [gsm, setGsm] = useState(initialJob.gsm ?? "");
+  const [rmSizeMm, setRmSizeMm] = useState(initialJob.rmSizeMm ?? "");
+  const [rmQtySheets, setRmQtySheets] = useState(initialJob.rmQtySheets ?? "");
+  const [rmQtyKgs, setRmQtyKgs] = useState(initialJob.rmQtyKgs ?? "");
+  const [rmDeliveryDate, setRmDeliveryDate] = useState(initialJob.rmDeliveryDate || "");
+  const [printingDueDate, setPrintingDueDate] = useState(initialJob.printingDueDate || "");
+  const [productionDueDate, setProductionDueDate] = useState(initialJob.productionDueDate || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [savedAt, setSavedAt] = useState(null);
@@ -30,6 +40,15 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
         internalStatus,
         actionPoints,
         expectedDispatchDate: expectedDispatchDate || null,
+        rmSupplier,
+        paperType,
+        gsm: gsm === "" ? null : Number(gsm),
+        rmSizeMm: rmSizeMm === "" ? null : Number(rmSizeMm),
+        rmQtySheets: rmQtySheets === "" ? null : Number(rmQtySheets),
+        rmQtyKgs: rmQtyKgs === "" ? null : Number(rmQtyKgs),
+        rmDeliveryDate: rmDeliveryDate || null,
+        printingDueDate: printingDueDate || null,
+        productionDueDate: productionDueDate || null,
       }),
     });
     setBusy(false);
@@ -74,13 +93,58 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
         <dl className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 text-sm">
           <Col label="Quantity" value={job.qty != null ? job.qty.toLocaleString("en-IN") : "—"} />
           <Col label="Category" value={job.category || "—"} />
+          <Col label="Item size" value={job.itemSize || "—"} />
           <Col label="PO #" value={job.poNumber || "—"} />
           <Col label="Order date" value={formatDate(job.orderDate)} />
-          <Col label="Paper" value={job.paperType || "—"} />
-          <Col label="GSM" value={job.gsm ?? "—"} />
-          <Col label="RM supplier" value={job.rmSupplier || "—"} />
           <Col label="Printing vendor" value={job.printingVendor || "—"} />
+          <Col label="Printing type" value={job.printingType || "—"} />
+          <Col label="Printing due" value={formatDate(job.printingDueDate)} />
+          <Col label="Production due" value={formatDate(job.productionDueDate)} />
+          <Col label="RM delivery" value={formatDate(job.rmDeliveryDate)} />
         </dl>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-5 dark:bg-gray-900 dark:border-gray-800">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">RM details</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>RM supplier</label>
+            <input className={inputCls} value={rmSupplier} onChange={(e) => setRmSupplier(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Paper type</label>
+            <input className={inputCls} value={paperType} onChange={(e) => setPaperType(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>GSM</label>
+            <input type="number" className={inputCls} value={gsm} onChange={(e) => setGsm(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>RM size (mm)</label>
+            <input type="number" className={inputCls} value={rmSizeMm} onChange={(e) => setRmSizeMm(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>RM qty (sheets)</label>
+            <input type="number" className={inputCls} value={rmQtySheets} onChange={(e) => setRmQtySheets(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>RM qty (kgs)</label>
+            <input type="number" step="0.01" className={inputCls} value={rmQtyKgs} onChange={(e) => setRmQtyKgs(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>RM delivery date</label>
+            <input type="date" className={inputCls} value={rmDeliveryDate ? rmDeliveryDate.slice(0, 10) : ""} onChange={(e) => setRmDeliveryDate(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Printing due date</label>
+            <input type="date" className={inputCls} value={printingDueDate ? printingDueDate.slice(0, 10) : ""} onChange={(e) => setPrintingDueDate(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Production due date</label>
+            <input type="date" className={inputCls} value={productionDueDate ? productionDueDate.slice(0, 10) : ""} onChange={(e) => setProductionDueDate(e.target.value)} />
+          </div>
+        </div>
+        <p className="text-xs text-gray-400 mt-3 dark:text-gray-500">These save along with the status update below.</p>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-5 dark:bg-gray-900 dark:border-gray-800">

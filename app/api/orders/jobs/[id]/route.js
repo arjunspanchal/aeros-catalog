@@ -59,6 +59,20 @@ export async function PATCH(req, { params }) {
     if (body.actionPoints !== undefined) patch.actionPoints = body.actionPoints;
     if (body.notes !== undefined) patch.notes = body.notes;
     if (body.expectedDispatchDate !== undefined) patch.expectedDispatchDate = body.expectedDispatchDate;
+    // RM + production updates
+    if (body.rmType !== undefined) patch.rmType = body.rmType;
+    if (body.rmSupplier !== undefined) patch.rmSupplier = body.rmSupplier;
+    if (body.paperType !== undefined) patch.paperType = body.paperType;
+    if (body.gsm !== undefined) patch.gsm = body.gsm;
+    if (body.rmSizeMm !== undefined) patch.rmSizeMm = body.rmSizeMm;
+    if (body.rmQtySheets !== undefined) patch.rmQtySheets = body.rmQtySheets;
+    if (body.rmQtyKgs !== undefined) patch.rmQtyKgs = body.rmQtyKgs;
+    if (body.rmDeliveryDate !== undefined) patch.rmDeliveryDate = body.rmDeliveryDate;
+    if (body.printingType !== undefined) patch.printingType = body.printingType;
+    if (body.printingVendor !== undefined) patch.printingVendor = body.printingVendor;
+    if (body.printingDueDate !== undefined) patch.printingDueDate = body.printingDueDate;
+    if (body.productionDueDate !== undefined) patch.productionDueDate = body.productionDueDate;
+    if (body.itemSize !== undefined) patch.itemSize = body.itemSize;
 
     const updated = Object.keys(patch).length > 0 ? await updateJob(job.id, patch) : job;
 
