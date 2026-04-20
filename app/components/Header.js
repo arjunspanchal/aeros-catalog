@@ -3,6 +3,7 @@ import Link from 'next/link';
 const NAV_LINKS = [
   { href: '/', label: 'Clearance Stock', key: 'clearance' },
   { href: '/catalog', label: 'Product Catalog', key: 'catalog' },
+  { href: '/calculator', label: 'Rate Calculator', key: 'calculator' },
 ];
 
 export default function Header({
