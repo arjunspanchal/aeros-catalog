@@ -11,11 +11,15 @@ function defaultJNumber() {
   return `${yy}${mm}`;
 }
 
-export default function NewJobForm({ clients, accountManagers }) {
+const NEW_CLIENT = "__new";
+
+export default function NewJobForm({ clients: initialClients, accountManagers }) {
   const router = useRouter();
+  const [clients, setClients] = useState(initialClients);
   const [form, setForm] = useState({
     jNumber: `${defaultJNumber()}000`,
     clientId: "",
+    newClientName: "",
     brand: "",
     customerManagerId: "",
     category: "Paper Bag",
@@ -37,17 +41,41 @@ export default function NewJobForm({ clients, accountManagers }) {
 
   function set(k, v) { setForm((f) => ({ ...f, [k]: v })); }
 
+  const isNewClient = form.clientId === NEW_CLIENT;
+
   async function submit(e) {
     e.preventDefault();
     setErr(""); setBusy(true);
+
+    let clientId = form.clientId;
+    // Create the new client first if requested.
+    if (isNewClient) {
+      const trimmed = form.newClientName.trim();
+      if (!trimmed) { setErr("Enter a name for the new client"); setBusy(false); return; }
+      const cRes = await fetch("/api/orders/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      if (!cRes.ok) {
+        setErr(`Couldn't create client: ${(await cRes.json()).error || "Failed"}`);
+        setBusy(false); return;
+      }
+      const cData = await cRes.json();
+      clientId = cData.client.id;
+      setClients((prev) => [...prev, cData.client].sort((a, b) => a.name.localeCompare(b.name)));
+    }
+
     const body = {
       ...form,
+      clientId,
       qty: form.qty ? Number(form.qty) : undefined,
       gsm: form.gsm ? Number(form.gsm) : undefined,
       customerManagerId: form.customerManagerId || undefined,
       expectedDispatchDate: form.expectedDispatchDate || undefined,
       orderDate: form.orderDate || undefined,
     };
+    delete body.newClientName;
     const res = await fetch("/api/orders/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -74,8 +102,19 @@ export default function NewJobForm({ clients, accountManagers }) {
           <label className={labelCls}>Client</label>
           <select className={inputCls} value={form.clientId} onChange={(e) => set("clientId", e.target.value)} required>
             <option value="">Select client…</option>
+            <option value={NEW_CLIENT}>+ Create new client</option>
             {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+          {isNewClient && (
+            <input
+              className={`${inputCls} mt-2`}
+              placeholder="New client name, e.g. Brewbay"
+              value={form.newClientName}
+              onChange={(e) => set("newClientName", e.target.value)}
+              required
+              autoFocus
+            />
+          )}
         </div>
         <div>
           <label className={labelCls}>Brand</label>

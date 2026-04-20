@@ -62,6 +62,30 @@ export default function ClientsAdmin({ initialClients }) {
     cancelEdit();
   }
 
+  async function requestDelete(c) {
+    // Fetch the cascade count first so the confirm dialog can show the blast radius.
+    const res = await fetch(`/api/orders/clients/${c.id}?count=jobs`);
+    if (!res.ok) {
+      alert(`Couldn't check jobs for this client. ${(await res.json()).error || ""}`);
+      return;
+    }
+    const { jobCount } = await res.json();
+    const msg = jobCount > 0
+      ? `Delete "${c.name}" and its ${jobCount} job${jobCount === 1 ? "" : "s"}? This also removes every timeline entry on those jobs. This cannot be undone.`
+      : `Delete "${c.name}"? It has no jobs. This cannot be undone.`;
+    if (!window.confirm(msg)) return;
+
+    setBusy(true);
+    const del = await fetch(`/api/orders/clients/${c.id}`, { method: "DELETE" });
+    setBusy(false);
+    if (!del.ok) {
+      alert(`Delete failed: ${(await del.json()).error || "unknown"}`);
+      return;
+    }
+    setClients((prev) => prev.filter((x) => x.id !== c.id));
+    if (editingId === c.id) cancelEdit();
+  }
+
   return (
     <div className="mt-6 grid grid-cols-1 lg:grid-cols-5 gap-6">
       <form onSubmit={submit} className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-5 space-y-3 dark:bg-gray-900 dark:border-gray-800">
@@ -140,12 +164,19 @@ export default function ClientsAdmin({ initialClients }) {
                   <div className="text-gray-600 dark:text-gray-300">{c.contactPerson || "—"}</div>
                   {c.contactEmail && <div className="text-xs text-gray-500 dark:text-gray-400">{c.contactEmail}</div>}
                 </td>
-                <td className="px-4 py-2 text-right">
+                <td className="px-4 py-2 text-right whitespace-nowrap">
                   <button
                     onClick={() => startEdit(c)}
-                    className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+                    className="text-xs text-blue-600 hover:underline dark:text-blue-400 mr-3"
                   >
                     Edit
+                  </button>
+                  <button
+                    onClick={() => requestDelete(c)}
+                    disabled={busy}
+                    className="text-xs text-red-600 hover:underline dark:text-red-400 disabled:opacity-50"
+                  >
+                    Delete
                   </button>
                 </td>
               </tr>
