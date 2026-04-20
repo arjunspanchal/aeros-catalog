@@ -21,6 +21,12 @@ const OPTIONS = [
     description: "Generate a live bag quote — pick your specs, see the rate.",
     accent: "from-blue-600 to-indigo-700",
   },
+  {
+    href: "/orders",
+    title: "Order Tracking",
+    description: "Track your live orders — stage, timeline, and expected dispatch.",
+    accent: "from-fuchsia-600 to-purple-700",
+  },
 ];
 
 export default function HomeClient({ footer }) {
@@ -40,7 +46,7 @@ export default function HomeClient({ footer }) {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-6">
           {OPTIONS.map((o) => (
             <Link
               key={o.href}

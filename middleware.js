@@ -1,5 +1,5 @@
-// Edge middleware scoped to the calculator routes. Uses Web Crypto (no node:crypto)
-// for edge compat. Catalog routes (/, /catalog, /api/chat) are unaffected.
+// Edge middleware. Uses Web Crypto (no node:crypto) for edge compat.
+// Guards two independent modules: /calculator (cookie aeros_session) and /orders (cookie aeros_orders_session).
 import { NextResponse } from "next/server";
 
 async function verify(token, secret) {
@@ -25,29 +25,59 @@ async function verify(token, secret) {
 
 export async function middleware(req) {
   const { pathname } = req.nextUrl;
-
-  // Auth endpoints are reachable without a session cookie.
-  if (pathname.startsWith("/api/calc/auth/")) return NextResponse.next();
-  // Login page is reachable without a session cookie.
-  if (pathname === "/calculator/login") return NextResponse.next();
-
-  const token = req.cookies.get("aeros_session")?.value;
   const secret = process.env.SESSION_SECRET;
-  const payload = secret ? await verify(token, secret) : null;
-  if (!payload) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/calculator/login";
-    url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+
+  // --- Calculator module ---
+  if (pathname.startsWith("/api/calc/") || pathname.startsWith("/calculator")) {
+    if (pathname.startsWith("/api/calc/auth/")) return NextResponse.next();
+    if (pathname === "/calculator/login") return NextResponse.next();
+    const token = req.cookies.get("aeros_session")?.value;
+    const payload = secret ? await verify(token, secret) : null;
+    if (!payload) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/calculator/login";
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+    if (pathname.startsWith("/calculator/admin") && payload.role !== "admin") {
+      return NextResponse.redirect(new URL("/calculator/client", req.url));
+    }
+    return NextResponse.next();
   }
-  // Role-based path guard. Admin-only API enforcement happens inside the route handlers.
-  const isAdminPath = pathname.startsWith("/calculator/admin");
-  if (isAdminPath && payload.role !== "admin") {
-    return NextResponse.redirect(new URL("/calculator/client", req.url));
+
+  // --- Orders module ---
+  if (pathname.startsWith("/api/orders/") || pathname.startsWith("/orders")) {
+    // Public: auth endpoints + login page + the root redirect page.
+    if (pathname.startsWith("/api/orders/auth/")) return NextResponse.next();
+    if (pathname === "/orders/login") return NextResponse.next();
+
+    const token = req.cookies.get("aeros_orders_session")?.value;
+    const payload = secret ? await verify(token, secret) : null;
+
+    if (!payload) {
+      // The root /orders page handles its own routing — let it render the landing/redirect logic.
+      if (pathname === "/orders") return NextResponse.next();
+      const url = req.nextUrl.clone();
+      url.pathname = "/orders/login";
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+
+    // Role guards for page routes.
+    if (pathname.startsWith("/orders/admin") && payload.role !== "admin") {
+      return NextResponse.redirect(new URL("/orders", req.url));
+    }
+    if (pathname.startsWith("/orders/manager") && payload.role === "customer") {
+      return NextResponse.redirect(new URL("/orders/customer", req.url));
+    }
+    if (pathname.startsWith("/orders/customer") && payload.role !== "customer") {
+      return NextResponse.redirect(new URL("/orders/manager", req.url));
+    }
   }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/calculator/:path*", "/api/calc/:path*"],
+  matcher: ["/calculator/:path*", "/api/calc/:path*", "/orders/:path*", "/api/orders/:path*"],
 };

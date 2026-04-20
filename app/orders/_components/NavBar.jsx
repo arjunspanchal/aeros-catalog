@@ -1,0 +1,53 @@
+"use client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+export default function NavBar({ role, name, email }) {
+  const router = useRouter();
+  async function logout() {
+    await fetch("/api/orders/auth/logout", { method: "POST" });
+    router.push("/orders/login");
+  }
+
+  const isInternal = role === "admin" || role === "account_manager" || role === "factory_manager";
+
+  return (
+    <nav className="border-b border-gray-200 bg-white dark:bg-gray-900 dark:border-gray-800">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
+        <div className="flex items-center gap-6">
+          <Link href="/orders" className="font-semibold text-gray-900 dark:text-white">
+            Aeros Orders
+          </Link>
+          {isInternal && (
+            <Link href="/orders/manager" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
+              Jobs
+            </Link>
+          )}
+          {role === "admin" && (
+            <>
+              <Link href="/orders/admin" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
+                Admin
+              </Link>
+            </>
+          )}
+          {role === "customer" && (
+            <Link href="/orders/customer" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
+              My orders
+            </Link>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
+            {name || email} · <span className="capitalize">{role?.replace("_", " ")}</span>
+          </span>
+          <button
+            onClick={logout}
+            className="text-xs text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
+          >
+            Log out
+          </button>
+        </div>
+      </div>
+    </nav>
+  );
+}
