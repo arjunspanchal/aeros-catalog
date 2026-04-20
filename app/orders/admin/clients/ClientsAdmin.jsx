@@ -2,7 +2,15 @@
 import { useState } from "react";
 import { inputCls, labelCls } from "@/app/orders/_components/ui";
 
-const EMPTY = { name: "", code: "", contactPerson: "", contactEmail: "", contactPhone: "" };
+const EMPTY = {
+  name: "",
+  code: "",
+  contactPerson: "",
+  contactEmail: "",
+  contactPhone: "",
+  brandManager: "",
+  brandManagerEmail: "",
+};
 
 export default function ClientsAdmin({ initialClients }) {
   const [clients, setClients] = useState(initialClients);
@@ -21,6 +29,8 @@ export default function ClientsAdmin({ initialClients }) {
       contactPerson: c.contactPerson || "",
       contactEmail: c.contactEmail || "",
       contactPhone: c.contactPhone || "",
+      brandManager: c.brandManager || "",
+      brandManagerEmail: c.brandManagerEmail || "",
     });
     setErr("");
   }
@@ -74,6 +84,14 @@ export default function ClientsAdmin({ initialClients }) {
           <input className={inputCls} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
         </div>
         <div>
+          <label className={labelCls}>Brand manager</label>
+          <input className={inputCls} value={form.brandManager} onChange={(e) => setForm({ ...form, brandManager: e.target.value })} placeholder="e.g. Vinay Dubey" />
+        </div>
+        <div>
+          <label className={labelCls}>Brand manager email</label>
+          <input type="email" className={inputCls} value={form.brandManagerEmail} onChange={(e) => setForm({ ...form, brandManagerEmail: e.target.value })} placeholder="e.g. vinay@theepackagingcompany.com" />
+        </div>
+        <div>
           <label className={labelCls}>Contact person</label>
           <input className={inputCls} value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} />
         </div>
@@ -96,17 +114,32 @@ export default function ClientsAdmin({ initialClients }) {
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase dark:bg-gray-800/50 dark:text-gray-400">
             <tr>
               <th className="text-left px-4 py-2 font-medium">Name</th>
+              <th className="text-left px-4 py-2 font-medium">Brand manager</th>
               <th className="text-left px-4 py-2 font-medium">Contact</th>
-              <th className="text-left px-4 py-2 font-medium">Email</th>
               <th className="text-right px-4 py-2 font-medium">&nbsp;</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {clients.map((c) => (
               <tr key={c.id} className={editingId === c.id ? "bg-blue-50 dark:bg-blue-900/20" : ""}>
-                <td className="px-4 py-2 text-gray-900 dark:text-white">{c.name}{c.code && <span className="text-xs text-gray-500 ml-2 dark:text-gray-400">{c.code}</span>}</td>
-                <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{c.contactPerson || "—"}</td>
-                <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{c.contactEmail || "—"}</td>
+                <td className="px-4 py-2">
+                  <div className="text-gray-900 dark:text-white">{c.name}</div>
+                  {c.code && <div className="text-xs text-gray-500 dark:text-gray-400">{c.code}</div>}
+                </td>
+                <td className="px-4 py-2">
+                  {c.brandManager || c.brandManagerEmail ? (
+                    <>
+                      <div className="text-gray-900 dark:text-white">{c.brandManager || "—"}</div>
+                      {c.brandManagerEmail && <div className="text-xs text-gray-500 dark:text-gray-400">{c.brandManagerEmail}</div>}
+                    </>
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-500">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-2">
+                  <div className="text-gray-600 dark:text-gray-300">{c.contactPerson || "—"}</div>
+                  {c.contactEmail && <div className="text-xs text-gray-500 dark:text-gray-400">{c.contactEmail}</div>}
+                </td>
                 <td className="px-4 py-2 text-right">
                   <button
                     onClick={() => startEdit(c)}
