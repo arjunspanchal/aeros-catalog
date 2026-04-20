@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/orders/session";
 import { listJobsForSession, listClients, listUsers } from "@/lib/orders/repo";
-import { ROLES, STAGES } from "@/lib/orders/constants";
+import { ROLES } from "@/lib/orders/constants";
 import NavBar from "@/app/orders/_components/NavBar";
 import StatusChart from "@/app/orders/_components/StatusChart";
 import { StageBadge, formatDate } from "@/app/orders/_components/ui";
@@ -20,30 +20,34 @@ export default async function AdminDashboard() {
     listUsers(),
   ]);
   const clientMap = Object.fromEntries(clients.map((c) => [c.id, c]));
-
-  const stageCount = Object.fromEntries(STAGES.map((st) => [st, 0]));
-  for (const j of jobs) if (stageCount[j.stage] !== undefined) stageCount[j.stage]++;
-
   const recent = jobs.slice(0, 10);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <NavBar role={s.role} name={s.name} email={s.email} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Admin</h1>
-            <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
-              {jobs.length} jobs · {clients.length} clients · {users.length} users
-            </p>
+        <header className="mb-6">
+          <div className="flex items-baseline justify-between gap-3">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+            <Link
+              href="/orders/admin/jobs/new"
+              className="shrink-0 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              + New job
+            </Link>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Link href="/orders/admin/clients" className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">Clients</Link>
-            <Link href="/orders/admin/users" className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">Users</Link>
-            <Link href="/orders/manager/pos" className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">Customer POs</Link>
-            <Link href="/orders/admin/jobs/new" className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">+ New job</Link>
+          <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
+            {jobs.length} jobs · {clients.length} clients · {users.length} users
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2 text-sm">
+            <Link href="/orders/admin/clients" className="px-3 py-1.5 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
+              Manage clients
+            </Link>
+            <Link href="/orders/admin/users" className="px-3 py-1.5 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
+              Manage users
+            </Link>
           </div>
-        </div>
+        </header>
 
         <div className="mb-6">
           <StatusChart jobs={jobs} title="Jobs by stage" />
@@ -90,15 +94,6 @@ export default async function AdminDashboard() {
           </div>
         </div>
       </main>
-    </div>
-  );
-}
-
-function Card({ label, value }) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg p-3 dark:bg-gray-900 dark:border-gray-800">
-      <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{label}</div>
-      <div className="text-lg font-bold text-gray-900 dark:text-white">{value}</div>
     </div>
   );
 }
