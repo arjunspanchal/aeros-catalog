@@ -25,7 +25,7 @@ export function NavBar({ role, email }) {
     <nav className="bg-white border-b border-gray-100 mb-6">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link href={role === "admin" ? "/calculator/admin" : "/calculator/client"} className="font-semibold text-gray-900 text-sm">Aeros</Link>
+          <Link href="/" className="font-semibold text-gray-900 text-sm hover:text-blue-700" title="Back to Aeros home">← Aeros</Link>
           <div className="flex gap-1">
             {links.map((l) => {
               const active = path === l.href;
