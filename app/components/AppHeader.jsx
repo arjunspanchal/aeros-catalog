@@ -11,14 +11,16 @@ import { useRouter, usePathname } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
 
 const MODULES = [
-  { key: "calculator", label: "Calculator", href: "/calculator" },
-  { key: "factoryos",  label: "FactoryOS",  href: "/factoryos"  },
-  { key: "catalogue",  label: "Catalogue",  href: "/catalog"    },
-  { key: "clearance",  label: "Clearance",  href: "/clearance"  },
+  { key: "calculator",  label: "Calculator",  href: "/calculator"  },
+  { key: "rate_cards",  label: "Rate Cards",  href: "/rate-cards"  },
+  { key: "factoryos",   label: "FactoryOS",   href: "/factoryos"   },
+  { key: "catalogue",   label: "Catalogue",   href: "/catalog"     },
+  { key: "clearance",   label: "Clearance",   href: "/clearance"   },
 ];
 
 function activeModuleKey(pathname) {
   if (pathname.startsWith("/calculator")) return "calculator";
+  if (pathname.startsWith("/rate-cards")) return "rate_cards";
   if (pathname.startsWith("/factoryos"))  return "factoryos";
   if (pathname.startsWith("/catalog"))    return "catalogue";
   if (pathname.startsWith("/clearance"))  return "clearance";
@@ -37,6 +39,7 @@ function subTabsFor(pathname, session) {
       return [
         { href: "/calculator/admin",          label: "Bag",      short: "Bag" },
         { href: "/calculator/admin/box",      label: "Box",      short: "Box" },
+        { href: "/calculator/admin/cup",      label: "Cup",      short: "Cup" },
         { href: "/calculator/admin/history",  label: "History",  short: "History" },
         { href: "/calculator/admin/clients",  label: "Clients",  short: "Clients" },
         { href: "/calculator/admin/rates",    label: "Rates",    short: "Rates" },
@@ -46,6 +49,7 @@ function subTabsFor(pathname, session) {
       return [
         { href: "/calculator/client",         label: "Bag",       short: "Bag" },
         { href: "/calculator/client/box",     label: "Box",       short: "Box" },
+        { href: "/calculator/client/cup",     label: "Cup",       short: "Cup" },
         { href: "/calculator/client/quotes",  label: "My Quotes", short: "Quotes" },
       ];
     }
@@ -73,6 +77,22 @@ function subTabsFor(pathname, session) {
       tabs.push({ href: "/factoryos/admin/hr/attendance",    label: "Attendance", short: "Attn"  });
     }
     return tabs;
+  }
+
+  if (active === "rate_cards") {
+    const role = session?.modules?.rate_cards;
+    if (role === "admin") {
+      return [
+        { href: "/rate-cards",            label: "All Cards",   short: "All"    },
+        { href: "/rate-cards/admin/new",  label: "+ New Card",  short: "New"    },
+      ];
+    }
+    if (role === "client") {
+      return [
+        { href: "/rate-cards", label: "My Rate Cards", short: "Cards" },
+      ];
+    }
+    return [];
   }
 
   if (active === "clearance") {

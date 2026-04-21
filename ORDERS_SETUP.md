@@ -100,7 +100,8 @@ Tracks **on-hand paper stock**. Each row is a specific lot we currently own. Sur
 | Paper Type | Single line text | |
 | GSM | Number | |
 | BF | Number | |
-| Size (mm) | Number | |
+| Width (mm) | Number | Roll width (for Rolls) or short edge (for Sheets / Reams). |
+| Length (mm) | Number | Long edge. Only used for Sheets / Reams. |
 | Form | Single select | `Rolls`, `Sheets`, `Reams` |
 | Supplier | Single line text | |
 | Mill | Single line text | Legacy column kept in sync with Supplier on write. |
