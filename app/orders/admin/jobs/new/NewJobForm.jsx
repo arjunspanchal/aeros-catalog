@@ -118,6 +118,15 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
     e.preventDefault();
     setErr(""); setBusy(true);
 
+    // Belt-and-braces guard — HTML5 `required` on the select also enforces this, but if
+    // someone bypasses the browser we still catch it here before hitting the API.
+    const pickedProduct = products.find((p) => p.id === form.productId);
+    if (!pickedProduct) {
+      setErr("Pick a product from the master catalogue — required so this job maps to an SKU.");
+      setBusy(false);
+      return;
+    }
+
     let clientId = form.clientId;
     if (isNewClient) {
       const trimmed = form.newClientName.trim();
@@ -136,6 +145,10 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
     const body = {
       ...form,
       clientId,
+      // Snapshot the master SKU + name at creation time. Master catalogue can change later;
+      // the job-level record keeps the original mapping so FG ledger stays consistent.
+      masterSku: pickedProduct.sku || "",
+      masterProductName: pickedProduct.productName || "",
       qty: form.qty ? Number(form.qty) : undefined,
       gsm: form.gsm ? Number(form.gsm) : undefined,
       rmSizeMm: form.rmSizeMm ? Number(form.rmSizeMm) : undefined,
@@ -212,21 +225,36 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
 
       <Section title="Item">
         <div className="sm:col-span-2">
-          <label className={labelCls}>Pick from Products Master (auto-fills item, size, category, GSM, material)</label>
+          <label className={labelCls}>
+            Master product <span className="text-red-500">*</span>
+            <span className="ml-2 text-[11px] font-normal normal-case text-gray-500 dark:text-gray-400">
+              required — pick the SKU this job produces; auto-fills item, size, category, GSM, material
+            </span>
+          </label>
           <input
             className={`${inputCls} mb-2`}
             placeholder={`Search ${products.length} products by name / SKU / size…`}
             value={productQuery}
             onChange={(e) => setProductQuery(e.target.value)}
           />
-          <select className={inputCls} value={form.productId} onChange={(e) => onPickProduct(e.target.value)}>
-            <option value="">— None (enter manually below) —</option>
+          <select
+            className={inputCls}
+            value={form.productId}
+            onChange={(e) => onPickProduct(e.target.value)}
+            required
+          >
+            <option value="">— Select a master product —</option>
             {filteredProducts.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.productName}{p.sku ? ` (${p.sku})` : ""}{p.sizeVolume ? ` · ${p.sizeVolume}` : ""}
               </option>
             ))}
           </select>
+          {products.length === 0 && (
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              No master products loaded. Check CATALOG_BASE_ID / CATALOG_TABLE_ID env vars before creating jobs.
+            </p>
+          )}
         </div>
         <div>
           <label className={labelCls}>Category</label>

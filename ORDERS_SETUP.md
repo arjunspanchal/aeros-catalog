@@ -134,6 +134,46 @@ The master paper catalogue is a separate base (`Paper RM Database` → default `
 
 > Already set up by you. The `AIRTABLE_TOKEN` PAT must have this base added under its Access list.
 
+### Table: `Employees` (HR)
+
+Factory workforce. Used by the HR module at `/orders/admin/hr`.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| Name | Single line text | **Primary field**. |
+| Aadhar | Single line text | 12 digits, stored unformatted. |
+| Phone | Phone number | |
+| Designation | Single line text | e.g. "Machine Operator", "Packer". |
+| Monthly Salary | Currency (INR) | |
+| Joining Date | Date | |
+| Manager | Link to `Users` | The factory manager (Rahul, Suleman, …) who marks their attendance. Allow linking to **one** record only. |
+| OT Eligible | Checkbox | Toggles overtime for this employee. |
+| Notes | Long text | |
+| Active | Checkbox | Default checked. Deactivating hides the employee from daily marking but keeps their history. |
+| Created | Created time | Auto |
+
+> OT rate is **not stored** — it's computed as `(Monthly Salary / 30 / 10) × 1.5` wherever needed.
+
+### Table: `Attendance`
+
+One row per (Employee, Date). Re-marking the same day upserts the row.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| ID | Autonumber | **Primary field** (or any auto-computed field). Not written by code. |
+| Employee | Link to `Employees` | Required. |
+| Date | Date | The day this row is for (no time component). |
+| Status | Single select | Options: `P`, `A`, `H` (Present / Absent / Half-day). |
+| In Time | Single line text | `HH:MM` 24-hour. |
+| Out Time | Single line text | `HH:MM` 24-hour. |
+| OT Hours | Number | Computed on save: `max(0, OutTime − 19:00)` when OT-eligible and Present. |
+| Marked By | Link to `Users` | The manager/admin who marked. Admin logins don't have a User row, so this can be empty for admin-marked rows. |
+| Marked By Email | Email | Denormalised copy — survives if the User is deleted. |
+| Marked By Name | Single line text | |
+| Notes | Long text | |
+| Created | Created time | Auto |
+| Last Updated | Last modified time | Auto |
+
 ### Table: `OTP Codes`
 
 | Field | Type | Notes |
@@ -164,6 +204,8 @@ AIRTABLE_ORDERS_JOBS_TABLE=Jobs
 AIRTABLE_ORDERS_UPDATES_TABLE=Job Status Updates
 AIRTABLE_ORDERS_OTP_TABLE=OTP Codes
 AIRTABLE_ORDERS_RM_TABLE=RM Inventory
+AIRTABLE_ORDERS_EMPLOYEES_TABLE=Employees
+AIRTABLE_ORDERS_ATTENDANCE_TABLE=Attendance
 
 # --- Paper RM Database (separate base, master paper catalogue) ---
 # Defaults are hard-coded in lib/paper-rm.js; override only if you move them.

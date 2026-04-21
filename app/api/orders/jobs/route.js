@@ -25,6 +25,13 @@ export async function POST(req) {
     if (!body.jNumber || !body.clientId || !body.item) {
       return Response.json({ error: "J#, client, and item are required" }, { status: 400 });
     }
+    // Every new job must map to a row in Aeros Products Master so FG inventory can be tracked by SKU.
+    if (!body.masterSku || !String(body.masterSku).trim()) {
+      return Response.json(
+        { error: "Pick a product from the master catalogue — required so this job maps to an SKU." },
+        { status: 400 },
+      );
+    }
     if (body.stage && !STAGES.includes(body.stage)) {
       return Response.json({ error: "Invalid stage" }, { status: 400 });
     }

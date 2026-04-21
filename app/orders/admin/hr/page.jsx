@@ -1,0 +1,51 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/orders/session";
+import { listEmployees, listUsers } from "@/lib/orders/repo";
+import { ROLES } from "@/lib/orders/constants";
+import NavBar from "@/app/orders/_components/NavBar";
+import EmployeesAdmin from "./EmployeesAdmin";
+
+export const dynamic = "force-dynamic";
+
+export default async function HrPage() {
+  const s = getSession();
+  if (!s) redirect("/orders/login");
+  if (s.role !== ROLES.ADMIN && s.role !== ROLES.FACTORY_MANAGER) redirect("/orders");
+
+  const [employees, users] = await Promise.all([listEmployees(), listUsers()]);
+  const factoryManagers = users.filter((u) => u.role === ROLES.FACTORY_MANAGER && u.active);
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <NavBar role={s.role} name={s.name} email={s.email} />
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Link href="/orders/admin" className="text-xs text-gray-500 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-400">
+          ← Admin
+        </Link>
+
+        <div className="mt-4 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">HR</h1>
+            <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
+              Employee roster, attendance, calendar, payroll.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-sm">
+            <Link href="/orders/admin/hr/attendance" className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
+              Mark attendance
+            </Link>
+            <Link href="/orders/admin/hr/calendar" className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
+              Calendar
+            </Link>
+            <Link href="/orders/admin/hr/payroll" className="px-3 py-2 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
+              Payroll
+            </Link>
+          </div>
+        </div>
+
+        <EmployeesAdmin initialEmployees={employees} factoryManagers={factoryManagers} />
+      </main>
+    </div>
+  );
+}

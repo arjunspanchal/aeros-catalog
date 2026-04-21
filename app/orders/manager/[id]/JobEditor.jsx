@@ -1,10 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StageBadge, StageTimeline, inputCls, labelCls, formatDate, formatDateTime } from "@/app/orders/_components/ui";
-import { STAGES } from "@/lib/orders/constants";
+import { ROLES, STAGES } from "@/lib/orders/constants";
 
-export default function JobEditor({ job: initialJob, initialUpdates, clientMap, role }) {
+export default function JobEditor({ job: initialJob, initialUpdates, clientMap, role, products = [] }) {
   const router = useRouter();
   const [job, setJob] = useState(initialJob);
   const [updates, setUpdates] = useState(initialUpdates);
@@ -35,6 +35,56 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
   const [driverContact, setDriverContact] = useState(initialJob.driverContact || "");
   const [trackingBusy, setTrackingBusy] = useState(false);
   const [trackingSaved, setTrackingSaved] = useState(false);
+  // Master-product mapping (admin + factory manager can edit; others see read-only).
+  const canEditMasterProduct = role === ROLES.ADMIN || role === ROLES.FACTORY_MANAGER;
+  const [masterSku, setMasterSku] = useState(initialJob.masterSku || "");
+  const [masterProductName, setMasterProductName] = useState(initialJob.masterProductName || "");
+  // Resolve the initial productId from masterSku if it matches a catalog row.
+  const [productId, setProductId] = useState(() => {
+    const hit = products.find((p) => p.sku && initialJob.masterSku && p.sku === initialJob.masterSku);
+    return hit?.id || "";
+  });
+  const [productQuery, setProductQuery] = useState("");
+  const [masterBusy, setMasterBusy] = useState(false);
+  const [masterSaved, setMasterSaved] = useState(false);
+  const [masterErr, setMasterErr] = useState("");
+
+  const filteredProducts = useMemo(() => {
+    const q = productQuery.trim().toLowerCase();
+    if (!q) return products.slice(0, 200);
+    return products
+      .filter((p) => `${p.productName} ${p.sku} ${p.category} ${p.sizeVolume}`.toLowerCase().includes(q))
+      .slice(0, 200);
+  }, [products, productQuery]);
+
+  function onPickProduct(id) {
+    setProductId(id);
+    const p = products.find((x) => x.id === id);
+    if (!p) { setMasterSku(""); setMasterProductName(""); return; }
+    setMasterSku(p.sku || "");
+    setMasterProductName(p.productName || "");
+  }
+
+  async function saveMasterMapping() {
+    setMasterErr(""); setMasterSaved(false);
+    if (!masterSku.trim()) {
+      setMasterErr("Pick a master product first.");
+      return;
+    }
+    setMasterBusy(true);
+    const res = await fetch(`/api/orders/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ masterSku, masterProductName }),
+    });
+    setMasterBusy(false);
+    if (!res.ok) { setMasterErr((await res.json()).error || "Failed"); return; }
+    const data = await res.json();
+    setJob(data.job);
+    setMasterSaved(true);
+    setTimeout(() => setMasterSaved(false), 2000);
+    router.refresh();
+  }
 
   const clientName = job.clientIds.map((c) => clientMap[c]?.name).filter(Boolean).join(", ");
 
@@ -134,6 +184,7 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
           <Col label="Category" value={job.category || "—"} />
           <Col label="Item size" value={job.itemSize || "—"} />
           <Col label="PO #" value={job.poNumber || "—"} />
+          <Col label="Master SKU" value={job.masterSku || "— (unmapped)"} />
           <Col label="Order date" value={formatDate(job.orderDate)} />
           <Col label="Printing vendor" value={job.printingVendor || "—"} />
           <Col label="Printing type" value={job.printingType || "—"} />
@@ -142,6 +193,60 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
           <Col label="RM delivery" value={formatDate(job.rmDeliveryDate)} />
         </dl>
       </div>
+
+      {canEditMasterProduct && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5 dark:bg-gray-900 dark:border-gray-800">
+          <div className="flex items-baseline justify-between gap-3 mb-3">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Master product mapping</h2>
+            {job.masterSku ? (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Currently: <span className="font-mono text-gray-900 dark:text-white">{job.masterSku}</span>
+                {job.masterProductName && <> · {job.masterProductName}</>}
+              </span>
+            ) : (
+              <span className="text-xs text-amber-600 dark:text-amber-400">Unmapped — pick a master product so FG inventory can track this job.</span>
+            )}
+          </div>
+          {products.length === 0 ? (
+            <p className="text-xs text-red-600 dark:text-red-400">
+              No master products loaded. Check CATALOG_BASE_ID / CATALOG_TABLE_ID env vars.
+            </p>
+          ) : (
+            <>
+              <input
+                className={`${inputCls} mb-2`}
+                placeholder={`Search ${products.length} products by name / SKU / size…`}
+                value={productQuery}
+                onChange={(e) => setProductQuery(e.target.value)}
+              />
+              <select
+                className={inputCls}
+                value={productId}
+                onChange={(e) => onPickProduct(e.target.value)}
+              >
+                <option value="">— Select a master product —</option>
+                {filteredProducts.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.productName}{p.sku ? ` (${p.sku})` : ""}{p.sizeVolume ? ` · ${p.sizeVolume}` : ""}
+                  </option>
+                ))}
+              </select>
+              <div className="mt-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={saveMasterMapping}
+                  disabled={masterBusy || !masterSku.trim()}
+                  className="bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-md hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {masterBusy ? "Saving…" : "Save mapping"}
+                </button>
+                {masterSaved && <span className="text-xs text-green-600 dark:text-green-400">Saved</span>}
+                {masterErr && <span className="text-xs text-red-500">{masterErr}</span>}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="bg-white border border-gray-200 rounded-xl p-5 dark:bg-gray-900 dark:border-gray-800">
         <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">RM details</h2>

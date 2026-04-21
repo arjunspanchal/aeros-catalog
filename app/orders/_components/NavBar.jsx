@@ -30,9 +30,14 @@ export default function NavBar({ role, name, email }) {
             </>
           )}
           {(role === "admin" || role === "factory_manager") && (
-            <Link href="/orders/admin" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
-              Admin
-            </Link>
+            <>
+              <Link href="/orders/admin" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
+                Admin
+              </Link>
+              <Link href="/orders/admin/hr/attendance" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white">
+                Attendance
+              </Link>
+            </>
           )}
           {role === "customer" && (
             <>

@@ -118,6 +118,15 @@ export async function PATCH(req, { params }) {
     if (body.transportMode !== undefined) patch.transportMode = body.transportMode;
     if (body.lrOrVehicleNumber !== undefined) patch.lrOrVehicleNumber = body.lrOrVehicleNumber;
     if (body.driverContact !== undefined) patch.driverContact = body.driverContact;
+    // Master-product mapping: only admin + factory manager can remap a job to a different SKU.
+    // Account managers can see it read-only but shouldn't be able to overwrite mapping.
+    if (body.masterSku !== undefined || body.masterProductName !== undefined) {
+      if (s.role !== ROLES.ADMIN && s.role !== ROLES.FACTORY_MANAGER) {
+        return Response.json({ error: "Not allowed to change master product mapping" }, { status: 403 });
+      }
+      if (body.masterSku !== undefined) patch.masterSku = body.masterSku;
+      if (body.masterProductName !== undefined) patch.masterProductName = body.masterProductName;
+    }
 
     const updated = Object.keys(patch).length > 0 ? await updateJob(job.id, patch) : job;
 
