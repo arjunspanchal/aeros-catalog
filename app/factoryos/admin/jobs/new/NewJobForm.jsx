@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { inputCls, labelCls } from "@/app/factoryos/_components/ui";
-import { CATEGORIES, STAGES, PRINTING_VENDORS } from "@/lib/factoryos/constants";
+import { CATEGORIES, STAGES } from "@/lib/factoryos/constants";
 
 function defaultJNumber() {
   const d = new Date();
@@ -23,7 +23,13 @@ function Section({ title, children }) {
   );
 }
 
-export default function NewJobForm({ clients: initialClients, accountManagers, products = [], masterPapers = [] }) {
+export default function NewJobForm({
+  clients: initialClients,
+  accountManagers,
+  products = [],
+  masterPapers = [],
+  printingVendors = [],
+}) {
   const router = useRouter();
   const [clients, setClients] = useState(initialClients);
   const [form, setForm] = useState({
@@ -353,7 +359,7 @@ export default function NewJobForm({ clients: initialClients, accountManagers, p
           <label className={labelCls}>Printing vendor</label>
           <select className={inputCls} value={form.printingVendor} onChange={(e) => set("printingVendor", e.target.value)}>
             <option value="">—</option>
-            {PRINTING_VENDORS.map((v) => <option key={v} value={v}>{v}</option>)}
+            {printingVendors.map((v) => <option key={v} value={v}>{v}</option>)}
           </select>
         </div>
         <div>
