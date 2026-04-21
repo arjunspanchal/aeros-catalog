@@ -11,12 +11,20 @@ export default function UsersAdmin({ initialUsers, clients }) {
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [clientQuery, setClientQuery] = useState("");
   const clientMap = Object.fromEntries(clients.map((c) => [c.id, c]));
   const formRef = useRef(null);
 
   const isEditing = editingId !== null;
   const needsClient = form.role === ROLES.CUSTOMER;
   const allowedRoleOptions = ROLE_OPTIONS.filter((o) => o.value !== ROLES.ADMIN);
+
+  const q = clientQuery.trim().toLowerCase();
+  const selectedClients = clients.filter((c) => form.clientIds.includes(c.id));
+  const unselectedClients = clients.filter((c) => !form.clientIds.includes(c.id));
+  const filteredUnselected = q
+    ? unselectedClients.filter((c) => c.name.toLowerCase().includes(q))
+    : unselectedClients;
 
   function startEdit(u) {
     setEditingId(u.id);
@@ -27,6 +35,7 @@ export default function UsersAdmin({ initialUsers, clients }) {
       clientIds: u.clientIds || [],
     });
     setErr("");
+    setClientQuery("");
     // Pull the edit form into view — easy to miss when it's in the left column.
     requestAnimationFrame(() => {
       formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -37,6 +46,7 @@ export default function UsersAdmin({ initialUsers, clients }) {
     setEditingId(null);
     setForm(EMPTY);
     setErr("");
+    setClientQuery("");
   }
 
   async function submit(e) {
@@ -116,7 +126,14 @@ export default function UsersAdmin({ initialUsers, clients }) {
         </div>
         {(needsClient || form.role === ROLES.ACCOUNT_MANAGER) && (
           <div>
-            <label className={labelCls}>{needsClient ? "Client" : "Assigned clients"}</label>
+            <label className={`${labelCls} flex items-center justify-between gap-2`}>
+              <span>{needsClient ? "Client" : "Assigned clients"}</span>
+              {!needsClient && form.clientIds.length > 0 && (
+                <span className="text-blue-600 dark:text-blue-400 font-medium">
+                  {form.clientIds.length} selected
+                </span>
+              )}
+            </label>
             {needsClient ? (
               <select
                 className={`${inputCls} text-base`}
@@ -128,24 +145,74 @@ export default function UsersAdmin({ initialUsers, clients }) {
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             ) : (
-              <div className="space-y-2.5">
-                {clients.map((c) => (
-                  <label key={c.id} className="flex items-center gap-3 cursor-pointer p-2 -m-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800/30">
-                    <input
-                      type="checkbox"
-                      checked={form.clientIds.includes(c.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setForm({ ...form, clientIds: [...form.clientIds, c.id] });
-                        } else {
-                          setForm({ ...form, clientIds: form.clientIds.filter((id) => id !== c.id) });
-                        }
-                      }}
-                      className="w-5 h-5 rounded border-gray-300 accent-blue-600 cursor-pointer"
-                    />
-                    <span className="text-sm sm:text-base text-gray-700 dark:text-gray-300">{c.name}</span>
-                  </label>
-                ))}
+              <div className="space-y-2">
+                <div className="relative">
+                  <input
+                    type="search"
+                    value={clientQuery}
+                    onChange={(e) => setClientQuery(e.target.value)}
+                    placeholder="Search clients…"
+                    className={`${inputCls} text-base pl-8`}
+                  />
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">🔎</span>
+                </div>
+                <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-800 rounded-md divide-y divide-gray-100 dark:divide-gray-800">
+                  {selectedClients.length > 0 && (
+                    <div className="bg-blue-50/60 dark:bg-blue-900/10">
+                      {selectedClients.map((c) => (
+                        <label
+                          key={c.id}
+                          className="flex items-center gap-3 cursor-pointer px-3 py-2 hover:bg-blue-100/60 dark:hover:bg-blue-900/20"
+                        >
+                          <input
+                            type="checkbox"
+                            checked
+                            onChange={() =>
+                              setForm({ ...form, clientIds: form.clientIds.filter((id) => id !== c.id) })
+                            }
+                            className="w-5 h-5 rounded border-gray-300 accent-blue-600 cursor-pointer"
+                          />
+                          <span className="text-sm sm:text-base text-gray-800 dark:text-gray-200 font-medium">
+                            {c.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {filteredUnselected.length === 0 && selectedClients.length === 0 && (
+                    <p className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400 text-center">
+                      {q ? "No clients match that search." : "No clients yet."}
+                    </p>
+                  )}
+                  {filteredUnselected.length === 0 && selectedClients.length > 0 && q && (
+                    <p className="px-3 py-3 text-xs text-gray-500 dark:text-gray-400 text-center">
+                      No other clients match "{clientQuery}".
+                    </p>
+                  )}
+                  {filteredUnselected.map((c) => (
+                    <label
+                      key={c.id}
+                      className="flex items-center gap-3 cursor-pointer px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/40"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        onChange={() => setForm({ ...form, clientIds: [...form.clientIds, c.id] })}
+                        className="w-5 h-5 rounded border-gray-300 accent-blue-600 cursor-pointer"
+                      />
+                      <span className="text-sm sm:text-base text-gray-700 dark:text-gray-300">{c.name}</span>
+                    </label>
+                  ))}
+                </div>
+                {form.clientIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, clientIds: [] })}
+                    className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium"
+                  >
+                    Clear all
+                  </button>
+                )}
               </div>
             )}
           </div>
