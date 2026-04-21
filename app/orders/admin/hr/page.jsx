@@ -1,10 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/orders/session";
-import { listEmployees, listUsers } from "@/lib/orders/repo";
+import { listEmployees, listUsers, listAttendance } from "@/lib/orders/repo";
 import { ROLES } from "@/lib/orders/constants";
+import {
+  currentMonthKeyIST,
+  findAttendanceGaps,
+  monthEnd,
+  monthStart,
+  todayYmdIST,
+} from "@/lib/orders/hr";
 import NavBar from "@/app/orders/_components/NavBar";
 import EmployeesAdmin from "./EmployeesAdmin";
+import AttendanceGapsWidget from "./AttendanceGapsWidget";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +28,22 @@ export default async function HrPage() {
   // Critical: filter server-side so other managers' data never ships to the client.
   const isAdmin = s.role === ROLES.ADMIN;
   const employees = isAdmin ? allEmployees : allEmployees.filter((e) => e.managerId === s.userId);
+
+  // Compute current-month attendance gaps for the scoped employees.
+  const monthKey = currentMonthKeyIST();
+  const today = todayYmdIST();
+  const visibleIds = new Set(employees.map((e) => e.id));
+  const monthAttendance = employees.length
+    ? (await listAttendance({ from: monthStart(monthKey), to: monthEnd(monthKey) }))
+        .filter((r) => visibleIds.has(r.employeeId))
+    : [];
+  const gaps = findAttendanceGaps({
+    monthKey,
+    upToDate: today,
+    employees,
+    attendance: monthAttendance,
+  });
+  const employeeNameById = Object.fromEntries(employees.map((e) => [e.id, e.name]));
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -48,6 +72,10 @@ export default async function HrPage() {
             </Link>
           </div>
         </div>
+
+        {gaps.length > 0 && (
+          <AttendanceGapsWidget gaps={gaps} employeeNameById={employeeNameById} monthKey={monthKey} />
+        )}
 
         <EmployeesAdmin
           initialEmployees={employees}

@@ -3,6 +3,21 @@ import { useMemo, useRef, useState } from "react";
 import { inputCls, labelCls } from "@/app/orders/_components/ui";
 import { formatINR, otHourlyRate } from "@/lib/orders/hr";
 
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+function readAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const res = String(reader.result || "");
+      resolve(res.slice(res.indexOf(",") + 1));
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 const EMPTY = {
   name: "",
   aadhar: "",
@@ -23,7 +38,10 @@ export default function EmployeesAdmin({ initialEmployees, factoryManagers, isAd
   const [err, setErr] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [q, setQ] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoErr, setPhotoErr] = useState("");
   const formRef = useRef(null);
+  const photoInputRef = useRef(null);
 
   const managerMap = useMemo(
     () => Object.fromEntries(factoryManagers.map((u) => [u.id, u])),
@@ -31,6 +49,11 @@ export default function EmployeesAdmin({ initialEmployees, factoryManagers, isAd
   );
 
   const isEditing = editingId !== null;
+
+  const editingEmployee = useMemo(
+    () => (editingId ? employees.find((e) => e.id === editingId) : null),
+    [editingId, employees],
+  );
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -127,6 +150,52 @@ export default function EmployeesAdmin({ initialEmployees, factoryManagers, isAd
       );
     }
     if (editingId === e.id) cancelEdit();
+  }
+
+  async function uploadAadharPhoto(file) {
+    if (!editingId) return;
+    setPhotoErr("");
+    if (!PHOTO_TYPES.has(file.type)) { setPhotoErr("Must be JPG, PNG, WebP, or GIF"); return; }
+    if (file.size > PHOTO_MAX_BYTES) { setPhotoErr("Too large. Max 5 MB."); return; }
+    setPhotoBusy(true);
+    try {
+      const fileBase64 = await readAsBase64(file);
+      const res = await fetch(`/api/orders/employees/${editingId}/aadhar-photo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType: file.type, filename: file.name, fileBase64 }),
+      });
+      if (!res.ok) {
+        setPhotoErr((await res.json()).error || "Upload failed");
+        return;
+      }
+      const { employee } = await res.json();
+      setEmployees((prev) => prev.map((x) => (x.id === editingId ? employee : x)));
+    } finally {
+      setPhotoBusy(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  }
+
+  async function removeAadharPhoto(attachmentId) {
+    if (!editingId) return;
+    if (!confirm("Remove this Aadhar photo?")) return;
+    setPhotoBusy(true);
+    setPhotoErr("");
+    try {
+      const res = await fetch(
+        `/api/orders/employees/${editingId}/aadhar-photo?attachmentId=${encodeURIComponent(attachmentId)}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        setPhotoErr((await res.json()).error || "Remove failed");
+        return;
+      }
+      const { employee } = await res.json();
+      setEmployees((prev) => prev.map((x) => (x.id === editingId ? employee : x)));
+    } finally {
+      setPhotoBusy(false);
+    }
   }
 
   async function reactivate(e) {
@@ -255,6 +324,60 @@ export default function EmployeesAdmin({ initialEmployees, factoryManagers, isAd
           <textarea className={`${inputCls} text-base`} rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </div>
 
+        {isEditing && editingEmployee && (
+          <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-gray-600 uppercase dark:text-gray-300">
+                Aadhar card photos
+              </label>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={(e) => e.target.files?.[0] && uploadAadharPhoto(e.target.files[0])}
+                disabled={photoBusy}
+                className="text-xs"
+              />
+            </div>
+            {(editingEmployee.aadharPhotos || []).length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {editingEmployee.aadharPhotos.map((p) => (
+                  <div key={p.id} className="relative group">
+                    <a href={p.largeUrl || p.url} target="_blank" rel="noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={p.thumbnailUrl || p.url}
+                        alt={p.filename}
+                        className="h-16 w-16 object-cover rounded border border-gray-200 dark:border-gray-700"
+                      />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => removeAadharPhoto(p.id)}
+                      disabled={photoBusy}
+                      className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 text-[10px] leading-5 font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Remove"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 dark:text-gray-400">No photos yet. Upload Aadhar front/back.</p>
+            )}
+            {photoErr && (
+              <div className="text-xs text-red-700 dark:text-red-300">⚠️ {photoErr}</div>
+            )}
+            {photoBusy && <div className="text-xs text-gray-500">Uploading…</div>}
+          </div>
+        )}
+        {!isEditing && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+            💡 Register the employee first, then open them in Edit to upload Aadhar photos.
+          </p>
+        )}
+
         <button
           disabled={busy}
           className={`w-full text-white text-sm sm:text-base font-medium px-4 py-2.5 rounded-lg transition-colors ${isEditing ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"} disabled:opacity-60`}
@@ -301,8 +424,16 @@ export default function EmployeesAdmin({ initialEmployees, factoryManagers, isAd
                 {filtered.map((e) => (
                   <tr key={e.id} className={editingId === e.id ? "bg-blue-50 dark:bg-blue-900/20" : ""}>
                     <td className="px-4 py-2 whitespace-nowrap">
-                      <div className="font-medium text-gray-900 dark:text-white">
+                      <div className="font-medium text-gray-900 dark:text-white flex items-center gap-1">
                         {e.name}
+                        {(e.aadharPhotos || []).length > 0 && (
+                          <span
+                            className="text-[10px] px-1 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                            title={`Aadhar on file (${e.aadharPhotos.length} photo${e.aadharPhotos.length > 1 ? "s" : ""})`}
+                          >
+                            KYC✓
+                          </span>
+                        )}
                         {!e.active && <span className="ml-2 text-xs text-gray-400">(inactive)</span>}
                       </div>
                       {e.designation && <div className="text-xs text-gray-500 dark:text-gray-400">{e.designation}</div>}
