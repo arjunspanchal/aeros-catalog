@@ -42,13 +42,21 @@ export default function ManagerJobsView({ jobs, clientMap, userMap, role }) {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between mb-6 gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Jobs</h1>
           <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
             {role === "account_manager" ? "Jobs for your clients" : "All jobs"} · {jobs.length} total
           </p>
         </div>
+        {(role === "admin" || role === "factory_manager") && (
+          <Link
+            href="/orders/admin/jobs/new"
+            className="shrink-0 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            + New job
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-5">

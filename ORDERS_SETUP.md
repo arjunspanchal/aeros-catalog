@@ -96,7 +96,7 @@ Tracks **on-hand paper stock**. Each row is a specific lot we currently own. Sur
 | --- | --- | --- |
 | Label | Single line text | **Primary field** (existing). Not written by code — kept for human-friendly display in Airtable. |
 | Name | Single line text | Display label rendered in the admin UI. Auto-composed (`Supplier · Type · GSM · BF · Size · Form`) if the user leaves it blank. |
-| Master RM | Single line text | **NEW** — holds the linked master's `Material Name` from the Paper RM Database. Airtable can't natively link across bases, so this is free text populated by the inventory picker. |
+| Master RM | Single line text | Holds the linked master's `Material Name` from the Paper RM Database. Airtable can't natively link across bases, so this is free text populated by the inventory picker. |
 | Paper Type | Single line text | |
 | GSM | Number | |
 | BF | Number | |
@@ -118,7 +118,6 @@ Tracks **on-hand paper stock**. Each row is a specific lot we currently own. Sur
 | Created | Created time | Auto |
 | Last Updated | Last modified time | Auto |
 
-> The `Master RM` column above doesn't exist yet — add it (Single line text). Until you do, the picker-to-master linkage silently no-ops and everything else still works.
 
 ## 1a. Paper RM Database (separate base — master catalogue)
 
