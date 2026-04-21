@@ -49,6 +49,9 @@ export default async function AdminDashboard() {
             <Link href="/orders/admin/inventory" className="px-3 py-1.5 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
               RM inventory
             </Link>
+            <Link href="/orders/admin/machines" className="px-3 py-1.5 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
+              Machines
+            </Link>
           </div>
         </header>
 
