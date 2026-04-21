@@ -1,5 +1,7 @@
 import { fetchCatalog, getCatalogCategories } from '@/lib/catalog';
+import { getSession } from '@/lib/hub/session';
 import ProductGrid from './components/ProductGrid';
+import AppHeader from '../components/AppHeader';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 
@@ -21,15 +23,16 @@ export default async function CatalogPage() {
   }
 
   const categories = getCatalogCategories(products);
+  const session = getSession();
 
   return (
     <>
+      <AppHeader session={session} />
       <Header
         title="Aeros Product Catalog"
         subtitle="Our complete range of packaging products"
         itemCount={products.length}
         itemLabel="products"
-        activeNav="catalog"
       />
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {error ? (

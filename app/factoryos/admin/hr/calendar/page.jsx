@@ -8,7 +8,6 @@ import {
   monthEnd,
   monthStart,
 } from "@/lib/factoryos/hr";
-import NavBar from "@/app/factoryos/_components/NavBar";
 import CalendarView from "./CalendarView";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +50,6 @@ export default async function CalendarPage({ searchParams }) {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <NavBar role={s.role} name={s.name} email={s.email} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Link href="/factoryos/admin/hr" className="text-xs text-gray-500 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-400">
           ← HR

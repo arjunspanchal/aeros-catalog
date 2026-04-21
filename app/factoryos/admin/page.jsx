@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/factoryos/session";
 import { listJobsForSession, listClients, listUsers } from "@/lib/factoryos/repo";
 import { ROLES } from "@/lib/factoryos/constants";
-import NavBar from "@/app/factoryos/_components/NavBar";
 import StatusChart from "@/app/factoryos/_components/StatusChart";
 import { StageBadge, formatDate } from "@/app/factoryos/_components/ui";
 
@@ -24,7 +23,6 @@ export default async function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <NavBar role={s.role} name={s.name} email={s.email} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="mb-6">
           <div className="flex items-baseline justify-between gap-3">
@@ -54,6 +52,9 @@ export default async function AdminDashboard() {
             </Link>
             <Link href="/factoryos/admin/machines" className="px-3 py-1.5 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
               Machines
+            </Link>
+            <Link href="/factoryos/admin/vendors" className="px-3 py-1.5 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
+              Vendors
             </Link>
             <Link href="/factoryos/admin/runs" className="px-3 py-1.5 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
               Production runs

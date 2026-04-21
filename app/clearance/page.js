@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { fetchInventory, getCategories } from '@/lib/airtable';
 import { getSession } from '@/lib/hub/session';
 import { canManageClearance } from '@/lib/clearance/admin';
+import AppHeader from '../components/AppHeader';
 import Header from '../components/Header';
 import Catalog from '../components/Catalog';
 import Footer from '../components/Footer';
@@ -20,11 +21,13 @@ export default async function ClearancePage() {
   }
 
   const categories = getCategories(items);
-  const canManage = canManageClearance(getSession());
+  const session = getSession();
+  const canManage = canManageClearance(session);
 
   return (
     <>
-      <Header itemCount={items.length} activeNav="clearance" />
+      <AppHeader session={session} />
+      <Header itemCount={items.length} />
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {canManage && (
           <div className="mb-6 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">

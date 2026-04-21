@@ -1,7 +1,5 @@
-"use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import ThemeToggle from "./components/ThemeToggle";
+import AppHeader from "./components/AppHeader";
 
 const ALL_OPTIONS = [
   {
@@ -43,30 +41,13 @@ const CLEARANCE_MANAGE_OPTION = {
 };
 
 export default function HomeClient({ session, canManageClearance, footer }) {
-  const router = useRouter();
   const modules = session?.modules || {};
   const options = ALL_OPTIONS.filter((o) => !!modules[o.key]);
   if (canManageClearance) options.push(CLEARANCE_MANAGE_OPTION);
 
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-  }
-
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white dark:bg-none dark:bg-gray-950">
-      <div className="fixed top-4 right-4 z-40 flex items-center gap-3">
-        <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[180px]">
-          {session?.isAdmin ? "Admin" : session?.email}
-        </span>
-        <button
-          onClick={logout}
-          className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-        >
-          Sign out
-        </button>
-        <ThemeToggle />
-      </div>
+      <AppHeader session={session} />
 
       <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
         <div className="text-center mb-10 sm:mb-16">
