@@ -10,7 +10,8 @@ export default function NavBar({ role, name, email }) {
     router.push("/orders/login");
   }
 
-  const isInternal = role === "admin" || role === "account_manager" || role === "factory_manager";
+  const isInternal =
+    role === "admin" || role === "account_manager" || role === "factory_manager" || role === "factory_executive";
 
   return (
     <nav className="border-b border-gray-200 bg-white dark:bg-gray-900 dark:border-gray-800">

@@ -5,7 +5,12 @@ import { ROLES } from "@/lib/orders/constants";
 
 export const runtime = "nodejs";
 
-const VALID_ROLES = new Set([ROLES.ACCOUNT_MANAGER, ROLES.FACTORY_MANAGER, ROLES.CUSTOMER]);
+const VALID_ROLES = new Set([
+  ROLES.ACCOUNT_MANAGER,
+  ROLES.FACTORY_MANAGER,
+  ROLES.FACTORY_EXECUTIVE,
+  ROLES.CUSTOMER,
+]);
 
 export async function GET() {
   try {

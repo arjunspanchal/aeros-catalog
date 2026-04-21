@@ -11,7 +11,12 @@ export async function PATCH(req, { params }) {
 
     // Validate role if being changed
     if (body.role) {
-      const validRoles = new Set([ROLES.ACCOUNT_MANAGER, ROLES.FACTORY_MANAGER, ROLES.CUSTOMER]);
+      const validRoles = new Set([
+        ROLES.ACCOUNT_MANAGER,
+        ROLES.FACTORY_MANAGER,
+        ROLES.FACTORY_EXECUTIVE,
+        ROLES.CUSTOMER,
+      ]);
       if (!validRoles.has(body.role)) {
         return Response.json({ error: "Invalid role (admin is password-only)" }, { status: 400 });
       }
