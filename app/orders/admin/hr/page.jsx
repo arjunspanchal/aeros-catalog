@@ -13,8 +13,13 @@ export default async function HrPage() {
   if (!s) redirect("/orders/login");
   if (s.role !== ROLES.ADMIN && s.role !== ROLES.FACTORY_MANAGER) redirect("/orders");
 
-  const [employees, users] = await Promise.all([listEmployees(), listUsers()]);
+  const [allEmployees, users] = await Promise.all([listEmployees(), listUsers()]);
   const factoryManagers = users.filter((u) => u.role === ROLES.FACTORY_MANAGER && u.active);
+
+  // Factory Manager sees only their own reports. Admin sees everyone.
+  // Critical: filter server-side so other managers' data never ships to the client.
+  const isAdmin = s.role === ROLES.ADMIN;
+  const employees = isAdmin ? allEmployees : allEmployees.filter((e) => e.managerId === s.userId);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -28,7 +33,7 @@ export default async function HrPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">HR</h1>
             <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
-              Employee roster, attendance, calendar, payroll.
+              {isAdmin ? "Employee roster, attendance, calendar, payroll." : "Your reports only — managed by you."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-sm">
@@ -44,7 +49,12 @@ export default async function HrPage() {
           </div>
         </div>
 
-        <EmployeesAdmin initialEmployees={employees} factoryManagers={factoryManagers} />
+        <EmployeesAdmin
+          initialEmployees={employees}
+          factoryManagers={factoryManagers}
+          isAdmin={isAdmin}
+          currentUserId={s.userId || null}
+        />
       </main>
     </div>
   );

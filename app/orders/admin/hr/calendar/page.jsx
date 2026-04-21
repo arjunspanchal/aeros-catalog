@@ -27,8 +27,9 @@ export default async function CalendarPage({ searchParams }) {
     listUsers(),
   ]);
 
-  const showAll = searchParams?.scope === "all" || s.role === ROLES.ADMIN;
-  const employees = showAll
+  const isAdmin = s.role === ROLES.ADMIN;
+  const showAll = isAdmin;
+  const employees = isAdmin
     ? allEmployees
     : allEmployees.filter((e) => e.managerId === s.userId);
 
@@ -36,9 +37,12 @@ export default async function CalendarPage({ searchParams }) {
   const to = monthEnd(monthKey);
 
   // Fetch attendance once for the whole month, then split per employee.
+  // Restricted to visible employees so other managers' rows never ship to the client.
+  const visibleIds = new Set(employees.map((e) => e.id));
   const allAttendance = await listAttendance({ from, to });
   const byEmployee = {};
   for (const r of allAttendance) {
+    if (!visibleIds.has(r.employeeId)) continue;
     if (!byEmployee[r.employeeId]) byEmployee[r.employeeId] = [];
     byEmployee[r.employeeId].push(r);
   }

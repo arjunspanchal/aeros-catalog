@@ -1,13 +1,28 @@
 import { requireAdmin } from "@/lib/orders/session";
-import { updateEmployee, deleteEmployee, deactivateEmployee } from "@/lib/orders/repo";
+import { updateEmployee, deleteEmployee, deactivateEmployee, getEmployee } from "@/lib/orders/repo";
+import { ROLES } from "@/lib/orders/constants";
 
 export const runtime = "nodejs";
 
+// Factory Manager may only edit employees assigned to them, and may not
+// re-assign ownership (to prevent bypassing the roster scope).
+async function assertCanEdit(session, employeeId) {
+  if (session.role === ROLES.ADMIN) return;
+  const emp = await getEmployee(employeeId);
+  if (!emp) throw new Response("Not found", { status: 404 });
+  if (emp.managerId !== session.userId) {
+    throw new Response("Not your employee", { status: 403 });
+  }
+}
+
 export async function PATCH(req, { params }) {
   try {
-    requireAdmin();
+    const s = requireAdmin();
+    await assertCanEdit(s, params.id);
     const body = await req.json();
     const patch = { ...body };
+    // FMs can't reassign ownership — silently drop any managerId attempt.
+    if (s.role !== ROLES.ADMIN) delete patch.managerId;
     if (patch.name !== undefined) {
       if (!String(patch.name).trim()) {
         return Response.json({ error: "Name cannot be empty" }, { status: 400 });
@@ -43,7 +58,8 @@ export async function PATCH(req, { params }) {
 // Pass ?hard=1 to cascade-delete attendance rows + the employee.
 export async function DELETE(req, { params }) {
   try {
-    requireAdmin();
+    const s = requireAdmin();
+    await assertCanEdit(s, params.id);
     const url = new URL(req.url);
     if (url.searchParams.get("hard") === "1") {
       const result = await deleteEmployee(params.id);

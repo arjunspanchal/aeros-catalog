@@ -23,15 +23,20 @@ export default async function AttendancePage({ searchParams }) {
     listUsers(),
   ]);
 
-  // Admin sees everyone. FM sees their own reports by default but can see-all via ?scope=all.
-  const showAll = searchParams?.scope === "all" || s.role === ROLES.ADMIN;
-  const employees = showAll
+  // Admin sees everyone. FM is force-scoped to their own reports — `?scope=all`
+  // is ignored unless the caller is Admin (prevents URL-tampering bypass).
+  const isAdmin = s.role === ROLES.ADMIN;
+  const showAll = isAdmin;
+  const employees = isAdmin
     ? allEmployees
     : allEmployees.filter((e) => e.managerId === s.userId);
 
   // Pull attendance for the picked date, only for the displayed employees.
+  // Filtering by employee set prevents other managers' attendance from
+  // crossing the wire even though the UI wouldn't render it.
+  const visibleIds = new Set(employees.map((e) => e.id));
   const dayAttendance = employees.length
-    ? await listAttendance({ from: date, to: date })
+    ? (await listAttendance({ from: date, to: date })).filter((r) => visibleIds.has(r.employeeId))
     : [];
 
   const attendanceByEmployee = Object.fromEntries(

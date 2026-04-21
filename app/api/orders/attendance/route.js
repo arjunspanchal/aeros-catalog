@@ -1,16 +1,34 @@
 import { requireInternal } from "@/lib/orders/session";
-import { listAttendance, upsertAttendance, getEmployee, computeOtHours } from "@/lib/orders/repo";
+import { listAttendance, upsertAttendance, getEmployee, computeOtHours, listEmployees } from "@/lib/orders/repo";
 import { ATTENDANCE_WEIGHT, SHIFT_END, ROLES } from "@/lib/orders/constants";
 
 export const runtime = "nodejs";
 
 export async function GET(req) {
   try {
-    requireInternal();
+    const s = requireInternal();
     const url = new URL(req.url);
     const employeeId = url.searchParams.get("employeeId") || undefined;
     const from = url.searchParams.get("from") || undefined;
     const to = url.searchParams.get("to") || undefined;
+
+    // Factory Manager is scoped to their own employees. If the caller asks
+    // for a specific employeeId, verify ownership first; otherwise fall back
+    // to the caller's employee set.
+    if (s.role !== ROLES.ADMIN) {
+      if (employeeId) {
+        const emp = await getEmployee(employeeId);
+        if (!emp || emp.managerId !== s.userId) {
+          return Response.json({ error: "Not your employee" }, { status: 403 });
+        }
+      } else {
+        const myEmployees = await listEmployees({ managerUserId: s.userId });
+        const myIds = new Set(myEmployees.map((e) => e.id));
+        const all = await listAttendance({ from, to });
+        return Response.json({ attendance: all.filter((r) => myIds.has(r.employeeId)) });
+      }
+    }
+
     const attendance = await listAttendance({ employeeId, from, to });
     return Response.json({ attendance });
   } catch (e) {

@@ -15,7 +15,7 @@ const EMPTY = {
   notes: "",
 };
 
-export default function EmployeesAdmin({ initialEmployees, factoryManagers }) {
+export default function EmployeesAdmin({ initialEmployees, factoryManagers, isAdmin = true, currentUserId = null }) {
   const [employees, setEmployees] = useState(initialEmployees);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY);
@@ -205,18 +205,24 @@ export default function EmployeesAdmin({ initialEmployees, factoryManagers }) {
           </div>
         </div>
 
-        <div>
-          <label className={labelCls}>Reports to (manager) *</label>
-          <select className={`${inputCls} text-base`} value={form.managerId} onChange={(e) => setForm({ ...form, managerId: e.target.value })}>
-            <option value="">— select manager —</option>
-            {factoryManagers.map((u) => (
-              <option key={u.id} value={u.id}>{u.name || u.email}</option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500 mt-1 dark:text-gray-400">
-            Only this manager (plus Admin) will see & mark this employee's attendance.
-          </p>
-        </div>
+        {isAdmin ? (
+          <div>
+            <label className={labelCls}>Reports to (manager) *</label>
+            <select className={`${inputCls} text-base`} value={form.managerId} onChange={(e) => setForm({ ...form, managerId: e.target.value })}>
+              <option value="">— select manager —</option>
+              {factoryManagers.map((u) => (
+                <option key={u.id} value={u.id}>{u.name || u.email}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1 dark:text-gray-400">
+              Only this manager (plus Admin) will see & mark this employee's attendance.
+            </p>
+          </div>
+        ) : (
+          <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/40 rounded p-2">
+            This employee will report to <strong>you</strong>. Only you (and Admin) will see them.
+          </div>
+        )}
 
         <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 space-y-2">
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">

@@ -22,8 +22,9 @@ export default async function PayrollPage({ searchParams }) {
     listEmployees(),
     listUsers(),
   ]);
-  const showAll = searchParams?.scope === "all" || s.role === ROLES.ADMIN;
-  const employees = showAll
+  const isAdmin = s.role === ROLES.ADMIN;
+  const showAll = isAdmin;
+  const employees = isAdmin
     ? allEmployees
     : allEmployees.filter((e) => e.managerId === s.userId);
 
