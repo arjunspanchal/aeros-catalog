@@ -38,7 +38,7 @@ export default function LoginForm() {
     });
     setBusy(false);
     if (!res.ok) { setErr((await res.json()).error || "Failed"); return; }
-    router.push(next === "/calculator" ? "/calculator/client" : next);
+    router.push(next || "/calculator");
   }
 
   async function adminLogin(e) {
@@ -51,14 +51,14 @@ export default function LoginForm() {
     });
     setBusy(false);
     if (!res.ok) { setErr((await res.json()).error || "Failed"); return; }
-    router.push(next === "/calculator" ? "/calculator/admin" : next);
+    router.push(next || "/calculator");
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 dark:bg-gray-950">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-sm p-6 dark:bg-gray-900 dark:border-gray-800">
         <a href="/" className="inline-block text-xs text-gray-500 hover:text-blue-700 mb-3 dark:text-gray-400 dark:hover:text-blue-400">← Back to Aeros home</a>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Aeros Paper Bag Rate Calculator</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Aeros Rate Calculator</h1>
         <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">Sign in to continue</p>
 
         <div className="mt-5 flex gap-2 mb-5">

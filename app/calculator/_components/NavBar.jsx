@@ -3,18 +3,20 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import ThemeToggle from "@/app/components/ThemeToggle";
 
-export function NavBar({ role, email }) {
+export function NavBar({ role, email, picker = false }) {
   const path = usePathname();
   const router = useRouter();
   // `short` shows on phones; `label` on sm+ screens. Keeps long-name tabs readable on mobile.
   const adminLinks = [
-    { href: "/calculator/admin", label: "Paper Bag Rate Calculator", short: "Calculator" },
+    { href: "/calculator/admin", label: "Bag Calculator", short: "Bag" },
+    { href: "/calculator/admin/box", label: "Box Calculator", short: "Box" },
     { href: "/calculator/admin/history", label: "Quote History", short: "History" },
     { href: "/calculator/admin/clients", label: "Clients", short: "Clients" },
     { href: "/calculator/admin/rates", label: "Mill Rates", short: "Rates" },
   ];
   const clientLinks = [
-    { href: "/calculator/client", label: "Paper Bag Rate Calculator", short: "Calculator" },
+    { href: "/calculator/client", label: "Bag Calculator", short: "Bag" },
+    { href: "/calculator/client/box", label: "Box Calculator", short: "Box" },
     { href: "/calculator/client/quotes", label: "My Quotes", short: "Quotes" },
   ];
   const links = role === "admin" ? adminLinks : clientLinks;
@@ -38,19 +40,21 @@ export function NavBar({ role, email }) {
             <ThemeToggle />
           </div>
         </div>
-        {/* Tabs — horizontally scrollable on mobile, inline on desktop */}
-        <div className="flex gap-1 overflow-x-auto -mx-1 px-1 sm:mt-2">
-          {links.map((l) => {
-            const active = path === l.href;
-            return (
-              <Link key={l.href} href={l.href}
-                className={`shrink-0 whitespace-nowrap text-sm px-3 py-1.5 rounded-lg ${active ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"}`}>
-                <span className="sm:hidden">{l.short}</span>
-                <span className="hidden sm:inline">{l.label}</span>
-              </Link>
-            );
-          })}
-        </div>
+        {/* Tabs — hidden on the picker page; horizontally scrollable on mobile, inline on desktop */}
+        {!picker && (
+          <div className="flex gap-1 overflow-x-auto -mx-1 px-1 sm:mt-2">
+            {links.map((l) => {
+              const active = path === l.href;
+              return (
+                <Link key={l.href} href={l.href}
+                  className={`shrink-0 whitespace-nowrap text-sm px-3 py-1.5 rounded-lg ${active ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"}`}>
+                  <span className="sm:hidden">{l.short}</span>
+                  <span className="hidden sm:inline">{l.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
     </nav>
   );

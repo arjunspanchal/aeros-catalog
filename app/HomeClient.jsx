@@ -17,8 +17,8 @@ const OPTIONS = [
   },
   {
     href: "/calculator",
-    title: "Paper Bag Rate Calculator",
-    description: "Generate a live bag quote — pick your specs, see the rate.",
+    title: "Rate Calculator",
+    description: "Live quotes for paper bags and custom boxes — pick the product, see the rate.",
     accent: "from-blue-600 to-indigo-700",
   },
   {
