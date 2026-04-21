@@ -1,5 +1,10 @@
 // Edge middleware. Uses Web Crypto (no node:crypto) for edge compat.
-// Guards two independent modules: /calculator (cookie aeros_session) and /orders (cookie aeros_orders_session).
+// Three modules:
+//   /               + /catalog + /clearance  → gated by the Hub session cookie (aeros_hub_session)
+//   /calculator                              → gated by the Calculator session cookie (aeros_session)
+//   /orders                                  → gated by the Orders session cookie (aeros_orders_session)
+// The hub login (/login) mints all three cookies up-front so a single sign-in
+// unlocks every module the user is entitled to.
 import { NextResponse } from "next/server";
 
 async function verify(token, secret) {
@@ -23,9 +28,24 @@ async function verify(token, secret) {
   } catch { return null; }
 }
 
+function redirectToHubLogin(req) {
+  const url = req.nextUrl.clone();
+  url.pathname = "/login";
+  url.searchParams.set("next", req.nextUrl.pathname);
+  return NextResponse.redirect(url);
+}
+
 export async function middleware(req) {
   const { pathname } = req.nextUrl;
   const secret = process.env.SESSION_SECRET;
+
+  // --- Hub: home, catalog, clearance ---
+  if (pathname === "/" || pathname.startsWith("/catalog") || pathname.startsWith("/clearance")) {
+    const token = req.cookies.get("aeros_hub_session")?.value;
+    const payload = secret ? await verify(token, secret) : null;
+    if (!payload) return redirectToHubLogin(req);
+    return NextResponse.next();
+  }
 
   // --- Calculator module ---
   if (pathname.startsWith("/api/calc/") || pathname.startsWith("/calculator")) {
@@ -34,10 +54,15 @@ export async function middleware(req) {
     const token = req.cookies.get("aeros_session")?.value;
     const payload = secret ? await verify(token, secret) : null;
     if (!payload) {
-      const url = req.nextUrl.clone();
-      url.pathname = "/calculator/login";
-      url.searchParams.set("next", pathname);
-      return NextResponse.redirect(url);
+      // Fall through to hub login if neither cookie is present; the calc
+      // module's own /calculator/login stays available as a legacy entry point
+      // via direct URL.
+      const hubToken = req.cookies.get("aeros_hub_session")?.value;
+      const hubPayload = secret ? await verify(hubToken, secret) : null;
+      if (!hubPayload) return redirectToHubLogin(req);
+      // Hub session exists but calc cookie missing — user doesn't have calc
+      // access, so kick back to the home picker.
+      return NextResponse.redirect(new URL("/", req.url));
     }
     if (pathname.startsWith("/calculator/admin") && payload.role !== "admin") {
       return NextResponse.redirect(new URL("/calculator/client", req.url));
@@ -47,7 +72,6 @@ export async function middleware(req) {
 
   // --- Orders module ---
   if (pathname.startsWith("/api/orders/") || pathname.startsWith("/orders")) {
-    // Public: auth endpoints + login page + the root redirect page.
     if (pathname.startsWith("/api/orders/auth/")) return NextResponse.next();
     if (pathname === "/orders/login") return NextResponse.next();
 
@@ -55,12 +79,11 @@ export async function middleware(req) {
     const payload = secret ? await verify(token, secret) : null;
 
     if (!payload) {
-      // The root /orders page handles its own routing — let it render the landing/redirect logic.
       if (pathname === "/orders") return NextResponse.next();
-      const url = req.nextUrl.clone();
-      url.pathname = "/orders/login";
-      url.searchParams.set("next", pathname);
-      return NextResponse.redirect(url);
+      const hubToken = req.cookies.get("aeros_hub_session")?.value;
+      const hubPayload = secret ? await verify(hubToken, secret) : null;
+      if (!hubPayload) return redirectToHubLogin(req);
+      return NextResponse.redirect(new URL("/", req.url));
     }
 
     // Role guards for page routes.
@@ -79,5 +102,13 @@ export async function middleware(req) {
 }
 
 export const config = {
-  matcher: ["/calculator/:path*", "/api/calc/:path*", "/orders/:path*", "/api/orders/:path*"],
+  matcher: [
+    "/",
+    "/catalog/:path*",
+    "/clearance/:path*",
+    "/calculator/:path*",
+    "/api/calc/:path*",
+    "/orders/:path*",
+    "/api/orders/:path*",
+  ],
 };

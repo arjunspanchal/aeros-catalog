@@ -1,27 +1,32 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ThemeToggle from "./components/ThemeToggle";
 
-const OPTIONS = [
+const ALL_OPTIONS = [
   {
+    key: "clearance",
     href: "/clearance",
     title: "Clearance Stock",
     description: "Ready-to-ship packaging inventory, available for immediate dispatch.",
     accent: "from-amber-500 to-orange-600",
   },
   {
+    key: "catalogue",
     href: "/catalog",
     title: "Product Catalogue",
     description: "Our full range of paper cups, bags, boxes, and tubes.",
     accent: "from-emerald-500 to-teal-600",
   },
   {
+    key: "calculator",
     href: "/calculator",
     title: "Rate Calculator",
     description: "Live quotes for paper bags and custom boxes — pick the product, see the rate.",
     accent: "from-blue-600 to-indigo-700",
   },
   {
+    key: "orders",
     href: "/orders",
     title: "Order Tracking",
     description: "Track your live orders — stage, timeline, and expected dispatch.",
@@ -29,10 +34,28 @@ const OPTIONS = [
   },
 ];
 
-export default function HomeClient({ footer }) {
+export default function HomeClient({ session, footer }) {
+  const router = useRouter();
+  const modules = session?.modules || {};
+  const options = ALL_OPTIONS.filter((o) => !!modules[o.key]);
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white dark:bg-none dark:bg-gray-950">
-      <div className="fixed top-4 right-4 z-40">
+      <div className="fixed top-4 right-4 z-40 flex items-center gap-3">
+        <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[180px]">
+          {session?.isAdmin ? "Admin" : session?.email}
+        </span>
+        <button
+          onClick={logout}
+          className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        >
+          Sign out
+        </button>
         <ThemeToggle />
       </div>
 
@@ -46,22 +69,28 @@ export default function HomeClient({ footer }) {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-6">
-          {OPTIONS.map((o) => (
-            <Link
-              key={o.href}
-              href={o.href}
-              className="group relative overflow-hidden rounded-2xl border p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 bg-white border-gray-200 hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800 dark:hover:border-gray-700"
-            >
-              <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${o.accent}`} />
-              <h2 className="text-lg sm:text-xl font-semibold mt-1 text-gray-900 dark:text-white">{o.title}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{o.description}</p>
-              <p className="mt-4 text-sm font-medium text-blue-700 group-hover:text-blue-800 dark:text-blue-400 dark:group-hover:text-blue-300">
-                Enter →
-              </p>
-            </Link>
-          ))}
-        </div>
+        {options.length === 0 ? (
+          <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+            You don&apos;t have access to any modules yet. Ask an admin to invite you.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-6">
+            {options.map((o) => (
+              <Link
+                key={o.href}
+                href={o.href}
+                className="group relative overflow-hidden rounded-2xl border p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 bg-white border-gray-200 hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800 dark:hover:border-gray-700"
+              >
+                <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${o.accent}`} />
+                <h2 className="text-lg sm:text-xl font-semibold mt-1 text-gray-900 dark:text-white">{o.title}</h2>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{o.description}</p>
+                <p className="mt-4 text-sm font-medium text-blue-700 group-hover:text-blue-800 dark:text-blue-400 dark:group-hover:text-blue-300">
+                  Enter →
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
 
         <div className="mt-10 sm:mt-16 text-center">
           <p className="text-sm mb-3 text-gray-500 dark:text-gray-400">Prefer the mobile app?</p>

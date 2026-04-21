@@ -1,5 +1,7 @@
+import { redirect } from 'next/navigation';
 import HomeClient from './HomeClient';
 import Footer from './components/Footer';
+import { getSession, hasAnyAccess } from '@/lib/hub/session';
 
 export const metadata = {
   title: 'Aeros',
@@ -7,5 +9,7 @@ export const metadata = {
 };
 
 export default function WelcomePage() {
-  return <HomeClient footer={<Footer />} />;
+  const session = getSession();
+  if (!hasAnyAccess(session)) redirect('/login');
+  return <HomeClient session={session} footer={<Footer />} />;
 }
