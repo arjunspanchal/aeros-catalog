@@ -1,4 +1,7 @@
+import Link from 'next/link';
 import { fetchInventory, getCategories } from '@/lib/airtable';
+import { getSession } from '@/lib/hub/session';
+import { canManageClearance } from '@/lib/clearance/admin';
 import Header from '../components/Header';
 import Catalog from '../components/Catalog';
 import Footer from '../components/Footer';
@@ -17,11 +20,25 @@ export default async function ClearancePage() {
   }
 
   const categories = getCategories(items);
+  const canManage = canManageClearance(getSession());
 
   return (
     <>
       <Header itemCount={items.length} activeNav="clearance" />
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {canManage && (
+          <div className="mb-6 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+            <div className="text-sm text-amber-900">
+              <span className="font-semibold">Staff access:</span> edit items and upload photos in the backend.
+            </div>
+            <Link
+              href="/clearance/manage"
+              className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+            >
+              Manage stock →
+            </Link>
+          </div>
+        )}
         {error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
             <p className="font-semibold">Could not load inventory.</p>

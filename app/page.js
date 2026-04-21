@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import HomeClient from './HomeClient';
 import Footer from './components/Footer';
 import { getSession, hasAnyAccess } from '@/lib/hub/session';
+import { canManageClearance } from '@/lib/clearance/admin';
 
 export const metadata = {
   title: 'Aeros',
@@ -11,5 +12,11 @@ export const metadata = {
 export default function WelcomePage() {
   const session = getSession();
   if (!hasAnyAccess(session)) redirect('/login');
-  return <HomeClient session={session} footer={<Footer />} />;
+  return (
+    <HomeClient
+      session={session}
+      canManageClearance={canManageClearance(session)}
+      footer={<Footer />}
+    />
+  );
 }

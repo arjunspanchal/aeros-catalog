@@ -34,10 +34,19 @@ const ALL_OPTIONS = [
   },
 ];
 
-export default function HomeClient({ session, footer }) {
+const CLEARANCE_MANAGE_OPTION = {
+  key: "clearance-manage",
+  href: "/clearance/manage",
+  title: "Manage Clearance",
+  description: "Staff backend — edit items and upload photos. Restricted to Admin / FM / FE.",
+  accent: "from-rose-500 to-red-600",
+};
+
+export default function HomeClient({ session, canManageClearance, footer }) {
   const router = useRouter();
   const modules = session?.modules || {};
   const options = ALL_OPTIONS.filter((o) => !!modules[o.key]);
+  if (canManageClearance) options.push(CLEARANCE_MANAGE_OPTION);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
