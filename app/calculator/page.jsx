@@ -5,7 +5,7 @@ import { NavBar } from "@/app/calculator/_components/NavBar";
 
 export default function CalculatorPickerPage() {
   const session = getSession();
-  if (!session) redirect("/calculator/login");
+  if (!session) redirect("/login");
 
   const rolePath = session.role === "admin" ? "admin" : "client";
   const products = [

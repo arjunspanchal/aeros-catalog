@@ -15,7 +15,7 @@ import {
 
 export default function AdminRatesPage() {
   const session = getSession();
-  if (!session) redirect("/calculator/login");
+  if (!session) redirect("/login");
   if (session.role !== "admin") redirect("/calculator/client");
 
   // Jodhani rates are baseline; effective = base − discount + default transport (₹5).

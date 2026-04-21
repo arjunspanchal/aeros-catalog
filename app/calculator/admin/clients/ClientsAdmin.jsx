@@ -226,7 +226,7 @@ export default function ClientsAdmin() {
         {addErr && <p className="text-xs text-red-500 mt-2">{addErr}</p>}
         {addOk && <p className="text-xs text-green-600 mt-2">✓ Client added. They can now log in with that email.</p>}
         <p className="text-xs text-gray-400 mt-3 dark:text-gray-500">
-          Client logs in at <code>/calculator/login</code> using the email above and a one-time code sent to it. Their margin is applied to all rate quotes automatically.
+          Client logs in at <code>/login</code> using the email above and a one-time code sent to it. Their margin is applied to all rate quotes automatically.
         </p>
       </Card>
 

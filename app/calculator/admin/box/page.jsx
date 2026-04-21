@@ -6,7 +6,7 @@ import AdminBoxCalculator from "./AdminBoxCalculator";
 
 export default async function AdminBoxPage() {
   const session = getSession();
-  if (!session) redirect("/calculator/login");
+  if (!session) redirect("/login");
   if (session.role !== "admin") redirect("/calculator/client/box");
 
   let papers = [];

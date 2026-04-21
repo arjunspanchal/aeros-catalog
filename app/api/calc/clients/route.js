@@ -1,32 +1,19 @@
-import { airtableList, airtableCreate, airtableUpdate, airtableDelete, escapeFormula, TABLES } from "@/lib/calc/airtable";
+// Admin CRUD for calculator clients. Writes land in the unified Users
+// directory (Orders base); this endpoint's client-facing shape is unchanged
+// so the /calculator/admin/clients UI works as-is.
 import { requireAdmin } from "@/lib/calc/session";
-import { normalizeEmail } from "@/lib/calc/auth";
+import { normalizeEmail } from "@/lib/hub/auth";
+import {
+  listCalcClients, findAnyUserByEmail, createCalcClient,
+  updateCalcClient, revokeCalcClient,
+} from "@/lib/calc/user-directory";
 
 export const runtime = "nodejs";
 
-function recordToClient(r) {
-  const f = r.fields || {};
-  return {
-    id: r.id,
-    email: f.Email || "",
-    name: f.Name || "",
-    company: f.Company || "",
-    country: f.Country || "",
-    marginPct: f["Margin %"] ?? null,
-    discountPct: f["Discount %"] ?? 0,
-    preferredCurrency: f["Preferred Currency"] || "INR",
-    preferredUnit: f["Preferred Units"] || "mm",
-    status: f.Status || "Active",
-    created: f.Created || "",
-    lastLogin: f["Last Login"] || "",
-    notes: f.Notes || "",
-  };
-}
-
 export async function GET() {
   try { requireAdmin(); } catch (r) { return r; }
-  const records = await airtableList(TABLES.clients(), { sort: [{ field: "Created", direction: "desc" }] });
-  return Response.json(records.map(recordToClient));
+  const clients = await listCalcClients();
+  return Response.json(clients);
 }
 
 export async function POST(req) {
@@ -40,28 +27,25 @@ export async function POST(req) {
     return Response.json({ error: "Margin % is required" }, { status: 400 });
   }
 
-  const existing = await airtableList(TABLES.clients(), {
-    filterByFormula: `LOWER({Email})='${escapeFormula(email)}'`,
-    maxRecords: 1,
-  });
-  if (existing.length) {
+  // Upsert semantics — if an Orders-only user already has this email, we
+  // grant them calc access on the same row (no duplicates).
+  const existing = await findAnyUserByEmail(email);
+  if (existing && (existing.fields?.["Calculator Role"])) {
     return Response.json({ error: "A client with that email already exists" }, { status: 409 });
   }
-
-  const created = await airtableCreate(TABLES.clients(), {
-    Email: email,
-    Name: body.name || undefined,
-    Company: body.company || undefined,
-    Country: body.country || undefined,
-    "Margin %": Number(body.marginPct),
-    "Discount %": body.discountPct !== undefined && body.discountPct !== "" ? Number(body.discountPct) : 0,
-    "Preferred Currency": body.preferredCurrency || "INR",
-    "Preferred Units": body.preferredUnit || "mm",
-    Status: body.status || "Active",
-    Created: new Date().toISOString(),
-    Notes: body.notes || undefined,
+  const client = await createCalcClient({
+    email,
+    name: body.name,
+    company: body.company,
+    country: body.country,
+    marginPct: body.marginPct,
+    discountPct: body.discountPct,
+    preferredCurrency: body.preferredCurrency,
+    preferredUnit: body.preferredUnit,
+    status: body.status || "Active",
+    notes: body.notes,
   });
-  return Response.json(recordToClient(created));
+  return Response.json(client);
 }
 
 export async function PATCH(req) {
@@ -69,38 +53,28 @@ export async function PATCH(req) {
   const body = await req.json();
   if (!body.id) return Response.json({ error: "id required" }, { status: 400 });
 
-  const fields = {};
   if (body.email !== undefined) {
     const email = normalizeEmail(body.email);
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return Response.json({ error: "Invalid email" }, { status: 400 });
     }
-    const clash = await airtableList(TABLES.clients(), {
-      filterByFormula: `AND(LOWER({Email})='${escapeFormula(email)}', RECORD_ID()!='${body.id}')`,
-      maxRecords: 1,
-    });
-    if (clash.length) return Response.json({ error: "Another client already uses that email" }, { status: 409 });
-    fields.Email = email;
+    const clash = await findAnyUserByEmail(email);
+    if (clash && clash.id !== body.id) {
+      return Response.json({ error: "Another user already uses that email" }, { status: 409 });
+    }
+    body.email = email;
   }
-  if (body.marginPct !== undefined) fields["Margin %"] = Number(body.marginPct);
-  if (body.discountPct !== undefined) fields["Discount %"] = Number(body.discountPct) || 0;
-  if (body.status !== undefined) fields.Status = body.status;
-  if (body.name !== undefined) fields.Name = body.name;
-  if (body.company !== undefined) fields.Company = body.company;
-  if (body.country !== undefined) fields.Country = body.country;
-  if (body.preferredCurrency !== undefined) fields["Preferred Currency"] = body.preferredCurrency;
-  if (body.preferredUnit !== undefined) fields["Preferred Units"] = body.preferredUnit;
-  if (body.notes !== undefined) fields.Notes = body.notes;
 
-  const updated = await airtableUpdate(TABLES.clients(), body.id, fields);
-  return Response.json(recordToClient(updated));
+  const updated = await updateCalcClient(body.id, body);
+  return Response.json(updated);
 }
 
+// Revoke calc access (the Orders row stays, keeping any orders history).
 export async function DELETE(req) {
   try { requireAdmin(); } catch (r) { return r; }
   const url = new URL(req.url);
   const id = url.searchParams.get("id");
   if (!id) return Response.json({ error: "id required" }, { status: 400 });
-  await airtableDelete(TABLES.clients(), id);
+  await revokeCalcClient(id);
   return Response.json({ ok: true });
 }

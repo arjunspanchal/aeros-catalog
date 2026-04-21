@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ManagerJobDetail({ params }) {
   const s = getSession();
-  if (!s) redirect("/orders/login");
+  if (!s) redirect("/login");
   if (s.role === ROLES.CUSTOMER) redirect("/orders/customer");
   if (s.role === ROLES.ADMIN) redirect(`/orders/admin/jobs/${params.id}`);
 

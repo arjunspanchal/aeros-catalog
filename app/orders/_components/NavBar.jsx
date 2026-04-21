@@ -6,8 +6,8 @@ import ThemeToggle from "@/app/components/ThemeToggle";
 export default function NavBar({ role, name, email }) {
   const router = useRouter();
   async function logout() {
-    await fetch("/api/orders/auth/logout", { method: "POST" });
-    router.push("/orders/login");
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
   }
 
   const isInternal =

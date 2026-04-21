@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ManagerPage() {
   const s = getSession();
-  if (!s) redirect("/orders/login");
+  if (!s) redirect("/login");
   if (s.role === ROLES.CUSTOMER) redirect("/orders/customer");
 
   const [jobs, clients, users] = await Promise.all([

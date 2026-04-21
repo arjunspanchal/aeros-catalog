@@ -1,10 +1,7 @@
 // Edge middleware. Uses Web Crypto (no node:crypto) for edge compat.
-// Three modules:
-//   /               + /catalog + /clearance  → gated by the Hub session cookie (aeros_hub_session)
-//   /calculator                              → gated by the Calculator session cookie (aeros_session)
-//   /orders                                  → gated by the Orders session cookie (aeros_orders_session)
-// The hub login (/login) mints all three cookies up-front so a single sign-in
-// unlocks every module the user is entitled to.
+// Auth model after Phase 2: `/login` is the only login UI. Verifying a cookie
+// still happens per-module — each module carries its own session cookie — but
+// all three are minted in one go by /api/auth/*.
 import { NextResponse } from "next/server";
 
 async function verify(token, secret) {
@@ -28,7 +25,7 @@ async function verify(token, secret) {
   } catch { return null; }
 }
 
-function redirectToHubLogin(req) {
+function redirectToLogin(req) {
   const url = req.nextUrl.clone();
   url.pathname = "/login";
   url.searchParams.set("next", req.nextUrl.pathname);
@@ -43,27 +40,15 @@ export async function middleware(req) {
   if (pathname === "/" || pathname.startsWith("/catalog") || pathname.startsWith("/clearance")) {
     const token = req.cookies.get("aeros_hub_session")?.value;
     const payload = secret ? await verify(token, secret) : null;
-    if (!payload) return redirectToHubLogin(req);
+    if (!payload) return redirectToLogin(req);
     return NextResponse.next();
   }
 
   // --- Calculator module ---
   if (pathname.startsWith("/api/calc/") || pathname.startsWith("/calculator")) {
-    if (pathname.startsWith("/api/calc/auth/")) return NextResponse.next();
-    if (pathname === "/calculator/login") return NextResponse.next();
     const token = req.cookies.get("aeros_session")?.value;
     const payload = secret ? await verify(token, secret) : null;
-    if (!payload) {
-      // Fall through to hub login if neither cookie is present; the calc
-      // module's own /calculator/login stays available as a legacy entry point
-      // via direct URL.
-      const hubToken = req.cookies.get("aeros_hub_session")?.value;
-      const hubPayload = secret ? await verify(hubToken, secret) : null;
-      if (!hubPayload) return redirectToHubLogin(req);
-      // Hub session exists but calc cookie missing — user doesn't have calc
-      // access, so kick back to the home picker.
-      return NextResponse.redirect(new URL("/", req.url));
-    }
+    if (!payload) return redirectToLogin(req);
     if (pathname.startsWith("/calculator/admin") && payload.role !== "admin") {
       return NextResponse.redirect(new URL("/calculator/client", req.url));
     }
@@ -72,18 +57,13 @@ export async function middleware(req) {
 
   // --- Orders module ---
   if (pathname.startsWith("/api/orders/") || pathname.startsWith("/orders")) {
-    if (pathname.startsWith("/api/orders/auth/")) return NextResponse.next();
-    if (pathname === "/orders/login") return NextResponse.next();
-
     const token = req.cookies.get("aeros_orders_session")?.value;
     const payload = secret ? await verify(token, secret) : null;
 
     if (!payload) {
+      // The orders landing page handles its own routing when a session is missing.
       if (pathname === "/orders") return NextResponse.next();
-      const hubToken = req.cookies.get("aeros_hub_session")?.value;
-      const hubPayload = secret ? await verify(hubToken, secret) : null;
-      if (!hubPayload) return redirectToHubLogin(req);
-      return NextResponse.redirect(new URL("/", req.url));
+      return redirectToLogin(req);
     }
 
     // Role guards for page routes.

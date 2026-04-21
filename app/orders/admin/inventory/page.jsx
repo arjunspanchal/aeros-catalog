@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminInventoryPage() {
   const s = getSession();
-  if (!s) redirect("/orders/login");
+  if (!s) redirect("/login");
   if (s.role !== ROLES.ADMIN && s.role !== ROLES.FACTORY_MANAGER) redirect("/orders");
   const [inventory, masterPapers] = await Promise.all([
     listRawMaterials(),

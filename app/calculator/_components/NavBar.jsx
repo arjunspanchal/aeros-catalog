@@ -22,8 +22,8 @@ export function NavBar({ role, email, picker = false }) {
   const links = role === "admin" ? adminLinks : clientLinks;
 
   async function logout() {
-    await fetch("/api/calc/auth/logout", { method: "POST" });
-    router.push("/calculator/login");
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
   }
 
   return (

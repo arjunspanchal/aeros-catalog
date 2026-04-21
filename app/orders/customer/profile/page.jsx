@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CustomerProfilePage() {
   const s = getSession();
-  if (!s) redirect("/orders/login");
+  if (!s) redirect("/login");
   if (s.role !== ROLES.CUSTOMER) redirect("/orders");
 
   const [user, clients] = await Promise.all([findUserByEmail(s.email), listClients()]);

@@ -6,7 +6,7 @@ import ClientBoxCalculator from "./ClientBoxCalculator";
 
 export default async function ClientBoxPage() {
   const session = getSession();
-  if (!session) redirect("/calculator/login");
+  if (!session) redirect("/login");
   if (session.role !== "client") redirect("/calculator/admin/box");
 
   let papers = [];

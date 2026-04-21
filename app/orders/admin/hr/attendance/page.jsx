@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AttendancePage({ searchParams }) {
   const s = getSession();
-  if (!s) redirect("/orders/login");
+  if (!s) redirect("/login");
   if (s.role !== ROLES.ADMIN && s.role !== ROLES.FACTORY_MANAGER) redirect("/orders");
 
   const date = (searchParams?.date && /^\d{4}-\d{2}-\d{2}$/.test(searchParams.date))

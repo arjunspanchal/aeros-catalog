@@ -5,7 +5,7 @@ import QuoteHistoryTable from "@/app/calculator/_components/QuoteHistoryTable";
 
 export default function ClientQuotesPage() {
   const session = getSession();
-  if (!session) redirect("/calculator/login");
+  if (!session) redirect("/login");
   if (session.role !== "client") redirect("/calculator/admin");
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">

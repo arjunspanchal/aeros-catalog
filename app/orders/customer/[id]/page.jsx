@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CustomerJobDetail({ params }) {
   const s = getSession();
-  if (!s) redirect("/orders/login");
+  if (!s) redirect("/login");
   if (s.role !== ROLES.CUSTOMER) redirect("/orders");
 
   const job = await getJob(params.id);

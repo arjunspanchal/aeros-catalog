@@ -5,7 +5,7 @@ import ClientsAdmin from "./ClientsAdmin";
 
 export default function AdminClientsPage() {
   const session = getSession();
-  if (!session) redirect("/calculator/login");
+  if (!session) redirect("/login");
   if (session.role !== "admin") redirect("/calculator/client");
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">

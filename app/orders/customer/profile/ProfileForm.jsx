@@ -56,7 +56,7 @@ export default function ProfileForm({ initial }) {
       body.photoFilename = photoFile.name;
       body.photoContentType = photoFile.type;
     }
-    const res = await fetch("/api/orders/auth/profile", {
+    const res = await fetch("/api/orders/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

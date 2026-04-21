@@ -3,24 +3,7 @@
 // margin hidden from the front-end.
 import { calculate, computeRateCurve, optimizationTips, lookupPaperRate } from "@/lib/calc/calculator";
 import { getSession } from "@/lib/calc/session";
-import { airtableList, escapeFormula, TABLES } from "@/lib/calc/airtable";
-
-async function currentClientPricing(email, fallbackMargin) {
-  try {
-    const [rec] = await airtableList(TABLES.clients(), {
-      filterByFormula: `LOWER({Email})='${escapeFormula(email)}'`,
-      maxRecords: 1,
-    });
-    const margin = rec?.fields?.["Margin %"];
-    const discount = rec?.fields?.["Discount %"];
-    return {
-      marginPct: margin !== undefined && margin !== null ? Number(margin) : fallbackMargin,
-      discountPct: discount !== undefined && discount !== null ? Number(discount) : 0,
-    };
-  } catch {
-    return { marginPct: fallbackMargin, discountPct: 0 };
-  }
-}
+import { currentClientPricing } from "@/lib/calc/user-directory";
 
 function applyDiscount(curve, discountPct) {
   if (!discountPct) return curve;

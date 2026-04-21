@@ -1,8 +1,8 @@
-// Returns the current client's live profile (margin, currency, etc.) from Airtable.
-// Used by the ClientCalculator on mount so the UI picks up admin-side edits without
-// waiting for the next login. Admin role gets an empty profile back.
-import { airtableList, escapeFormula, TABLES } from "@/lib/calc/airtable";
+// Returns the current client's live profile (margin, currency, etc.) from the
+// unified Users directory. Used by the ClientCalculator on mount so the UI
+// picks up admin-side edits without waiting for the next login.
 import { getSession } from "@/lib/calc/session";
+import { findCalcClientByEmail } from "@/lib/calc/user-directory";
 
 export const runtime = "nodejs";
 
@@ -12,19 +12,15 @@ export async function GET() {
   if (session.role !== "client") {
     return Response.json({ role: session.role });
   }
-  const records = await airtableList(TABLES.clients(), {
-    filterByFormula: `LOWER({Email})='${escapeFormula(session.email)}'`,
-    maxRecords: 1,
-  });
-  const f = records[0]?.fields || {};
+  const client = await findCalcClientByEmail(session.email);
   return Response.json({
     role: "client",
     email: session.email,
-    name: f.Name || "",
-    company: f.Company || "",
-    country: f.Country || "",
-    preferredCurrency: f["Preferred Currency"] || "INR",
-    preferredUnit: f["Preferred Units"] || "mm",
-    marginPct: f["Margin %"] ?? null,
+    name: client?.name || "",
+    company: client?.company || "",
+    country: client?.country || "",
+    preferredCurrency: client?.preferredCurrency || "INR",
+    preferredUnit: client?.preferredUnit || "mm",
+    marginPct: client?.marginPct ?? null,
   });
 }
