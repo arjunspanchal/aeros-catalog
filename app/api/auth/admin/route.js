@@ -1,11 +1,11 @@
 // Hub-level admin login. One shared password (`ADMIN_PASSWORD`) grants admin
-// access to every module. Mints all three cookies (hub + calc + orders) with
-// admin-equivalent role.
+// access to every module. Mints all three cookies (hub + calc + factoryos)
+// with admin-equivalent role.
 import { cookies } from "next/headers";
 import { signSession as signHub, sessionCookie as hubCookie } from "@/lib/hub/auth";
 import { signSession as signCalc, sessionCookie as calcCookie } from "@/lib/calc/auth";
-import { signSession as signOrders, sessionCookie as ordersCookie } from "@/lib/orders/auth";
-import { ROLES } from "@/lib/orders/constants";
+import { signSession as signFactoryos, sessionCookie as factoryosCookie } from "@/lib/factoryos/auth";
+import { ROLES } from "@/lib/factoryos/constants";
 import { adminEntitlements } from "@/lib/hub/users";
 
 export const runtime = "nodejs";
@@ -28,7 +28,7 @@ export async function POST(req) {
     modules: ents.modules,
   })));
   jar.set(calcCookie(signCalc({ role: "admin" })));
-  jar.set(ordersCookie(signOrders({ role: ROLES.ADMIN, name: "Admin" })));
+  jar.set(factoryosCookie(signFactoryos({ role: ROLES.ADMIN, name: "Admin" })));
 
   return Response.json({ ok: true });
 }

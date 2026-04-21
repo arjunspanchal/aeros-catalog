@@ -1,7 +1,7 @@
 // Edge middleware. Uses Web Crypto (no node:crypto) for edge compat.
-// Auth model after Phase 2: `/login` is the only login UI. Verifying a cookie
-// still happens per-module — each module carries its own session cookie — but
-// all three are minted in one go by /api/auth/*.
+// Auth model: `/login` is the only login UI. Verifying a cookie still happens
+// per-module — each module carries its own session cookie — but all three are
+// minted in one go by /api/auth/*.
 import { NextResponse } from "next/server";
 
 async function verify(token, secret) {
@@ -32,9 +32,27 @@ function redirectToLogin(req) {
   return NextResponse.redirect(url);
 }
 
+// Old URLs redirected to new ones so bookmarks keep working after the
+// Orders → FactoryOS rename.
+function legacyOrdersRedirect(req) {
+  const { pathname, search } = req.nextUrl;
+  if (pathname === "/orders" || pathname.startsWith("/orders/") ||
+      pathname === "/api/orders" || pathname.startsWith("/api/orders/")) {
+    const url = req.nextUrl.clone();
+    url.pathname = pathname.replace(/^\/orders/, "/factoryos").replace(/^\/api\/orders/, "/api/factoryos");
+    url.search = search;
+    return NextResponse.redirect(url, 308);
+  }
+  return null;
+}
+
 export async function middleware(req) {
   const { pathname } = req.nextUrl;
   const secret = process.env.SESSION_SECRET;
+
+  // Legacy URL shim — redirect any old /orders or /api/orders paths to /factoryos.
+  const legacy = legacyOrdersRedirect(req);
+  if (legacy) return legacy;
 
   // --- Hub: home, catalog, clearance ---
   if (pathname === "/" || pathname.startsWith("/catalog") || pathname.startsWith("/clearance")) {
@@ -55,26 +73,26 @@ export async function middleware(req) {
     return NextResponse.next();
   }
 
-  // --- Orders module ---
-  if (pathname.startsWith("/api/orders/") || pathname.startsWith("/orders")) {
-    const token = req.cookies.get("aeros_orders_session")?.value;
+  // --- FactoryOS module ---
+  if (pathname.startsWith("/api/factoryos/") || pathname.startsWith("/factoryos")) {
+    const token = req.cookies.get("aeros_factoryos_session")?.value;
     const payload = secret ? await verify(token, secret) : null;
 
     if (!payload) {
-      // The orders landing page handles its own routing when a session is missing.
-      if (pathname === "/orders") return NextResponse.next();
+      // The FactoryOS landing page handles its own routing when no session.
+      if (pathname === "/factoryos") return NextResponse.next();
       return redirectToLogin(req);
     }
 
     // Role guards for page routes.
-    if (pathname.startsWith("/orders/admin") && payload.role !== "admin" && payload.role !== "factory_manager") {
-      return NextResponse.redirect(new URL("/orders", req.url));
+    if (pathname.startsWith("/factoryos/admin") && payload.role !== "admin" && payload.role !== "factory_manager") {
+      return NextResponse.redirect(new URL("/factoryos", req.url));
     }
-    if (pathname.startsWith("/orders/manager") && payload.role === "customer") {
-      return NextResponse.redirect(new URL("/orders/customer", req.url));
+    if (pathname.startsWith("/factoryos/manager") && payload.role === "customer") {
+      return NextResponse.redirect(new URL("/factoryos/customer", req.url));
     }
-    if (pathname.startsWith("/orders/customer") && payload.role !== "customer") {
-      return NextResponse.redirect(new URL("/orders/manager", req.url));
+    if (pathname.startsWith("/factoryos/customer") && payload.role !== "customer") {
+      return NextResponse.redirect(new URL("/factoryos/manager", req.url));
     }
   }
 
@@ -88,6 +106,8 @@ export const config = {
     "/clearance/:path*",
     "/calculator/:path*",
     "/api/calc/:path*",
+    "/factoryos/:path*",
+    "/api/factoryos/:path*",
     "/orders/:path*",
     "/api/orders/:path*",
   ],

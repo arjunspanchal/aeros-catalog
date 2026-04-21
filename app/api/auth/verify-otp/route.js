@@ -1,15 +1,14 @@
 // Hub-level OTP verify. On success, mints THREE cookies:
-//   - aeros_hub_session      — unified entitlements (home-page gating)
-//   - aeros_session          — calculator-compatible (if user has calc access)
-//   - aeros_orders_session   — orders-compatible (if user has orders access)
-// This keeps Calculator + Orders modules working against their existing
-// session readers without any changes in Phase 1.
+//   - aeros_hub_session         — unified entitlements (home-page gating)
+//   - aeros_session             — calculator-compatible (if user has calc access)
+//   - aeros_factoryos_session   — FactoryOS-compatible (if user has factoryos access)
+// Per-module cookies let each module keep trusting its own session format.
 import { cookies } from "next/headers";
-import { airtableList, airtableUpdate, escapeFormula, TABLES as ORDERS_TABLES } from "@/lib/orders/airtable";
+import { airtableList, airtableUpdate, escapeFormula, TABLES as FACTORYOS_TABLES } from "@/lib/factoryos/airtable";
 import { normalizeEmail, signSession as signHub, sessionCookie as hubCookie } from "@/lib/hub/auth";
 import { resolveEntitlements } from "@/lib/hub/users";
 import { signSession as signCalc, sessionCookie as calcCookie } from "@/lib/calc/auth";
-import { signSession as signOrders, sessionCookie as ordersCookie } from "@/lib/orders/auth";
+import { signSession as signFactoryos, sessionCookie as factoryosCookie } from "@/lib/factoryos/auth";
 
 export const runtime = "nodejs";
 
@@ -18,7 +17,7 @@ export async function POST(req) {
   const cleaned = normalizeEmail(email);
   if (!cleaned || !code) return Response.json({ error: "Email and code required" }, { status: 400 });
 
-  const otps = await airtableList(ORDERS_TABLES.otp(), {
+  const otps = await airtableList(FACTORYOS_TABLES.otp(), {
     filterByFormula: `AND({Email}='${escapeFormula(cleaned)}', {Code}='${escapeFormula(code)}', NOT({Used}))`,
     sort: [{ field: "Created", direction: "desc" }],
     maxRecords: 1,
@@ -29,7 +28,7 @@ export async function POST(req) {
   if (expiresAt.getTime() < Date.now()) {
     return Response.json({ error: "Code expired. Request a new one." }, { status: 401 });
   }
-  await airtableUpdate(ORDERS_TABLES.otp(), otp.id, { Used: true });
+  await airtableUpdate(FACTORYOS_TABLES.otp(), otp.id, { Used: true });
 
   const ents = await resolveEntitlements(cleaned);
   if (!ents) {
@@ -57,17 +56,17 @@ export async function POST(req) {
     jar.set(calcCookie(calcToken));
   }
 
-  // Mint orders cookie if the user has orders access. Payload matches the
-  // orders module's expected shape: { role, email, name, userId, clientIds }.
-  if (ents.modules.orders) {
-    const ordersToken = signOrders({
-      role: ents.modules.orders,
+  // Mint factoryos cookie if the user has factoryos access. Payload matches
+  // the module's expected shape: { role, email, name, userId, clientIds }.
+  if (ents.modules.factoryos) {
+    const factoryosToken = signFactoryos({
+      role: ents.modules.factoryos,
       email: ents.email,
       name: ents.name,
-      userId: ents.ordersUserId,
-      clientIds: ents.ordersClientIds,
+      userId: ents.factoryosUserId,
+      clientIds: ents.factoryosClientIds,
     });
-    jar.set(ordersCookie(ordersToken));
+    jar.set(factoryosCookie(factoryosToken));
   }
 
   return Response.json({ ok: true, modules: ents.modules });

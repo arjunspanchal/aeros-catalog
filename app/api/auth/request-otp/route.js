@@ -2,7 +2,7 @@
 // Orders Users (active) — i.e. anyone currently authorised on any module.
 // Stores the OTP in the Orders base's OTP Codes table (reused for Phase 1 to
 // avoid introducing a new table).
-import { airtableCreate, TABLES as ORDERS_TABLES } from "@/lib/orders/airtable";
+import { airtableCreate, TABLES as ORDERS_TABLES } from "@/lib/factoryos/airtable";
 import { generateOtp, normalizeEmail, sendOtpEmail } from "@/lib/hub/auth";
 import { resolveEntitlements } from "@/lib/hub/users";
 

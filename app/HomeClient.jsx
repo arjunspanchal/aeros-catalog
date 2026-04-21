@@ -26,10 +26,10 @@ const ALL_OPTIONS = [
     accent: "from-blue-600 to-indigo-700",
   },
   {
-    key: "orders",
-    href: "/orders",
-    title: "Order Tracking",
-    description: "Track your live orders — stage, timeline, and expected dispatch.",
+    key: "factoryos",
+    href: "/factoryos",
+    title: "FactoryOS",
+    description: "Track orders, jobs, production, RM inventory, and HR — your factory operations in one place.",
     accent: "from-fuchsia-600 to-purple-700",
   },
 ];
