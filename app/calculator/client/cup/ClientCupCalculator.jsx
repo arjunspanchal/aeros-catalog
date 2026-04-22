@@ -1,11 +1,10 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, Field, Toggle, PillBtn, inputCls } from "@/app/calculator/_components/ui";
 import {
   computeCupRateCurve,
   CUP_QTY_TIERS,
   SIZE_OPTS,
-  STANDARD_CUP_DIMS,
   formatCupDim,
 } from "@/lib/calc/cup-calculator";
 
@@ -32,24 +31,43 @@ const DEFAULT_FORM = {
 export default function ClientCupCalculator() {
   const [form, setForm] = useState(DEFAULT_FORM);
   const [result, setResult] = useState(null);
+  // productDims shape: { [wallType]: { [size]: [{ td, bd, h, sku, productName }] } }
+  // Sourced from Aeros Products Master via /api/calc/cup-products.
+  const [productDims, setProductDims] = useState({});
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const num = (k, v) => set(k, parseFloat(v) || 0);
 
   const isDW = form.wallType === "Double Wall" || form.wallType === "Ripple";
-  const dimOpts = STANDARD_CUP_DIMS[form.size] || [];
+  const dimOpts = productDims[form.wallType]?.[form.size] || [];
 
-  // On size change, pick the first standard dim if available, else blank.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/calc/cup-products")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data) => { if (!cancelled && data && !data.error) setProductDims(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // When dims load (or wall/size change), auto-pick the first option so the
+  // user isn't forced to click a single-option dropdown.
+  useEffect(() => {
+    const opts = productDims[form.wallType]?.[form.size] || [];
+    const match = opts.findIndex(
+      (d) => String(d.td) === form.td && String(d.bd) === form.bd && String(d.h) === form.h
+    );
+    if (match === -1 && opts.length > 0) {
+      const first = opts[0];
+      setForm((f) => ({ ...f, td: String(first.td), bd: String(first.bd), h: String(first.h) }));
+    } else if (opts.length === 0 && (form.td || form.bd || form.h)) {
+      setForm((f) => ({ ...f, td: "", bd: "", h: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productDims, form.wallType, form.size]);
+
   function pickSize(sz) {
-    const opts = STANDARD_CUP_DIMS[sz] || [];
-    const first = opts[0];
-    setForm((f) => ({
-      ...f,
-      size: sz,
-      td: first ? String(first.td) : "",
-      bd: first ? String(first.bd) : "",
-      h:  first ? String(first.h)  : "",
-    }));
+    setForm((f) => ({ ...f, size: sz }));
     setResult(null);
   }
 
@@ -103,7 +121,7 @@ export default function ClientCupCalculator() {
 
         {dimOpts.length > 0 && (
           <Card title="Dimensions">
-            <Field label="Cup dimensions (Top × Bottom × Height)">
+            <Field label="Cup dimensions (Top × Bottom × Height)" hint="Sourced from Aeros Products Master">
               <select
                 className={inputCls}
                 value={currentDimIdx >= 0 ? String(currentDimIdx) : ""}
@@ -111,7 +129,9 @@ export default function ClientCupCalculator() {
               >
                 {dimOpts.length > 1 && <option value="">Select dimensions…</option>}
                 {dimOpts.map((d, i) => (
-                  <option key={i} value={i}>{formatCupDim(d)}</option>
+                  <option key={`${d.sku}-${i}`} value={i}>
+                    {formatCupDim(d)}{d.sku ? ` · ${d.sku}` : ""}
+                  </option>
                 ))}
               </select>
             </Field>
