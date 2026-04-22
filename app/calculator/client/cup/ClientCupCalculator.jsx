@@ -1,11 +1,11 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, Field, Toggle, PillBtn, inputCls } from "@/app/calculator/_components/ui";
 import {
   computeCupRateCurve,
-  CUP_PRESETS,
   CUP_QTY_TIERS,
   SIZE_OPTS,
+  formatCupDim,
 } from "@/lib/calc/cup-calculator";
 
 const WALL_OPTS = [
@@ -31,22 +31,55 @@ const DEFAULT_FORM = {
 export default function ClientCupCalculator() {
   const [form, setForm] = useState(DEFAULT_FORM);
   const [result, setResult] = useState(null);
+  // productDims shape: { [wallType]: { [size]: [{ td, bd, h, sku, productName }] } }
+  // Sourced from Aeros Products Master via /api/calc/cup-products.
+  const [productDims, setProductDims] = useState({});
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const num = (k, v) => set(k, parseFloat(v) || 0);
 
   const isDW = form.wallType === "Double Wall" || form.wallType === "Ripple";
+  const dimOpts = productDims[form.wallType]?.[form.size] || [];
 
-  // Auto-fill dims from preset when size changes (DW Export has example dims).
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/calc/cup-products")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data) => { if (!cancelled && data && !data.error) setProductDims(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // When dims load (or wall/size change), auto-pick the first option so the
+  // user isn't forced to click a single-option dropdown.
+  useEffect(() => {
+    const opts = productDims[form.wallType]?.[form.size] || [];
+    const match = opts.findIndex(
+      (d) => String(d.td) === form.td && String(d.bd) === form.bd && String(d.h) === form.h
+    );
+    if (match === -1 && opts.length > 0) {
+      const first = opts[0];
+      setForm((f) => ({ ...f, td: String(first.td), bd: String(first.bd), h: String(first.h) }));
+    } else if (opts.length === 0 && (form.td || form.bd || form.h)) {
+      setForm((f) => ({ ...f, td: "", bd: "", h: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productDims, form.wallType, form.size]);
+
   function pickSize(sz) {
-    const next = { ...form, size: sz };
-    const preset = CUP_PRESETS["DW Export"]?.codes?.[sz];
-    if (preset?.td && !form.td) next.td = String(preset.td);
-    if (preset?.bd && !form.bd) next.bd = String(preset.bd);
-    if (preset?.h && !form.h) next.h = String(preset.h);
-    setForm(next);
+    setForm((f) => ({ ...f, size: sz }));
     setResult(null);
   }
+
+  function pickDimByIndex(idx) {
+    const d = dimOpts[parseInt(idx)];
+    if (!d) { setForm((f) => ({ ...f, td: "", bd: "", h: "" })); return; }
+    setForm((f) => ({ ...f, td: String(d.td), bd: String(d.bd), h: String(d.h) }));
+  }
+
+  const currentDimIdx = dimOpts.findIndex(
+    (d) => String(d.td) === form.td && String(d.bd) === form.bd && String(d.h) === form.h
+  );
 
   function calculate() {
     const curve = computeCupRateCurve({
@@ -86,19 +119,24 @@ export default function ClientCupCalculator() {
           </div>
         </Card>
 
-        <Card title="Dimensions (mm) — optional">
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Top dia">
-              <input type="number" className={inputCls} value={form.td} onChange={(e) => set("td", e.target.value)} placeholder="e.g. 80" />
+        {dimOpts.length > 0 && (
+          <Card title="Dimensions">
+            <Field label="Cup dimensions (Top × Bottom × Height)" hint="Sourced from Aeros Products Master">
+              <select
+                className={inputCls}
+                value={currentDimIdx >= 0 ? String(currentDimIdx) : ""}
+                onChange={(e) => pickDimByIndex(e.target.value)}
+              >
+                {dimOpts.length > 1 && <option value="">Select dimensions…</option>}
+                {dimOpts.map((d, i) => (
+                  <option key={`${d.sku}-${i}`} value={i}>
+                    {formatCupDim(d)}{d.sku ? ` · ${d.sku}` : ""}
+                  </option>
+                ))}
+              </select>
             </Field>
-            <Field label="Bottom dia">
-              <input type="number" className={inputCls} value={form.bd} onChange={(e) => set("bd", e.target.value)} placeholder="e.g. 56" />
-            </Field>
-            <Field label="Height">
-              <input type="number" className={inputCls} value={form.h} onChange={(e) => set("h", e.target.value)} placeholder="e.g. 93" />
-            </Field>
-          </div>
-        </Card>
+          </Card>
+        )}
 
         <Card title="Wall type">
           <div className="flex gap-2 flex-wrap">
