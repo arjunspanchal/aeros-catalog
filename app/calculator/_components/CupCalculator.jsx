@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   calculate,
   CUP_PRESETS, PACKING_PRESETS, CASE_PACK_DEFAULTS,
@@ -279,29 +279,75 @@ export default function CupCalculator({ scope = "default" }) {
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
 
+  // Real product variants from Aeros Products Master. Shape:
+  //   { [wallType]: { [size]: [{ td, bd, h, sku, productName, variant, casePack, cartonDimensions }] } }
+  // Dimensions, box size, and case pack are all auto-filled from here —
+  // free-text dim inputs have been removed.
+  const [productDims, setProductDims] = useState({});
+
   useEffect(() => {
     setSavedOrders(loadSavedOrders(scope));
     setStorageReady(true);
   }, [scope]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/calc/cup-products")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data) => { if (!cancelled && data && !data.error) setProductDims(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const preset = cupVariant ? CUP_PRESETS[cupVariant] : null;
   const cupType = preset ? preset.wallType : "";
   const isDW = cupType === "Double Wall" || cupType === "Ripple";
 
+  // Variants from DB for the currently picked cup type + size.
+  const productVariants = cupType && size ? (productDims[cupType]?.[size] || []) : [];
+  const selectedProduct = useMemo(
+    () => productVariants.find((v) => v.sku === sku) || null,
+    [productVariants, sku]
+  );
+
+  // Pick a product variant → stamp SKU, dims, case pack, carton box on the form.
+  function applyProductVariant(product) {
+    if (!product) return;
+    setSku(product.sku || "");
+    setTd(String(product.td || ""));
+    setBd(String(product.bd || ""));
+    setH(String(product.h || ""));
+    if (product.casePack) setCasePack(String(product.casePack));
+    // Carton Dimensions format: "415 × 330 × 500" (L × W × H in mm)
+    if (product.cartonDimensions) {
+      const parts = product.cartonDimensions.split(/[×x*]/).map((p) => p.trim().replace(/[^0-9.]/g, ""));
+      if (parts[0]) setBoxL(parts[0]);
+      if (parts[1]) setBoxW(parts[1]);
+      if (parts[2]) setBoxH(parts[2]);
+    }
+  }
+
+  // When variants load or wall/size changes, auto-pick the first variant
+  // unless an existing sku still matches.
+  useEffect(() => {
+    if (!cupType || !size) return;
+    if (productVariants.length === 0) return;
+    if (!productVariants.find((v) => v.sku === sku)) {
+      applyProductVariant(productVariants[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productDims, cupType, size]);
+
   function applyPreset(variant, sz) {
     const p = CUP_PRESETS[variant];
     if (!p || !sz) return;
-    const sw = p.sw[sz], bt = p.bt[sz], of = p.of?.[sz], cd = p.codes[sz];
+    const sw = p.sw[sz], bt = p.bt[sz], of = p.of?.[sz];
     if (sw) { setSwGSM(String(sw.gsm)); setSwCoating(sw.coating); }
     if (bt) { setBtGSM(String(bt.gsm)); setBtCoating(bt.coating); }
     if (of) { setOfGSM(String(of.gsm)); setOfCoating(of.coating); }
     else { setOfGSM(""); setOfCoating("None"); }
-    if (cd) {
-      if (cd.code) setSku(cd.code);
-      if (cd.td) setTd(String(cd.td));
-      if (cd.bd) setBd(String(cd.bd));
-      if (cd.h)  setH(String(cd.h));
-    }
+    // SKU, dims and box size are NOT filled from the preset — they come from
+    // Products Master via the Variant dropdown (see applyProductVariant).
     const cp = CASE_PACK_DEFAULTS[p.wallType]?.[sz];
     if (cp) setCasePack(String(cp));
     const pp = PACKING_PRESETS[variant]?.[sz];
@@ -508,29 +554,67 @@ export default function CupCalculator({ scope = "default" }) {
             )}
           </div>
         )}
-        <div className="field-row">
-          <Field label="Cup code / SKU">
-            <input type="text" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="e.g. C100001" />
-          </Field>
-        </div>
-        <div className="dim-row" style={{ marginBottom: ".75rem" }}>
-          <Field label="TD — top dia (mm)" note={td && preset ? "Auto-filled" : ""}>
-            <NumInput value={td} onChange={setTd} placeholder="e.g. 80" />
-          </Field>
-          <Field label="BD — bottom dia (mm)" note={bd && preset ? "Auto-filled" : ""}>
-            <NumInput value={bd} onChange={setBd} placeholder="e.g. 56" />
-          </Field>
-          <Field label="H — height (mm)" note={h && preset ? "Auto-filled" : ""}>
-            <NumInput value={h} onChange={setH} placeholder="e.g. 93" />
-          </Field>
-        </div>
-        <div className="dim-row" style={{ marginBottom: ".75rem" }}>
-          <Field label="Box L (mm)"><NumInput value={boxL} onChange={setBoxL} placeholder="e.g. 450" /></Field>
-          <Field label="Box W (mm)"><NumInput value={boxW} onChange={setBoxW} placeholder="e.g. 370" /></Field>
-          <Field label="Box H (mm)" note={boxL && boxW && boxH ? "Export carton dimensions" : ""}>
-            <NumInput value={boxH} onChange={setBoxH} placeholder="e.g. 650" />
-          </Field>
-        </div>
+        {productVariants.length > 0 && (
+          <div className="field-row">
+            <Field label={productVariants.length > 1 ? "Variant (pick dimensions)" : "Product"}>
+              <select
+                value={sku}
+                onChange={(e) => {
+                  const v = productVariants.find((p) => p.sku === e.target.value);
+                  if (v) applyProductVariant(v);
+                }}
+              >
+                {productVariants.map((v) => (
+                  <option key={v.sku} value={v.sku}>
+                    {v.variant} — {v.td}×{v.bd}×{v.h} mm · {v.sku}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        )}
+        {productVariants.length === 0 && cupType && size && (
+          <div className="autofill" style={{ marginBottom: ".75rem", color: "var(--text-secondary)" }}>
+            No SKU in Aeros Products Master for {size} {cupType}. Add one to proceed.
+          </div>
+        )}
+        {(td || bd || h) && (
+          <div className="spec-row" style={{ marginBottom: ".75rem" }}>
+            <div className="spec-cell">
+              <div className="sc-label">Top dia</div>
+              <div className="sc-val">{td ? `${td} mm` : "—"}</div>
+            </div>
+            <div className="spec-cell">
+              <div className="sc-label">Bottom dia</div>
+              <div className="sc-val">{bd ? `${bd} mm` : "—"}</div>
+            </div>
+            <div className="spec-cell">
+              <div className="sc-label">Height</div>
+              <div className="sc-val">{h ? `${h} mm` : "—"}</div>
+            </div>
+          </div>
+        )}
+        {(boxL || boxW || boxH) && (
+          <div className="spec-row" style={{ marginBottom: ".75rem" }}>
+            <div className="spec-cell">
+              <div className="sc-label">Box L</div>
+              <div className="sc-val">{boxL ? `${boxL} mm` : "—"}</div>
+            </div>
+            <div className="spec-cell">
+              <div className="sc-label">Box W</div>
+              <div className="sc-val">{boxW ? `${boxW} mm` : "—"}</div>
+            </div>
+            <div className="spec-cell">
+              <div className="sc-label">Box H</div>
+              <div className="sc-val">{boxH ? `${boxH} mm` : "—"}</div>
+            </div>
+          </div>
+        )}
+        {sku && (
+          <div className="autofill" style={{ marginBottom: ".75rem" }}>
+            SKU · {sku}{selectedProduct?.productName ? ` — ${selectedProduct.productName}` : ""}
+          </div>
+        )}
         <div className="field-row">
           <Field label="Order quantity (cups)">
             <NumInput value={qty} onChange={setQty} placeholder="e.g. 50000" />

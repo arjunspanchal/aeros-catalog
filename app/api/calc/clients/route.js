@@ -39,6 +39,7 @@ export async function POST(req) {
     company: body.company,
     country: body.country,
     marginPct: body.marginPct,
+    marginCupsPct: body.marginCupsPct,
     discountPct: body.discountPct,
     preferredCurrency: body.preferredCurrency,
     preferredUnit: body.preferredUnit,

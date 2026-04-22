@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Card, Field, inputCls } from "@/app/calculator/_components/ui";
 import { CURRENCY_CODES } from "@/lib/calc/calculator";
 
-const EMPTY_NEW = { email: "", name: "", company: "", country: "", marginPct: "10", discountPct: "0", preferredCurrency: "INR", preferredUnit: "mm" };
+const EMPTY_NEW = { email: "", name: "", company: "", country: "", marginPct: "10", marginCupsPct: "", discountPct: "0", preferredCurrency: "INR", preferredUnit: "mm" };
 
 // Editable row with an explicit Save button. Local state tracks in-progress edits;
 // nothing hits Airtable until the admin clicks Save.
@@ -19,6 +19,7 @@ function ClientRow({ client, onPatched, onDeleted }) {
     draft.company !== client.company ||
     draft.country !== client.country ||
     Number(draft.marginPct) !== Number(client.marginPct) ||
+    Number(draft.marginCupsPct || 0) !== Number(client.marginCupsPct || 0) ||
     Number(draft.discountPct || 0) !== Number(client.discountPct || 0) ||
     draft.preferredCurrency !== client.preferredCurrency ||
     draft.preferredUnit !== client.preferredUnit ||
@@ -34,6 +35,11 @@ function ClientRow({ client, onPatched, onDeleted }) {
     if (draft.company !== client.company) payload.company = draft.company;
     if (draft.country !== client.country) payload.country = draft.country;
     if (Number(draft.marginPct) !== Number(client.marginPct)) payload.marginPct = Number(draft.marginPct);
+    if (Number(draft.marginCupsPct || 0) !== Number(client.marginCupsPct || 0)) {
+      payload.marginCupsPct = draft.marginCupsPct === "" || draft.marginCupsPct === null
+        ? null
+        : Number(draft.marginCupsPct);
+    }
     if (Number(draft.discountPct || 0) !== Number(client.discountPct || 0)) payload.discountPct = Number(draft.discountPct || 0);
     if (draft.preferredCurrency !== client.preferredCurrency) payload.preferredCurrency = draft.preferredCurrency;
     if (draft.preferredUnit !== client.preferredUnit) payload.preferredUnit = draft.preferredUnit;
@@ -87,6 +93,14 @@ function ClientRow({ client, onPatched, onDeleted }) {
           className={`${cellInput} w-16 text-right`}
           value={draft.marginPct ?? ""}
           onChange={(e) => set("marginPct", e.target.value)} />
+        <span className="text-gray-400 text-xs ml-1 dark:text-gray-500">%</span>
+      </td>
+      <td className="py-2 text-right">
+        <input type="number" step="0.5"
+          className={`${cellInput} w-16 text-right`}
+          placeholder="(bags)"
+          value={draft.marginCupsPct ?? ""}
+          onChange={(e) => set("marginCupsPct", e.target.value)} />
         <span className="text-gray-400 text-xs ml-1 dark:text-gray-500">%</span>
       </td>
       <td className="py-2 text-right">
@@ -197,7 +211,11 @@ export default function ClientsAdmin() {
             <input type="number" step="0.5" required className={inputCls} placeholder="10"
               value={newClient.marginPct} onChange={(e) => setNewClient((n) => ({ ...n, marginPct: e.target.value }))} />
           </Field>
-          <Field label="Discount % (applied after margin)" hint="Leave 0 for standard pricing">
+          <Field label="Margin % for cups / tubs" hint="Leave blank to reuse the bag margin">
+            <input type="number" step="0.5" className={inputCls} placeholder="(same as bags)"
+              value={newClient.marginCupsPct} onChange={(e) => setNewClient((n) => ({ ...n, marginCupsPct: e.target.value }))} />
+          </Field>
+          <Field label="Discount % (applied after margin)" hint="Leave 0 for standard pricing. Applies to bags only.">
             <input type="number" step="0.5" className={inputCls} placeholder="0"
               value={newClient.discountPct} onChange={(e) => setNewClient((n) => ({ ...n, discountPct: e.target.value }))} />
           </Field>
@@ -245,6 +263,7 @@ export default function ClientsAdmin() {
                   <th className="text-left pb-2 font-medium">Company</th>
                   <th className="text-left pb-2 font-medium">Country</th>
                   <th className="text-right pb-2 font-medium">Margin %</th>
+                  <th className="text-right pb-2 font-medium">Margin % Cups</th>
                   <th className="text-right pb-2 font-medium">Discount %</th>
                   <th className="text-left pb-2 font-medium">Currency</th>
                   <th className="text-left pb-2 font-medium">Units</th>
