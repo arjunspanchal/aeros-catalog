@@ -512,9 +512,9 @@ export default function CupCalculator({ scope = "default" }) {
               onChange={(e) => { setCupVariant(e.target.value); setSize(""); setResult(null); setPresetLocked(false); }}
             >
               <option value="">Select type…</option>
-              {Object.keys(CUP_PRESETS).map((k) => (
-                <option key={k} value={k}>{CUP_PRESETS[k].label}</option>
-              ))}
+              <option value="SW Standard">Single Wall</option>
+              <option value="DW Standard">Double Wall</option>
+              <option value="Ripple Standard">Ripple Wall</option>
             </select>
           </Field>
           <Field label="Cup size">
