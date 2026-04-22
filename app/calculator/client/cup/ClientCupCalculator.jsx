@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { Card, Field, Toggle, PillBtn, inputCls } from "@/app/calculator/_components/ui";
-import { CUP_QTY_TIERS, SIZE_OPTS } from "@/lib/calc/cup-calculator";
+import {
+  CUP_QTY_TIERS, SIZE_OPTS,
+  GSM_INNER_OPTS, GSM_OUTER_OPTS, COLOUR_OPTS,
+} from "@/lib/calc/cup-calculator";
 
 const WALL_OPTS = [
   { val: "Single Wall", lbl: "Single Wall" },
@@ -18,6 +21,8 @@ const DEFAULT_FORM = {
   wallType: "Double Wall",
   size: "8oz",
   sku: "",               // selected product SKU; drives dims/box/casePack
+  innerGsm: 280,
+  outerGsm: 250,
   coating: "PE",
   print: false,
   colours: 1,
@@ -74,6 +79,8 @@ export default function ClientCupCalculator() {
           wallType: form.wallType,
           size: form.size,
           sku: form.sku,
+          innerGsm: form.innerGsm,
+          outerGsm: form.outerGsm,
           coating: form.coating,
           print: form.print,
           colours: form.colours,
@@ -173,6 +180,25 @@ export default function ClientCupCalculator() {
           </Card>
         )}
 
+        <Card title="Inner wall GSM" >
+          <div className="flex gap-2 flex-wrap">
+            {GSM_INNER_OPTS.map((g) => (
+              <PillBtn key={g} active={form.innerGsm === g} onClick={() => set("innerGsm", g)}>{g}</PillBtn>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-2 dark:text-gray-500">Bottom is fixed at 220 gsm + PE across all cups.</p>
+        </Card>
+
+        {(form.wallType === "Double Wall" || form.wallType === "Ripple") && (
+          <Card title="Outer wall GSM">
+            <div className="flex gap-2 flex-wrap">
+              {GSM_OUTER_OPTS.map((g) => (
+                <PillBtn key={g} active={form.outerGsm === g} onClick={() => set("outerGsm", g)}>{g}</PillBtn>
+              ))}
+            </div>
+          </Card>
+        )}
+
         <Card title="Inner coating">
           <div className="flex gap-2 flex-wrap">
             {COATING_OPTS.map((c) => (
@@ -186,14 +212,11 @@ export default function ClientCupCalculator() {
           {form.print && (
             <div className="mt-3 space-y-3 border-t border-gray-100 dark:border-gray-800 pt-3">
               <Field label="No. of colours">
-                <input
-                  type="number"
-                  min="1"
-                  max="8"
-                  className={inputCls}
-                  value={form.colours}
-                  onChange={(e) => set("colours", parseInt(e.target.value) || 1)}
-                />
+                <div className="flex gap-2">
+                  {COLOUR_OPTS.map((n) => (
+                    <PillBtn key={n} active={form.colours === n} onClick={() => set("colours", n)}>{n}</PillBtn>
+                  ))}
+                </div>
               </Field>
               <Field label="Ink coverage">
                 <div className="flex gap-2">

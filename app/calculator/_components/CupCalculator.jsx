@@ -6,6 +6,7 @@ import {
   SW_DIMS, OF_DIMS, SIZE_OPTS, PRINT_OPTS, COATING_OPTS,
   COATING_RATES, DEFAULTS, PACK_LABOUR_PER_CUP, MONTHLY_CAPACITY,
   getOuterFanCount, getSidewallDims,
+  GSM_INNER_OPTS, GSM_OUTER_OPTS, COLOUR_OPTS, BOTTOM_GSM, BOTTOM_COATING,
 } from "@/lib/calc/cup-calculator";
 
 const STORAGE_PREFIX = "aeros:cup:order:";
@@ -178,11 +179,21 @@ function PrintSection({ print, setPrint, colors, setColors, rate1, setRate1, rat
           ))}
         </div>
       </div>
+      {(isFlex || isOff) && (
+        <div className="field" style={{ marginBottom: ".75rem" }}>
+          <label>No. of colours</label>
+          <div className="chips" style={{ marginTop: 4 }}>
+            {COLOUR_OPTS.map((n) => (
+              <Chip key={n} label={String(n)} selected={parseInt(colors) === n} onClick={() => setColors(String(n))} />
+            ))}
+          </div>
+          {isOff && nc > 0 && (
+            <span className="autofill">✓ Die cost: ₹{(nc * DEFAULTS.offsetDie).toLocaleString()} (billed separately)</span>
+          )}
+        </div>
+      )}
       {isFlex && (
         <div className="field-row">
-          <Field label="No. of colours">
-            <NumInput value={colors} onChange={setColors} placeholder="e.g. 2" />
-          </Field>
           <Field label="1st colour rate (₹/kg)">
             <NumInput value={rate1} onChange={setRate1} placeholder="e.g. 8" />
           </Field>
@@ -191,16 +202,6 @@ function PrintSection({ print, setPrint, colors, setColors, rate1, setRate1, rat
               <NumInput value={rateN} onChange={setRateN} placeholder="e.g. 5" />
             </Field>
           )}
-        </div>
-      )}
-      {isOff && (
-        <div className="field-row">
-          <Field
-            label="No. of colours"
-            note={nc > 0 ? `Die cost: ₹${(nc * DEFAULTS.offsetDie).toLocaleString()} (billed separately)` : ""}
-          >
-            <NumInput value={colors} onChange={setColors} placeholder="e.g. 4" />
-          </Field>
         </div>
       )}
       {isFlex && nc > 0 && (
@@ -256,8 +257,13 @@ export default function CupCalculator({ scope = "default" }) {
   const [swCoating, setSwCoating] = useState("None"); const [swCoatingRate, setSwCoatingRate] = useState("");
   const [swPrint, setSwPrint] = useState("No printing"); const [swColors, setSwColors] = useState("");
   const [swRate1, setSwRate1] = useState(""); const [swRateN, setSwRateN] = useState("");
-  const [btGSM, setBtGSM] = useState(""); const [btRate, setBtRate] = useState("");
-  const [btCoating, setBtCoating] = useState("None"); const [btCoatingRate, setBtCoatingRate] = useState("");
+  // Bottom is fixed at 220 gsm + PE across every paper cup — the admin UI
+  // doesn't expose these inputs any more; state is kept so the engine can
+  // still read them.
+  const [btGSM, setBtGSM] = useState(String(BOTTOM_GSM));
+  const [btRate, setBtRate] = useState("");
+  const [btCoating, setBtCoating] = useState(BOTTOM_COATING);
+  const [btCoatingRate, setBtCoatingRate] = useState("");
   const [conv, setConv] = useState(""); const [pack, setPack] = useState("");
   const [glue, setGlue] = useState(""); const [otherCost, setOtherCost] = useState("");
   const [showConvCalc, setShowConvCalc] = useState(false);
@@ -343,7 +349,8 @@ export default function CupCalculator({ scope = "default" }) {
     if (!p || !sz) return;
     const sw = p.sw[sz], bt = p.bt[sz], of = p.of?.[sz];
     if (sw) { setSwGSM(String(sw.gsm)); setSwCoating(sw.coating); }
-    if (bt) { setBtGSM(String(bt.gsm)); setBtCoating(bt.coating); }
+    // Bottom is always 220 + PE across cups — preset data ignored.
+    setBtGSM(String(BOTTOM_GSM)); setBtCoating(BOTTOM_COATING);
     if (of) { setOfGSM(String(of.gsm)); setOfCoating(of.coating); }
     else { setOfGSM(""); setOfCoating("None"); }
     // SKU, dims and box size are NOT filled from the preset — they come from
@@ -630,23 +637,26 @@ export default function CupCalculator({ scope = "default" }) {
 
       <div className="card">
         <div className="card-title">Inner wall</div>
-        <div className="field-row">
-          <Field label="Sidewall GSM" badge={presetLocked && swSpec ? `Preset: ${swSpec.gsm}` : ""}>
-            <NumInput value={swGSM} onChange={setSwGSM} placeholder="e.g. 280" />
-          </Field>
-          <Field
-            label="Sidewall paper rate (₹/kg)"
-            note={
-              swDims && swPrint !== "No printing"
-                ? `Dims: ${swDims[0]}×${swDims[1]}mm · 6 fans`
-                : swDims
-                ? `Dims: ${swDims[0]}×${swDims[1]}mm`
-                : ""
-            }
-          >
-            <NumInput value={swRate} onChange={setSwRate} placeholder="e.g. 95" />
-          </Field>
+        <div className="field" style={{ marginBottom: ".75rem" }}>
+          <label>Sidewall GSM</label>
+          <div className="chips" style={{ marginTop: 4 }}>
+            {GSM_INNER_OPTS.map((g) => (
+              <Chip key={g} label={String(g)} selected={parseInt(swGSM) === g} onClick={() => setSwGSM(String(g))} />
+            ))}
+          </div>
         </div>
+        <Field
+          label="Sidewall paper rate (₹/kg)"
+          note={
+            swDims && swPrint !== "No printing"
+              ? `Dims: ${swDims[0]}×${swDims[1]}mm · 6 fans`
+              : swDims
+              ? `Dims: ${swDims[0]}×${swDims[1]}mm`
+              : ""
+          }
+        >
+          <NumInput value={swRate} onChange={setSwRate} placeholder="e.g. 95" />
+        </Field>
         <CoatingSection
           coating={swCoating} setCoating={setSwCoating}
           coatingRate={swCoatingRate} setCoatingRate={setSwCoatingRate}
@@ -660,21 +670,8 @@ export default function CupCalculator({ scope = "default" }) {
         />
       </div>
 
-      <div className="card">
-        <div className="card-title">Bottom disc</div>
-        <div className="field-row">
-          <Field label="Bottom GSM" badge={presetLocked && btSpec ? `Preset: ${btSpec.gsm}` : ""}>
-            <NumInput value={btGSM} onChange={setBtGSM} placeholder="e.g. 220" />
-          </Field>
-          <Field label="Bottom RM rate (₹/kg)" note="Roll width: 75mm (fixed)">
-            <NumInput value={btRate} onChange={setBtRate} placeholder="e.g. 90" />
-          </Field>
-        </div>
-        <CoatingSection
-          coating={btCoating} setCoating={setBtCoating}
-          coatingRate={btCoatingRate} setCoatingRate={setBtCoatingRate}
-        />
-      </div>
+      {/* Bottom disc is fixed at 220 gsm + PE across the product line — no
+          admin input needed. Rates pull from Paper RM master server-side. */}
 
       <div className="card">
         <div className="card-title">Conversion &amp; packing</div>
@@ -786,10 +783,16 @@ export default function CupCalculator({ scope = "default" }) {
       {isDW && (
         <div className="card">
           <div className="card-title">Outer wall</div>
+          <div className="field" style={{ marginBottom: ".75rem" }}>
+            <label>Outer fan GSM</label>
+            <div className="chips" style={{ marginTop: 4 }}>
+              {GSM_OUTER_OPTS.map((g) => (
+                <Chip key={g} label={String(g)} selected={parseInt(ofGSM) === g} onClick={() => setOfGSM(String(g))} />
+              ))}
+            </div>
+          </div>
           <div className="field-row">
-            <Field label="Outer fan GSM" badge={presetLocked && ofSpec ? `Preset: ${ofSpec.gsm}` : ""}>
-              <NumInput value={ofGSM} onChange={setOfGSM} placeholder="e.g. 260" />
-            </Field>
+
             <Field
               label="Outer fan paper rate (₹/kg)"
               note={ofDims && size ? `Dims: ${ofDims[0]}×${ofDims[1]}mm · ${ofFans} fans` : ""}
