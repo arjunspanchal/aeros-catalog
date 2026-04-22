@@ -3,9 +3,10 @@ import { useMemo, useState } from "react";
 import { Card, Field, Toggle, PillBtn, inputCls } from "@/app/calculator/_components/ui";
 import {
   computeCupRateCurve,
-  CUP_PRESETS,
   CUP_QTY_TIERS,
   SIZE_OPTS,
+  STANDARD_CUP_DIMS,
+  formatCupDim,
 } from "@/lib/calc/cup-calculator";
 
 const WALL_OPTS = [
@@ -36,17 +37,31 @@ export default function ClientCupCalculator() {
   const num = (k, v) => set(k, parseFloat(v) || 0);
 
   const isDW = form.wallType === "Double Wall" || form.wallType === "Ripple";
+  const dimOpts = STANDARD_CUP_DIMS[form.size] || [];
 
-  // Auto-fill dims from preset when size changes (DW Export has example dims).
+  // On size change, pick the first standard dim if available, else blank.
   function pickSize(sz) {
-    const next = { ...form, size: sz };
-    const preset = CUP_PRESETS["DW Export"]?.codes?.[sz];
-    if (preset?.td && !form.td) next.td = String(preset.td);
-    if (preset?.bd && !form.bd) next.bd = String(preset.bd);
-    if (preset?.h && !form.h) next.h = String(preset.h);
-    setForm(next);
+    const opts = STANDARD_CUP_DIMS[sz] || [];
+    const first = opts[0];
+    setForm((f) => ({
+      ...f,
+      size: sz,
+      td: first ? String(first.td) : "",
+      bd: first ? String(first.bd) : "",
+      h:  first ? String(first.h)  : "",
+    }));
     setResult(null);
   }
+
+  function pickDimByIndex(idx) {
+    const d = dimOpts[parseInt(idx)];
+    if (!d) { setForm((f) => ({ ...f, td: "", bd: "", h: "" })); return; }
+    setForm((f) => ({ ...f, td: String(d.td), bd: String(d.bd), h: String(d.h) }));
+  }
+
+  const currentDimIdx = dimOpts.findIndex(
+    (d) => String(d.td) === form.td && String(d.bd) === form.bd && String(d.h) === form.h
+  );
 
   function calculate() {
     const curve = computeCupRateCurve({
@@ -86,19 +101,22 @@ export default function ClientCupCalculator() {
           </div>
         </Card>
 
-        <Card title="Dimensions (mm) — optional">
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Top dia">
-              <input type="number" className={inputCls} value={form.td} onChange={(e) => set("td", e.target.value)} placeholder="e.g. 80" />
+        {dimOpts.length > 0 && (
+          <Card title="Dimensions">
+            <Field label="Cup dimensions (Top × Bottom × Height)">
+              <select
+                className={inputCls}
+                value={currentDimIdx >= 0 ? String(currentDimIdx) : ""}
+                onChange={(e) => pickDimByIndex(e.target.value)}
+              >
+                {dimOpts.length > 1 && <option value="">Select dimensions…</option>}
+                {dimOpts.map((d, i) => (
+                  <option key={i} value={i}>{formatCupDim(d)}</option>
+                ))}
+              </select>
             </Field>
-            <Field label="Bottom dia">
-              <input type="number" className={inputCls} value={form.bd} onChange={(e) => set("bd", e.target.value)} placeholder="e.g. 56" />
-            </Field>
-            <Field label="Height">
-              <input type="number" className={inputCls} value={form.h} onChange={(e) => set("h", e.target.value)} placeholder="e.g. 93" />
-            </Field>
-          </div>
-        </Card>
+          </Card>
+        )}
 
         <Card title="Wall type">
           <div className="flex gap-2 flex-wrap">
