@@ -1,0 +1,35 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/factoryos/session";
+import { listMasterPapers } from "@/lib/paper-rm";
+import { ROLES } from "@/lib/factoryos/constants";
+import MasterPapersAdmin from "./MasterPapersAdmin";
+
+export const dynamic = "force-dynamic";
+
+export default async function AdminMasterPapersPage() {
+  const s = getSession();
+  if (!s) redirect("/login");
+  // Strictly admin — not FM/FE/Customer. Master rates feed COGS, too sensitive for shop-floor.
+  if (s.role !== ROLES.ADMIN) redirect("/factoryos");
+
+  const masterPapers = await listMasterPapers().catch((e) => {
+    console.error("Master paper fetch failed:", e);
+    return [];
+  });
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Link href="/factoryos/admin" className="text-xs text-gray-500 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-400">← Admin</Link>
+        <h1 className="text-2xl font-bold text-gray-900 mt-4 dark:text-white">Master RM Rates</h1>
+        <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
+          Edit base rate and supplier discount for each master paper SKU. Lives in the{" "}
+          <a href="https://airtable.com/appSllndIZszJSCma" target="_blank" rel="noreferrer" className="underline hover:text-blue-700 dark:hover:text-blue-400">Paper RM Database</a>.
+          Admin only. All other master fields (name, type, GSM, BF, supplier, specs) are managed in Airtable's UI.
+        </p>
+        <MasterPapersAdmin initialPapers={masterPapers} />
+      </main>
+    </div>
+  );
+}

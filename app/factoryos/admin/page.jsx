@@ -50,6 +50,12 @@ export default async function AdminDashboard() {
             <Link href="/factoryos/admin/coating" className="px-3 py-1.5 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
               PE coating
             </Link>
+            {/* Master RM rates are admin-only (rates feed COGS) — hide for FM who otherwise sees this dashboard. */}
+            {s.role === ROLES.ADMIN && (
+              <Link href="/factoryos/admin/master-papers" className="px-3 py-1.5 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
+                Master RM rates
+              </Link>
+            )}
             <Link href="/factoryos/admin/machines" className="px-3 py-1.5 bg-white border border-gray-200 rounded-md hover:border-gray-300 dark:bg-gray-900 dark:border-gray-800">
               Machines
             </Link>
