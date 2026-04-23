@@ -98,6 +98,128 @@ function downloadAdminCsv({ cupVariant, size, sku, qty, casePack, td, bd, h, box
   URL.revokeObjectURL(url);
 }
 
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function openAdminPrintView({ cupVariant, size, sku, qty, casePack, td, bd, h, boxL, boxW, boxH, swGSM, ofGSM, isDW, result, quoteRef }) {
+  const totalCases = qty && casePack ? Math.ceil(parseInt(qty) / parseInt(casePack)) : 0;
+  const m = cartonMetrics(boxL, boxW, boxH, totalCases);
+  const today = new Date().toISOString().slice(0, 10);
+  const refLabel = (quoteRef || "").trim() || `${size || ""} ${cupVariant || "Cup"}`.trim();
+  const title = `Aeros Cup Quote — ${refLabel}`;
+  const specRow = (label, value) => `<tr><td>${escapeHtml(label)}</td><td>${escapeHtml(value)}</td></tr>`;
+  const ladderRow = (label, val, opts = {}) => `
+    <tr class="${opts.highlight ? "highlight" : ""} ${opts.total ? "total" : ""}">
+      <td>${escapeHtml(label)}</td>
+      <td>₹${Number(val).toFixed(opts.cents ? 2 : 4)}</td>
+    </tr>`;
+
+  const ladder = [];
+  ladder.push(ladderRow("Sidewall RM", result.swRM));
+  if (result.swPrintCost > 0) ladder.push(ladderRow("Sidewall print", result.swPrintCost));
+  if (isDW) ladder.push(ladderRow("Outer fan (RM + print)", result.ofTotal));
+  ladder.push(ladderRow("Bottom disc", result.btCost));
+  ladder.push(ladderRow("Conversion", result.conv));
+  if (result.pack > 0) ladder.push(ladderRow("Packing", result.pack));
+  if (result.glue > 0) ladder.push(ladderRow("Glue", result.glue));
+  if (result.other > 0) ladder.push(ladderRow("Other", result.other));
+  ladder.push(ladderRow("Mfg cost / cup", result.mfg, { total: true }));
+  ladder.push(ladderRow(`Factory margin (${result.mp}%)`, result.marginAmt));
+  ladder.push(ladderRow("Factory SP / cup", result.sp, { highlight: true, cents: true }));
+
+  const oneTimeRows = [];
+  if (result.swPlate > 0) oneTimeRows.push(`Sidewall Flexo plates: ₹${result.swPlate.toLocaleString()}`);
+  if (result.swDie > 0) oneTimeRows.push(`Sidewall Offset dies: ₹${result.swDie.toLocaleString()}`);
+  if (result.ofPlate > 0) oneTimeRows.push(`Outer fan Flexo plates: ₹${result.ofPlate.toLocaleString()}`);
+  if (result.ofDie > 0) oneTimeRows.push(`Outer fan Offset dies: ₹${result.ofDie.toLocaleString()}`);
+
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111827; max-width: 820px; margin: 2rem auto; padding: 0 2rem; line-height: 1.4; }
+  h1 { font-size: 22px; font-weight: 700; margin: 0 0 0.25rem; }
+  .ref { font-size: 13px; color: #6b7280; margin: 0 0 2rem; }
+  .ref strong { color: #111827; }
+  h2 { font-size: 16px; font-weight: 600; color: #1d4ed8; margin: 2rem 0 0.75rem; }
+  .hero-label { font-size: 13px; color: #6b7280; margin: 1.5rem 0 0.25rem; }
+  .hero-price { font-size: 48px; font-weight: 700; color: #111827; letter-spacing: -0.5px; line-height: 1; }
+  table.spec, table.ladder { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
+  table.spec td, table.ladder td { padding: 12px 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+  table.spec td:first-child, table.ladder td:first-child { color: #4b5563; }
+  table.spec td:last-child { text-align: right; color: #111827; font-weight: 500; }
+  table.ladder td:last-child { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: #111827; }
+  table.ladder tr.total td { font-weight: 600; font-size: 15px; }
+  table.ladder tr.highlight td { background: #eff6ff; font-weight: 700; font-size: 15px; color: #1d4ed8; padding-left: 12px; padding-right: 12px; }
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin: 0.75rem 0; }
+  .stat-lbl { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .stat-val { font-size: 18px; font-weight: 600; color: #111827; }
+  .note { font-size: 13px; color: #6b7280; margin: 0.75rem 0 1rem; }
+  .memo { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 12px; font-size: 13px; color: #92400e; margin-top: 1rem; }
+  .memo-title { font-weight: 600; margin-bottom: 4px; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
+  @media print { body { margin: 0.5in; padding: 0; } @page { margin: 0.5in; } }
+</style>
+</head>
+<body>
+  <h1>Aeros Paper Cup Rate Calculator</h1>
+  <div class="ref">Ref <strong>${escapeHtml(refLabel)}</strong> · ${today}</div>
+
+  <div class="hero-label">Factory SP / cup @ ${qty ? parseInt(qty).toLocaleString() : "—"}</div>
+  <div class="hero-price">₹${result.sp.toFixed(2)}</div>
+
+  <h2>Cup specifications</h2>
+  <table class="spec">
+    ${specRow("Type", cupVariant)}
+    ${specRow("Volume", size)}
+    ${sku ? specRow("SKU", sku) : ""}
+    ${td && bd && h ? specRow("Cup dimensions", `${td} × ${bd} × ${h} mm`) : ""}
+    ${specRow("Sidewall GSM", swGSM || "—")}
+    ${isDW ? specRow("Outer fan GSM", ofGSM || "—") : ""}
+    ${specRow("Bottom disc", "230 GSM + 2PE (standard)")}
+    ${specRow("Case pack", `${casePack || "—"} cups`)}
+    ${specRow("Cup weight", `${result.cupWeightG.toFixed(2)} g`)}
+  </table>
+
+  ${boxL && boxW && boxH ? `
+    <h2>Approx box dimensions</h2>
+    <div class="stat-row">
+      <div><div class="stat-lbl">Length</div><div class="stat-val">${boxL} mm</div></div>
+      <div><div class="stat-lbl">Width</div><div class="stat-val">${boxW} mm</div></div>
+      <div><div class="stat-lbl">Depth</div><div class="stat-val">${boxH} mm</div></div>
+    </div>
+    <div class="note">${casePack || "—"} cups per case · ${totalCases.toLocaleString()} cases for this order</div>
+    ${m && m.boxesPerPallet > 0 ? `
+      <div class="stat-row">
+        <div><div class="stat-lbl">CBM per box</div><div class="stat-val">${m.cbm.toFixed(3)} m³</div></div>
+        <div><div class="stat-lbl">Boxes per pallet</div><div class="stat-val">${m.boxesPerPallet}</div></div>
+        <div><div class="stat-lbl">Pallets for order</div><div class="stat-val">${m.palletCount}</div></div>
+      </div>
+    ` : ""}
+  ` : ""}
+
+  <h2>Cost ladder (₹ / cup)</h2>
+  <table class="ladder">
+    ${ladder.join("")}
+  </table>
+
+  ${oneTimeRows.length > 0 ? `<div class="memo"><div class="memo-title">One-time costs — bill separately</div>${oneTimeRows.map((r) => `<div>${r}</div>`).join("")}</div>` : ""}
+
+  <div class="footer">Generated ${today} · All prices are indicative estimates and subject to confirmation.</div>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) { alert("Please allow pop-ups to export the PDF."); return; }
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => { try { w.focus(); w.print(); } catch {} }, 300);
+}
+
 // Self-contained styles scoped to `.cup-app`. Dark-mode variants track the
 // `html.dark` flag set by the catalog's ThemeToggle.
 const css = `
@@ -338,6 +460,7 @@ function loadSavedOrders(scope) {
 
 export default function CupCalculator({ scope = "default" }) {
   const [cupVariant, setCupVariant] = useState("");
+  const [quoteRef, setQuoteRef] = useState("");
   const [size, setSize] = useState("");
   const [sku, setSku] = useState("");
   const [qty, setQty] = useState("");
@@ -650,6 +773,16 @@ export default function CupCalculator({ scope = "default" }) {
 
       <div className="card">
         <div className="card-title">Basics</div>
+        <div className="field-row">
+          <Field label="Quote reference (shown on PDF)">
+            <input
+              type="text"
+              value={quoteRef}
+              onChange={(e) => setQuoteRef(e.target.value)}
+              placeholder="e.g. Wellbeing DW 8oz PE"
+            />
+          </Field>
+        </div>
         <div className="field-row">
           <Field label="Cup type">
             <select
@@ -1130,7 +1263,7 @@ export default function CupCalculator({ scope = "default" }) {
               type="button"
               className="ghost-btn"
               style={{ flex: 1, padding: "9px 12px", fontSize: 13 }}
-              onClick={() => window.print()}
+              onClick={() => openAdminPrintView({ cupVariant, size, sku, qty, casePack, td, bd, h, boxL, boxW, boxH, swGSM, ofGSM, isDW, result, quoteRef })}
             >
               Download PDF
             </button>

@@ -86,6 +86,132 @@ function downloadCsv(form, result) {
   URL.revokeObjectURL(url);
 }
 
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function openPrintView(form, result, quoteRef) {
+  const dims = parseDimsMm(result.product?.cartonDimensions);
+  const totalCases = Math.ceil(form.orderQty / result.casePack);
+  const m = cartonMetrics(dims, totalCases);
+  const selectedTier = result.curve.find((c) => c.qty === form.orderQty) || result.curve[0];
+  const today = new Date().toISOString().slice(0, 10);
+  const refLabel = quoteRef?.trim() || `${form.size} ${form.wallType} Cup`;
+  const title = `Aeros Cup Quote — ${refLabel}`;
+  const product = result.product || {};
+
+  const specRow = (label, value) => `<tr><td>${escapeHtml(label)}</td><td>${escapeHtml(value)}</td></tr>`;
+  const curveRow = (c) => `
+    <tr class="${c.qty === form.orderQty ? "selected" : ""}">
+      <td>${c.qty.toLocaleString()}</td>
+      <td>₹${c.ratePerCup.toFixed(2)}</td>
+      <td>₹${c.ratePerCase.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+      <td>₹${c.orderTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+    </tr>`;
+
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111827; max-width: 820px; margin: 2rem auto; padding: 0 2rem; line-height: 1.4; }
+  h1 { font-size: 22px; font-weight: 700; margin: 0 0 0.25rem; }
+  .ref { font-size: 13px; color: #6b7280; margin: 0 0 2rem; }
+  .ref strong { color: #111827; }
+  h2 { font-size: 16px; font-weight: 600; color: #1d4ed8; margin: 2rem 0 0.75rem; }
+  .hero-label { font-size: 13px; color: #6b7280; margin: 1.5rem 0 0.25rem; }
+  .hero-price { font-size: 48px; font-weight: 700; color: #111827; letter-spacing: -0.5px; line-height: 1; }
+  table.spec { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
+  table.spec td { padding: 12px 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+  table.spec td:first-child { color: #4b5563; }
+  table.spec td:last-child { text-align: right; color: #111827; font-weight: 500; }
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin: 0.75rem 0; }
+  .stat-lbl { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .stat-val { font-size: 18px; font-weight: 600; color: #111827; }
+  .note { font-size: 13px; color: #6b7280; margin: 0.75rem 0 1rem; }
+  table.curve { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+  table.curve th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; padding: 12px 0; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 500; }
+  table.curve th:first-child { text-align: left; }
+  table.curve td { padding: 12px 0; border-bottom: 1px solid #f3f4f6; font-size: 14px; text-align: right; }
+  table.curve td:first-child { text-align: left; }
+  table.curve tr.selected td { font-weight: 700; }
+  table.curve tr.selected td:last-child { color: #1d4ed8; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
+  @media print {
+    body { margin: 0.5in; padding: 0; }
+    @page { margin: 0.5in; }
+  }
+</style>
+</head>
+<body>
+  <h1>Aeros Paper Cup Rate Calculator</h1>
+  <div class="ref">Ref <strong>${escapeHtml(refLabel)}</strong> · ${today}</div>
+
+  <div class="hero-label">Rate per cup @ ${form.orderQty.toLocaleString()}</div>
+  <div class="hero-price">₹${selectedTier.ratePerCup.toFixed(2)}</div>
+
+  <h2>Cup specifications</h2>
+  <table class="spec">
+    ${specRow("Type", form.wallType)}
+    ${specRow("Volume", form.size)}
+    ${form.sku ? specRow("SKU", form.sku) : ""}
+    ${product.td && product.bd && product.h ? specRow("Cup dimensions", `${product.td} × ${product.bd} × ${product.h} mm`) : ""}
+    ${specRow("Inner wall", `${form.innerGsm} GSM, ${form.coating}`)}
+    ${form.wallType !== "Single Wall" ? specRow("Outer wall", `${form.outerGsm} GSM`) : ""}
+    ${specRow("Printing", form.print ? `${form.colours} colour, ${form.coverage}% coverage` : "Plain")}
+    ${specRow("Case pack", `${result.casePack} cups`)}
+  </table>
+
+  ${result.product?.cartonDimensions && dims ? `
+    <h2>Approx box dimensions</h2>
+    <div class="stat-row">
+      <div><div class="stat-lbl">Length</div><div class="stat-val">${dims.L} mm</div></div>
+      <div><div class="stat-lbl">Width</div><div class="stat-val">${dims.W} mm</div></div>
+      <div><div class="stat-lbl">Depth</div><div class="stat-val">${dims.H} mm</div></div>
+    </div>
+    <div class="note">${result.casePack} cups per case · ${totalCases.toLocaleString()} cases for this order</div>
+    ${m && m.boxesPerPallet > 0 ? `
+      <div class="stat-row">
+        <div><div class="stat-lbl">CBM per box</div><div class="stat-val">${m.cbm.toFixed(3)} m³</div></div>
+        <div><div class="stat-lbl">Boxes per pallet</div><div class="stat-val">${m.boxesPerPallet}</div></div>
+        <div><div class="stat-lbl">Pallets for order</div><div class="stat-val">${m.palletCount}</div></div>
+      </div>
+    ` : ""}
+  ` : ""}
+
+  <h2>Cost ladder (INR)</h2>
+  <table class="curve">
+    <thead>
+      <tr>
+        <th>Order Qty</th>
+        <th>Rate / Cup</th>
+        <th>Cost / Case</th>
+        <th>Order Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${result.curve.map(curveRow).join("")}
+    </tbody>
+  </table>
+
+  ${result.oneTimeTotal > 0 ? `<div class="note" style="margin-top:1rem">One-time plate/die setup: ₹${result.oneTimeTotal.toLocaleString("en-IN")} (billed separately, once per artwork)</div>` : ""}
+
+  <div class="footer">Generated ${today} · All prices are indicative estimates and subject to confirmation.</div>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) {
+    alert("Please allow pop-ups for this site to export the PDF.");
+    return;
+  }
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => { try { w.focus(); w.print(); } catch {} }, 300);
+}
+
 const DEFAULT_FORM = {
   wallType: "Double Wall",
   size: "8oz",
@@ -105,6 +231,7 @@ export default function ClientCupCalculator() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [quoteRef, setQuoteRef] = useState("");
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -177,6 +304,18 @@ export default function ClientCupCalculator() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       <div className="lg:col-span-2 space-y-4">
+        <Card title="Quote reference">
+          <Field label="Shown at the top of the exported PDF" hint="Optional — e.g. client name, SKU label">
+            <input
+              type="text"
+              className={inputCls}
+              value={quoteRef}
+              onChange={(e) => setQuoteRef(e.target.value)}
+              placeholder="e.g. Wellbeing DW 8oz PE"
+            />
+          </Field>
+        </Card>
+
         <Card title="Wall type">
           <div className="flex gap-2 flex-wrap">
             {WALL_OPTS.map((w) => (
@@ -438,7 +577,7 @@ export default function ClientCupCalculator() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={() => openPrintView(form, result, quoteRef)}
                   className="py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   Download PDF
