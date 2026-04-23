@@ -1,14 +1,17 @@
 // Self-service sign-up for a new rate-calculator client.
 //
-// Creates a Users row with Calculator Role = "Client", then sends an OTP to
-// the email. The caller then POSTs to /api/auth/verify-otp to complete the
-// login. No session is minted here — the verify-otp step does that.
+// Creates a Users row with Calculator Role = "Client", upserts a Clients row
+// for their Company (so the same business also appears as a FactoryOS client
+// for jobs, POs, etc.), links the two, then sends an OTP. The caller then
+// POSTs to /api/auth/verify-otp to finish the login — no session is minted
+// here.
 //
 // Guard-rails:
 //  - refuse if an Active Users row already exists for that email
-//  - if an Inactive row exists, reactivate and refresh details (one-shot
-//    recovery for a previously-invited client who never finished setup)
-//  - never grant Admin or FactoryOS roles via this path
+//  - revive an Inactive row in place (so re-inviting a lapsed client works)
+//  - match Clients by case-insensitive Name so we don't spawn duplicate
+//    "Acme" / "ACME" rows for the same company
+//  - never grants Admin or FactoryOS roles
 
 import { airtableCreate, airtableList, airtableUpdate, escapeFormula, TABLES } from "@/lib/factoryos/airtable";
 import { generateOtp, normalizeEmail, sendOtpEmail } from "@/lib/hub/auth";
@@ -21,6 +24,27 @@ function validPhone(s) {
   if (!s) return true; // phone optional
   const digits = String(s).replace(/\D/g, "");
   return digits.length >= 7 && digits.length <= 15;
+}
+
+// Ensure a Clients row exists for this company name; return its id. Matches
+// by case-insensitive Name to avoid duplicates. New clients get Contact
+// Person / Email / Phone populated from the signing-up user — an admin can
+// later reassign the Brand Manager.
+async function upsertClientForCompany({ company, contactPerson, contactEmail, contactPhone }) {
+  const nameLc = company.trim().toLowerCase();
+  const existing = await airtableList(TABLES.clients(), {
+    filterByFormula: `LOWER({Name})='${escapeFormula(nameLc)}'`,
+    maxRecords: 1,
+  });
+  if (existing[0]) return existing[0].id;
+  const created = await airtableCreate(TABLES.clients(), {
+    Name: company.trim(),
+    "Contact Person": contactPerson || "",
+    "Contact Email": contactEmail || "",
+    "Contact Phone": contactPhone || "",
+    Created: new Date().toISOString(),
+  });
+  return created.id;
 }
 
 export async function POST(req) {
@@ -38,7 +62,15 @@ export async function POST(req) {
   }
   if (!validPhone(phone)) return Response.json({ error: "Phone looks invalid" }, { status: 400 });
 
-  // Look up any existing Users row for this email.
+  // 1. Ensure the Clients row exists (shared by FactoryOS + calc admin UI).
+  const clientId = await upsertClientForCompany({
+    company,
+    contactPerson: name,
+    contactEmail: email,
+    contactPhone: phone,
+  });
+
+  // 2. Create / revive the Users row and link it to the Clients row.
   const existing = await airtableList(TABLES.users(), {
     filterByFormula: `LOWER({Email})='${escapeFormula(email)}'`,
     maxRecords: 1,
@@ -49,13 +81,16 @@ export async function POST(req) {
     const f = row.fields || {};
     const active = f.Active !== false;
     if (active) {
-      // Already signed up — direct them to the normal login.
       return Response.json(
         { error: "An account with this email already exists. Use the Email tab to sign in." },
         { status: 409 },
       );
     }
-    // Inactive row — revive it as a calculator client.
+    // Append the new client link while preserving any existing links.
+    const existingClientIds = Array.isArray(f.Client) ? f.Client : [];
+    const mergedClientIds = existingClientIds.includes(clientId)
+      ? existingClientIds
+      : [...existingClientIds, clientId];
     await airtableUpdate(TABLES.users(), row.id, {
       Name: f.Name || name,
       Company: company,
@@ -63,6 +98,7 @@ export async function POST(req) {
       Phone: phone || undefined,
       Active: true,
       "Calculator Role": "Client",
+      Client: mergedClientIds,
     });
   } else {
     await airtableCreate(TABLES.users(), {
@@ -73,11 +109,12 @@ export async function POST(req) {
       Phone: phone || undefined,
       Active: true,
       "Calculator Role": "Client",
+      Client: [clientId],
       Created: new Date().toISOString(),
     });
   }
 
-  // Mint + send OTP so the caller can proceed to /api/auth/verify-otp.
+  // 3. Mint + send OTP so the caller can proceed to /api/auth/verify-otp.
   const code = generateOtp();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + OTP_TTL_MINUTES * 60_000);
