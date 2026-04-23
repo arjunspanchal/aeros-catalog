@@ -1091,16 +1091,16 @@ export default function CupCalculator({ scope = "default" }) {
                     <NumInput value={convHours} onChange={setConvHours} placeholder="300" />
                   </Field>
                   <Field label="8oz cups / min (SW)">
-                    <NumInput value={cpm8} onChange={setCpm8} placeholder="75" />
+                    <NumInput value={cpm8} onChange={setCpm8} placeholder="70" />
                   </Field>
                   <Field label="12oz cups / min (SW)">
-                    <NumInput value={cpm12} onChange={setCpm12} placeholder="65" />
+                    <NumInput value={cpm12} onChange={setCpm12} placeholder="70" />
                   </Field>
                   <Field label="16oz cups / min (SW)">
-                    <NumInput value={cpm16} onChange={setCpm16} placeholder="55" />
+                    <NumInput value={cpm16} onChange={setCpm16} placeholder="70" />
                   </Field>
                   <Field label="20oz cups / min (SW)">
-                    <NumInput value={cpm20} onChange={setCpm20} placeholder="45" />
+                    <NumInput value={cpm20} onChange={setCpm20} placeholder="70" />
                   </Field>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 8 }}>
