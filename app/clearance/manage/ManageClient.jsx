@@ -164,7 +164,14 @@ function toDraft(item) {
     status: item.status || "",
     description: item.description || "",
     specifications: item.specifications || "",
+    price: item.price == null ? "" : String(item.price),
+    showPrice: item.showPrice === true,
   };
+}
+
+function formatPrice(p) {
+  if (p == null || !Number.isFinite(p)) return null;
+  return `₹${p.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
 function ReadView({ item, onEdit, savedFlash }) {
@@ -213,6 +220,21 @@ function ReadView({ item, onEdit, savedFlash }) {
         </KV>
         <KV label="Unit">{item.unit || <span className="text-gray-400">—</span>}</KV>
         <KV label="Status">{item.status || <span className="text-gray-400">—</span>}</KV>
+        <KV label="Price">
+          {formatPrice(item.price) ? (
+            <span>
+              {formatPrice(item.price)}
+              <span className="ml-1 text-[10px] text-gray-400">/{item.unit || "pcs"}</span>
+              {item.showPrice ? (
+                <span className="ml-2 rounded-full bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">public</span>
+              ) : (
+                <span className="ml-2 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">hidden</span>
+              )}
+            </span>
+          ) : (
+            <span className="text-gray-400">—</span>
+          )}
+        </KV>
       </dl>
 
       {(item.description || item.specifications) && (
@@ -307,6 +329,30 @@ function EditForm({ draft, setDraft, saving, onCancel, onSave, error }) {
             onChange={(e) => set("casePack", e.target.value)}
             className={inputCls}
           />
+        </Field>
+        <Field label="Price (₹ per unit)">
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={draft.price}
+            onChange={(e) => set("price", e.target.value)}
+            className={inputCls}
+            placeholder="Blank = no price set"
+          />
+        </Field>
+        <Field label="Show price on public catalog">
+          {/* Staff toggle — when off, the price stays internal and the public card keeps the
+              "Inquire for pricing" posture. Off by default so staged/WIP prices never leak. */}
+          <label className="flex items-center gap-2 text-xs text-gray-700">
+            <input
+              type="checkbox"
+              checked={!!draft.showPrice}
+              onChange={(e) => set("showPrice", e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            {draft.showPrice ? "Visible to the public" : "Hidden — internal only"}
+          </label>
         </Field>
       </div>
       <Field label="Description">

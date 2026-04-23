@@ -56,7 +56,7 @@ export default function ItemCard({ item }) {
           {item.itemName}
         </h3>
 
-        <p className="mb-4 text-xs text-gray-600 dark:text-gray-400">
+        <p className="mb-2 text-xs text-gray-600 dark:text-gray-400">
           {item.stockQuantity !== null ? (
             <>
               <span className="font-semibold text-gray-900 dark:text-gray-200">
@@ -68,6 +68,18 @@ export default function ItemCard({ item }) {
             'Stock TBC'
           )}
         </p>
+
+        {/* Price — only shown when staff has explicitly flipped Show Price on the row.
+            Items without Show Price keep the "Inquire for pricing" posture of the catalog. */}
+        {item.showPrice && item.price != null && (
+          <p className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">
+            ₹{item.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+            <span className="ml-1 text-xs font-normal text-gray-500 dark:text-gray-400">
+              / {item.unit || 'pcs'}
+            </span>
+          </p>
+        )}
+        {(!item.showPrice || item.price == null) && <div className="mb-4" />}
 
         {/* Buttons */}
         <div className="mt-auto flex gap-2">
