@@ -5,6 +5,8 @@ import {
   CUP_PRESETS, PACKING_PRESETS, CASE_PACK_DEFAULTS,
   SW_DIMS, OF_DIMS, SIZE_OPTS, PRINT_OPTS, COATING_OPTS,
   COATING_RATES, DEFAULTS, PACK_LABOUR_PER_CUP, MONTHLY_CAPACITY,
+  CONVERSION_DEFAULT_COMPONENTS, CPM_DEFAULTS_BY_SIZE, MONTHLY_HOURS_DEFAULT,
+  DW_SPEED_FACTOR, computeConversionCostPerCup, effectiveCpm,
   getOuterFanCount, getSidewallDims,
 } from "@/lib/calc/cup-calculator";
 
@@ -477,9 +479,16 @@ export default function CupCalculator({ scope = "default" }) {
   const [conv, setConv] = useState(""); const [pack, setPack] = useState("");
   const [glue, setGlue] = useState(""); const [otherCost, setOtherCost] = useState("");
   const [showConvCalc, setShowConvCalc] = useState(false);
-  const [convSalary, setConvSalary] = useState("185000");
-  const [convElec, setConvElec] = useState("100000");
-  const [convRent, setConvRent] = useState("112500");
+  const [convSalary, setConvSalary] = useState(String(CONVERSION_DEFAULT_COMPONENTS.salary));
+  const [convElec, setConvElec] = useState(String(CONVERSION_DEFAULT_COMPONENTS.electricity));
+  const [convRent, setConvRent] = useState(String(CONVERSION_DEFAULT_COMPONENTS.rent));
+  const [convMaint, setConvMaint] = useState(String(CONVERSION_DEFAULT_COMPONENTS.maintenance));
+  const [convQc, setConvQc] = useState(String(CONVERSION_DEFAULT_COMPONENTS.qc));
+  const [convHours, setConvHours] = useState(String(MONTHLY_HOURS_DEFAULT));
+  const [cpm8, setCpm8] = useState(String(CPM_DEFAULTS_BY_SIZE["8oz"]));
+  const [cpm12, setCpm12] = useState(String(CPM_DEFAULTS_BY_SIZE["12oz"]));
+  const [cpm16, setCpm16] = useState(String(CPM_DEFAULTS_BY_SIZE["16oz"]));
+  const [cpm20, setCpm20] = useState(String(CPM_DEFAULTS_BY_SIZE["20oz"]));
   const [showPackCalc, setShowPackCalc] = useState(false);
   const [packPoly, setPackPoly] = useState(""); const [packCarton, setPackCarton] = useState("");
   const [ofGSM, setOfGSM] = useState(""); const [ofRate, setOfRate] = useState("");
@@ -1040,33 +1049,77 @@ export default function CupCalculator({ scope = "default" }) {
             </span>
           </button>
           {showConvCalc && (() => {
-            const total = (parseFloat(convSalary) || 0) + (parseFloat(convElec) || 0) + (parseFloat(convRent) || 0);
-            const perCup = total / MONTHLY_CAPACITY;
+            const components = {
+              salary: parseFloat(convSalary) || 0,
+              electricity: parseFloat(convElec) || 0,
+              rent: parseFloat(convRent) || 0,
+              maintenance: parseFloat(convMaint) || 0,
+              qc: parseFloat(convQc) || 0,
+            };
+            const total = Object.values(components).reduce((s, v) => s + v, 0);
+            const hours = parseFloat(convHours) || 0;
+            const cpmBySize = { "8oz": parseFloat(cpm8) || 0, "12oz": parseFloat(cpm12) || 0, "16oz": parseFloat(cpm16) || 0, "20oz": parseFloat(cpm20) || 0 };
+            const perCupForSize = (sz) => computeConversionCostPerCup({ size: sz, wallType: cupType, components, monthlyHours: hours, cpmBySize });
+            const selectedPerCup = size ? perCupForSize(size) : null;
+            const selectedCpm = size ? effectiveCpm(size, cupType, cpmBySize) : null;
             return (
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 8, lineHeight: 1.7 }}>
-                  Capacity: 60 cups/min × 720 min × 25 days = <strong>10,80,000 cups/month</strong><br />
-                  Salary: 2 ops × ₹70k + 3 labour × ₹15k = ₹1,85,000 · Rent: 7,500 sq ft × ₹15 = ₹1,12,500 · Electricity: ~₹1,00,000 (Torrent Power)
+                  Cost / cup = <strong>Σ monthly overheads ÷ (hours × 60 × cups-per-minute)</strong>. Double Wall / Ripple runs at {Math.round(DW_SPEED_FACTOR * 100)}% of single-wall speed.
                 </div>
+                <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".06em", margin: "8px 0 6px" }}>Monthly overheads</div>
                 <div className="two-col" style={{ marginBottom: 8 }}>
-                  <Field label="Monthly salary (₹)" note="2 ops × ₹70k + 3 labour × ₹15k">
+                  <Field label="Salary (₹)" note="2 ops × ₹70k + 3 labour × ₹15k">
                     <NumInput value={convSalary} onChange={setConvSalary} placeholder="185000" />
                   </Field>
-                  <Field label="Monthly electricity (₹)" note="Torrent Power, Bhiwandi">
+                  <Field label="Electricity (₹)" note="Torrent Power, Bhiwandi">
                     <NumInput value={convElec} onChange={setConvElec} placeholder="100000" />
                   </Field>
-                  <Field label="Monthly rent (₹)" note="7,500 sq ft × ₹15/sq ft">
+                  <Field label="Rent (₹)" note="7,500 sq ft × ₹15/sq ft">
                     <NumInput value={convRent} onChange={setConvRent} placeholder="112500" />
                   </Field>
+                  <Field label="Maintenance (₹)" note="Dies, heating, grease, spares">
+                    <NumInput value={convMaint} onChange={setConvMaint} placeholder="15000" />
+                  </Field>
+                  <Field label="QC / wastage buffer (₹)" note="Incoming QC, wastage provision">
+                    <NumInput value={convQc} onChange={setConvQc} placeholder="10000" />
+                  </Field>
                 </div>
-                {total > 0 && (
+                <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".06em", margin: "8px 0 6px" }}>Machine speed</div>
+                <div className="two-col" style={{ marginBottom: 8 }}>
+                  <Field label="Production hours / month" note="Default 12h × 25 days = 300 hrs">
+                    <NumInput value={convHours} onChange={setConvHours} placeholder="300" />
+                  </Field>
+                  <Field label="8oz cups / min (SW)">
+                    <NumInput value={cpm8} onChange={setCpm8} placeholder="75" />
+                  </Field>
+                  <Field label="12oz cups / min (SW)">
+                    <NumInput value={cpm12} onChange={setCpm12} placeholder="65" />
+                  </Field>
+                  <Field label="16oz cups / min (SW)">
+                    <NumInput value={cpm16} onChange={setCpm16} placeholder="55" />
+                  </Field>
+                  <Field label="20oz cups / min (SW)">
+                    <NumInput value={cpm20} onChange={setCpm20} placeholder="45" />
+                  </Field>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 8 }}>
+                  Cost / cup by size (current wall type: {cupType || "—"}):
+                  {" "}8oz ₹{perCupForSize("8oz").toFixed(4)} · 12oz ₹{perCupForSize("12oz").toFixed(4)} · 16oz ₹{perCupForSize("16oz").toFixed(4)} · 20oz ₹{perCupForSize("20oz").toFixed(4)}
+                </div>
+                {total > 0 && size && selectedPerCup != null && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "0.5px solid var(--border-tertiary)", paddingTop: 8 }}>
                     <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                      ₹{total.toLocaleString()} ÷ 10,80,000 cups
+                      ₹{total.toLocaleString()} / month · {size} @ {selectedCpm} cpm
                     </span>
-                    <button className="apply-btn" onClick={() => setConv(perCup.toFixed(4))}>
-                      Apply ₹{perCup.toFixed(4)}/cup →
+                    <button className="apply-btn" onClick={() => setConv(selectedPerCup.toFixed(4))}>
+                      Apply ₹{selectedPerCup.toFixed(4)}/cup →
                     </button>
+                  </div>
+                )}
+                {!size && total > 0 && (
+                  <div style={{ fontSize: 12, color: "var(--text-tertiary)", borderTop: "0.5px solid var(--border-tertiary)", paddingTop: 8 }}>
+                    Pick a cup size above to apply the per-cup rate.
                   </div>
                 )}
               </div>
