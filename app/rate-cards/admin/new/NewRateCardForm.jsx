@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, Field, inputCls } from "@/app/calculator/_components/ui";
 
 export default function NewRateCardForm() {
   const router = useRouter();
-  const [clients, setClients] = useState([]);
+  const [clients, setClients] = useState(null);  // null = loading, [] = empty
+  const [clientsErr, setClientsErr] = useState("");
   const [clientId, setClientId] = useState("");
   const [title, setTitle] = useState("");
   const [brand, setBrand] = useState("");
@@ -15,10 +17,25 @@ export default function NewRateCardForm() {
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    fetch("/api/calc/clients").then((r) => r.ok ? r.json() : []).then(setClients).catch(() => setClients([]));
+    (async () => {
+      try {
+        const res = await fetch("/api/calc/clients");
+        if (!res.ok) {
+          const body = await res.text().catch(() => "");
+          setClientsErr(`Couldn't load clients (HTTP ${res.status}). ${body.slice(0, 200)}`);
+          setClients([]);
+          return;
+        }
+        const list = await res.json();
+        setClients(Array.isArray(list) ? list : []);
+      } catch (e) {
+        setClientsErr(`Couldn't load clients: ${e?.message || e}`);
+        setClients([]);
+      }
+    })();
   }, []);
 
-  const selectedClient = clients.find((c) => c.id === clientId);
+  const selectedClient = clients?.find((c) => c.id === clientId);
 
   async function submit(e) {
     e.preventDefault();
@@ -49,15 +66,47 @@ export default function NewRateCardForm() {
   return (
     <Card>
       <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Field label="Client">
-          <select required className={inputCls} value={clientId} onChange={(e) => setClientId(e.target.value)}>
-            <option value="">Select a client…</option>
-            {clients.map((c) => (
+        <Field
+          label="Client"
+          hint={
+            clients === null
+              ? "Loading clients…"
+              : clientsErr
+              ? clientsErr
+              : clients.length === 0
+              ? "No calculator clients yet."
+              : `${clients.length} client${clients.length === 1 ? "" : "s"} available`
+          }
+        >
+          <select
+            required
+            className={inputCls}
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            disabled={!clients || clients.length === 0}
+          >
+            <option value="">
+              {clients === null
+                ? "Loading…"
+                : clients.length === 0
+                ? "— No clients available —"
+                : "Select a client…"}
+            </option>
+            {(clients || []).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name || c.company || c.email} · {c.email}
               </option>
             ))}
           </select>
+          {clients !== null && clients.length === 0 && !clientsErr && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+              You need at least one calculator client before creating a rate card.{" "}
+              <Link href="/calculator/admin/clients" className="underline">
+                Add one in Calculator → Clients
+              </Link>
+              .
+            </p>
+          )}
         </Field>
         <Field label="Brand" hint="Optional — e.g. Salt City Coffee">
           <input className={inputCls} value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Salt City Coffee" />
