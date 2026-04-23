@@ -277,22 +277,18 @@ export default function ClientCupCalculator() {
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-5 text-white shadow flex flex-wrap gap-6">
-              <div>
-                <p className="text-red-200 text-xs">Manufacturing cost</p>
-                <p className="text-2xl font-bold">₹{selectedTier.mfgPerCup.toFixed(4)}</p>
-              </div>
-              <div className="border-l border-red-400 pl-6">
-                <p className="text-red-200 text-xs">Margin ({result.marginPct}%)</p>
-                <p className="text-2xl font-bold">₹{selectedTier.marginAmt.toFixed(4)}</p>
-              </div>
-              {result.oneTimeTotal > 0 && (
-                <div className="border-l border-red-400 pl-6">
-                  <p className="text-red-200 text-xs">Plate / die (one-time)</p>
-                  <p className="text-2xl font-bold">₹{result.oneTimeTotal.toLocaleString("en-IN")}</p>
+            {result.oneTimeTotal > 0 && (
+              <Card title="One-time charges">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Plate / die setup (billed separately, once per artwork)
+                  </p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                    ₹{result.oneTimeTotal.toLocaleString("en-IN")}
+                  </p>
                 </div>
-              )}
-            </div>
+              </Card>
+            )}
 
             {result.product?.cartonDimensions && (
               <Card title="Carton">

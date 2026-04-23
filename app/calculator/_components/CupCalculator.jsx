@@ -774,6 +774,38 @@ export default function CupCalculator({ scope = "default" }) {
         </div>
       </div>
 
+      {isDW && (
+        <div className="card">
+          <div className="card-title">Outer wall</div>
+          <div className="field-row">
+            <Field label="Outer fan GSM" badge={presetLocked && ofSpec ? `Preset: ${ofSpec.gsm}` : ""}>
+              <div className="chips" style={{ marginTop: 2 }}>
+                {OUTER_GSM_OPTS.map((g) => (
+                  <Chip key={g} label={String(g)} selected={String(ofGSM) === String(g)} onClick={() => setOfGSM(String(g))} />
+                ))}
+              </div>
+            </Field>
+            <Field
+              label="Outer fan paper rate (₹/kg)"
+              note={ofDims && size ? `Dims: ${ofDims[0]}×${ofDims[1]}mm · ${ofFans} fans` : ""}
+            >
+              <NumInput value={ofRate} onChange={setOfRate} placeholder="e.g. 85" />
+            </Field>
+          </div>
+          <CoatingSection
+            coating={ofCoating} setCoating={setOfCoating}
+            coatingRate={ofCoatingRate} setCoatingRate={setOfCoatingRate}
+          />
+          <div className="sect-divider">Printing</div>
+          <PrintSection
+            print={ofPrint} setPrint={setOfPrint}
+            colors={ofColors} setColors={setOfColors}
+            rate1={ofRate1} setRate1={setOfRate1}
+            rateN={ofRateN} setRateN={setOfRateN}
+          />
+        </div>
+      )}
+
       <div className="card">
         <div className="card-title">Conversion &amp; packing</div>
 
@@ -880,38 +912,6 @@ export default function CupCalculator({ scope = "default" }) {
           </Field>
         </div>
       </div>
-
-      {isDW && (
-        <div className="card">
-          <div className="card-title">Outer wall</div>
-          <div className="field-row">
-            <Field label="Outer fan GSM" badge={presetLocked && ofSpec ? `Preset: ${ofSpec.gsm}` : ""}>
-              <div className="chips" style={{ marginTop: 2 }}>
-                {OUTER_GSM_OPTS.map((g) => (
-                  <Chip key={g} label={String(g)} selected={String(ofGSM) === String(g)} onClick={() => setOfGSM(String(g))} />
-                ))}
-              </div>
-            </Field>
-            <Field
-              label="Outer fan paper rate (₹/kg)"
-              note={ofDims && size ? `Dims: ${ofDims[0]}×${ofDims[1]}mm · ${ofFans} fans` : ""}
-            >
-              <NumInput value={ofRate} onChange={setOfRate} placeholder="e.g. 85" />
-            </Field>
-          </div>
-          <CoatingSection
-            coating={ofCoating} setCoating={setOfCoating}
-            coatingRate={ofCoatingRate} setCoatingRate={setOfCoatingRate}
-          />
-          <div className="sect-divider">Printing</div>
-          <PrintSection
-            print={ofPrint} setPrint={setOfPrint}
-            colors={ofColors} setColors={setOfColors}
-            rate1={ofRate1} setRate1={setOfRate1}
-            rateN={ofRateN} setRateN={setOfRateN}
-          />
-        </div>
-      )}
 
       <button className="calc-btn" onClick={runCalculate}>Calculate rate</button>
       {result && (
