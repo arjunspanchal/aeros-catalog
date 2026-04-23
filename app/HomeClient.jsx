@@ -32,18 +32,14 @@ const ALL_OPTIONS = [
   },
 ];
 
-const CLEARANCE_MANAGE_OPTION = {
-  key: "clearance-manage",
-  href: "/clearance/manage",
-  title: "Manage Clearance",
-  description: "Staff backend — edit items and upload photos. Restricted to Admin / FM / FE.",
-  accent: "from-rose-500 to-red-600",
-};
+// Note: the "Manage Clearance" tile used to appear here for Admin / FM / FE /
+// AM users, but it duplicated the Manage button inside the Clearance module
+// itself. Removed — users with manage access see the entry point on
+// /clearance and in AppHeader's Clearance sub-tabs.
 
-export default function HomeClient({ session, canManageClearance, footer }) {
+export default function HomeClient({ session, footer }) {
   const modules = session?.modules || {};
   const options = ALL_OPTIONS.filter((o) => !!modules[o.key]);
-  if (canManageClearance) options.push(CLEARANCE_MANAGE_OPTION);
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white dark:bg-none dark:bg-gray-950">
