@@ -1,7 +1,14 @@
 'use client';
-// Shared theme toggle. Flips the `dark` class on <html> and persists the
-// preference in localStorage. All pages with dark: variants respond.
+// Shared theme toggle. Flips the `dark` class on <html>, persists the preference
+// in BOTH a cookie and localStorage, so the server can read it on the next
+// render (preventing hydration-induced theme flashes) and the client can still
+// hydrate before the server has responded.
 import { useEffect, useState } from 'react';
+
+function writeThemeCookie(value) {
+  // 1-year, root path, Lax so it's sent on every same-site nav.
+  document.cookie = `aeros_theme=${value}; path=/; max-age=31536000; SameSite=Lax`;
+}
 
 export default function ThemeToggle({ className = '' }) {
   const [dark, setDark] = useState(false);
@@ -13,7 +20,9 @@ export default function ThemeToggle({ className = '' }) {
   function toggle() {
     const next = !document.documentElement.classList.contains('dark');
     document.documentElement.classList.toggle('dark', next);
-    try { localStorage.setItem('aeros_theme', next ? 'dark' : 'light'); } catch {}
+    const value = next ? 'dark' : 'light';
+    try { localStorage.setItem('aeros_theme', value); } catch {}
+    writeThemeCookie(value);
     setDark(next);
   }
 
