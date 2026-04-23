@@ -11,13 +11,16 @@ import { computeCupRateCurve, CASE_PACK_DEFAULTS } from "@/lib/calc/cup-calculat
 
 export const runtime = "nodejs";
 
-// Sensible GSM defaults per wall type. Admin form still allows overrides;
-// client form takes whatever the product record says or falls back to these.
+// Fallback GSM per wall type. Clients can pick their own via pill buttons; if
+// they don't, these apply. Bottom is locked (230 + 2PE) inside the engine.
 const DEFAULT_GSM = {
-  "Single Wall": { inner: 280, outer: null, bottom: 220 },
-  "Double Wall": { inner: 280, outer: 250, bottom: 220 },
-  "Ripple":      { inner: 280, outer: 240, bottom: 220 },
+  "Single Wall": { inner: 280, outer: null },
+  "Double Wall": { inner: 280, outer: 280 },
+  "Ripple":      { inner: 280, outer: 280 },
 };
+
+const INNER_GSM_OPTS = [240, 260, 280, 300, 320];
+const OUTER_GSM_OPTS = [240, 260, 280, 300];
 
 // Customer-facing cup coatings that affect inner sidewall only. Outer stays
 // None (Standard product line) and bottom stays 2PE.
@@ -62,13 +65,20 @@ export async function POST(req) {
   const isDW = wallType === "Double Wall" || wallType === "Ripple";
   const casePack = product?.casePack || CASE_PACK_DEFAULTS[wallType]?.[size] || 500;
 
+  const innerGsm = INNER_GSM_OPTS.includes(Number(body.innerGsm))
+    ? Number(body.innerGsm)
+    : defaults.inner;
+  const outerGsm = OUTER_GSM_OPTS.includes(Number(body.outerGsm))
+    ? Number(body.outerGsm)
+    : (defaults.outer || 280);
+
   const cupInputs = {
     wallType, size,
     casePack,
     margin,
-    inner: { gsm: defaults.inner, coating, print, colours, coverage },
+    inner: { gsm: innerGsm, coating, print, colours, coverage },
     outer: isDW
-      ? { gsm: defaults.outer || 250, coating: "None", print: false, colours: 0, coverage: null }
+      ? { gsm: outerGsm, coating: "None", print: false, colours: 0, coverage: null }
       : { gsm: 0, coating: "None", print: false, colours: 0, coverage: null },
   };
 
@@ -84,6 +94,7 @@ export async function POST(req) {
       cartonDimensions: product.cartonDimensions,
     },
     wallType, size, coating, print, colours, coverage, orderQty, casePack,
+    innerGsm, outerGsm: isDW ? outerGsm : null,
     marginPct: result.marginPct,
     mfgPerCup: result.mfgPerCupBase,
     curve: result.curve,

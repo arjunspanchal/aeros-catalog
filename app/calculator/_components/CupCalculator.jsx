@@ -10,6 +10,11 @@ import {
 
 const STORAGE_PREFIX = "aeros:cup:order:";
 
+const INNER_GSM_OPTS = [240, 260, 280, 300, 320];
+const OUTER_GSM_OPTS = [240, 260, 280, 300];
+const LOCKED_BT_GSM = "230";
+const LOCKED_BT_COATING = "2PE";
+
 // Self-contained styles scoped to `.cup-app`. Dark-mode variants track the
 // `html.dark` flag set by the catalog's ThemeToggle.
 const css = `
@@ -435,7 +440,7 @@ export default function CupCalculator({ scope = "default" }) {
       size, casePack, margin,
       swGSM, swRate, swCoating, swCoatingRate,
       swPrint, swColors, swRate1, swRateN,
-      btGSM, btRate, btCoating, btCoatingRate,
+      btGSM: LOCKED_BT_GSM, btRate, btCoating: LOCKED_BT_COATING, btCoatingRate: "",
       ofGSM, ofRate, ofCoating, ofCoatingRate,
       ofPrint, ofColors, ofRate1, ofRateN,
       conv, pack, glue, otherCost,
@@ -632,7 +637,11 @@ export default function CupCalculator({ scope = "default" }) {
         <div className="card-title">Inner wall</div>
         <div className="field-row">
           <Field label="Sidewall GSM" badge={presetLocked && swSpec ? `Preset: ${swSpec.gsm}` : ""}>
-            <NumInput value={swGSM} onChange={setSwGSM} placeholder="e.g. 280" />
+            <div className="chips" style={{ marginTop: 2 }}>
+              {INNER_GSM_OPTS.map((g) => (
+                <Chip key={g} label={String(g)} selected={String(swGSM) === String(g)} onClick={() => setSwGSM(String(g))} />
+              ))}
+            </div>
           </Field>
           <Field
             label="Sidewall paper rate (₹/kg)"
@@ -662,18 +671,17 @@ export default function CupCalculator({ scope = "default" }) {
 
       <div className="card">
         <div className="card-title">Bottom disc</div>
+        <div className="soft-note" style={{ marginBottom: ".75rem" }}>
+          <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 2 }}>Standard spec — not editable</div>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            230 GSM + 15g PE + 15g PE · Roll width: 75mm
+          </div>
+        </div>
         <div className="field-row">
-          <Field label="Bottom GSM" badge={presetLocked && btSpec ? `Preset: ${btSpec.gsm}` : ""}>
-            <NumInput value={btGSM} onChange={setBtGSM} placeholder="e.g. 220" />
-          </Field>
-          <Field label="Bottom RM rate (₹/kg)" note="Roll width: 75mm (fixed)">
+          <Field label="Bottom RM rate (₹/kg)">
             <NumInput value={btRate} onChange={setBtRate} placeholder="e.g. 90" />
           </Field>
         </div>
-        <CoatingSection
-          coating={btCoating} setCoating={setBtCoating}
-          coatingRate={btCoatingRate} setCoatingRate={setBtCoatingRate}
-        />
       </div>
 
       <div className="card">
@@ -788,7 +796,11 @@ export default function CupCalculator({ scope = "default" }) {
           <div className="card-title">Outer wall</div>
           <div className="field-row">
             <Field label="Outer fan GSM" badge={presetLocked && ofSpec ? `Preset: ${ofSpec.gsm}` : ""}>
-              <NumInput value={ofGSM} onChange={setOfGSM} placeholder="e.g. 260" />
+              <div className="chips" style={{ marginTop: 2 }}>
+                {OUTER_GSM_OPTS.map((g) => (
+                  <Chip key={g} label={String(g)} selected={String(ofGSM) === String(g)} onClick={() => setOfGSM(String(g))} />
+                ))}
+              </div>
             </Field>
             <Field
               label="Outer fan paper rate (₹/kg)"

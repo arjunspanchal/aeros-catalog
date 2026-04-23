@@ -13,12 +13,16 @@ const WALL_OPTS = [
 // on standard products; both are baked in on the server.
 const COATING_OPTS = ["None", "PE", "Aqueous", "PLA"];
 const COVERAGE_OPTS = [10, 30, 100];
+const INNER_GSM_OPTS = [240, 260, 280, 300, 320];
+const OUTER_GSM_OPTS = [240, 260, 280, 300];
 
 const DEFAULT_FORM = {
   wallType: "Double Wall",
   size: "8oz",
   sku: "",               // selected product SKU; drives dims/box/casePack
   coating: "PE",
+  innerGsm: 280,
+  outerGsm: 280,
   print: false,
   colours: 1,
   coverage: 30,
@@ -75,6 +79,8 @@ export default function ClientCupCalculator() {
           size: form.size,
           sku: form.sku,
           coating: form.coating,
+          innerGsm: form.innerGsm,
+          outerGsm: form.outerGsm,
           print: form.print,
           colours: form.colours,
           coverage: form.coverage,
@@ -173,6 +179,14 @@ export default function ClientCupCalculator() {
           </Card>
         )}
 
+        <Card title="Inner wall GSM">
+          <div className="flex gap-2 flex-wrap">
+            {INNER_GSM_OPTS.map((g) => (
+              <PillBtn key={g} active={form.innerGsm === g} onClick={() => { set("innerGsm", g); setResult(null); }}>{g}</PillBtn>
+            ))}
+          </div>
+        </Card>
+
         <Card title="Inner coating">
           <div className="flex gap-2 flex-wrap">
             {COATING_OPTS.map((c) => (
@@ -180,6 +194,16 @@ export default function ClientCupCalculator() {
             ))}
           </div>
         </Card>
+
+        {(form.wallType === "Double Wall" || form.wallType === "Ripple") && (
+          <Card title="Outer wall GSM">
+            <div className="flex gap-2 flex-wrap">
+              {OUTER_GSM_OPTS.map((g) => (
+                <PillBtn key={g} active={form.outerGsm === g} onClick={() => { set("outerGsm", g); setResult(null); }}>{g}</PillBtn>
+              ))}
+            </div>
+          </Card>
+        )}
 
         <Card title="Printing">
           <Toggle value={form.print} onChange={() => set("print", !form.print)} label="Printed" />
