@@ -11,7 +11,12 @@ const THEME_INIT_SCRIPT = `(function(){try{var s=localStorage.getItem('aeros_the
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    // suppressHydrationWarning on <html> is required because THEME_INIT_SCRIPT
+    // mutates documentElement.classList before React hydrates. Without it,
+    // React detects the mismatch vs. the server-rendered HTML (no `dark`
+    // class) and strips the class to match — flipping the theme to light on
+    // every reload.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
