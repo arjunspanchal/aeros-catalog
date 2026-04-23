@@ -175,6 +175,9 @@ function formatPrice(p) {
 }
 
 function ReadView({ item, onEdit, savedFlash }) {
+  // An item is live on the public catalog only once a Price is set. We surface
+  // that here so staff have instant feedback on which rows are drafts vs. live.
+  const live = item.price != null;
   return (
     <div>
       <div className="mb-3 flex items-start justify-between gap-3">
@@ -192,6 +195,15 @@ function ReadView({ item, onEdit, savedFlash }) {
             {item.status && (
               <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">
                 {item.status}
+              </span>
+            )}
+            {live ? (
+              <span className="rounded-full bg-green-100 px-2 py-0.5 font-medium text-green-700">
+                Live · public catalog
+              </span>
+            ) : (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">
+                Hidden · set a price to publish
               </span>
             )}
           </div>
