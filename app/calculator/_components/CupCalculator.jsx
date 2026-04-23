@@ -289,11 +289,26 @@ export default function CupCalculator({ scope = "default" }) {
   // Dimensions, box size, and case pack are all auto-filled from here —
   // free-text dim inputs have been removed.
   const [productDims, setProductDims] = useState({});
+  // Paper RM Master — list of { supplier, gsm, effectiveRate, materialName, ... }.
+  // Admin picks a sidewall brand at the chosen GSM and a bottom brand at 230 GSM;
+  // selecting one auto-fills the paper rate.
+  const [masterPapers, setMasterPapers] = useState([]);
+  const [swPaperId, setSwPaperId] = useState("");
+  const [btPaperId, setBtPaperId] = useState("");
 
   useEffect(() => {
     setSavedOrders(loadSavedOrders(scope));
     setStorageReady(true);
   }, [scope]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/calc/master-papers")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data) => { if (!cancelled && data?.masterPapers) setMasterPapers(data.masterPapers); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -433,6 +448,41 @@ export default function CupCalculator({ scope = "default" }) {
   const swDims = getSidewallDims(size, swPrint);
   const ofDims = size && OF_DIMS[size] ? OF_DIMS[size] : null;
   const ofFans = getOuterFanCount(size);
+
+  // Papers filtered to the sidewall GSM / bottom 230 GSM. Rates may be blank
+  // in the RM Master — we still surface the brand but only autofill rate when
+  // it's populated, and flag the missing-rate case in the UI.
+  const swPaperOpts = useMemo(() => {
+    const target = parseInt(swGSM);
+    if (!target) return [];
+    return masterPapers
+      .filter((p) => p.gsm === target)
+      .sort((a, b) => (a.materialName || "").localeCompare(b.materialName || ""));
+  }, [masterPapers, swGSM]);
+  const btPaperOpts = useMemo(
+    () => masterPapers
+      .filter((p) => p.gsm === 230)
+      .sort((a, b) => (a.materialName || "").localeCompare(b.materialName || "")),
+    [masterPapers]
+  );
+
+  function applySwPaper(id) {
+    setSwPaperId(id);
+    const p = masterPapers.find((x) => x.id === id);
+    if (p && p.effectiveRate != null) setSwRate(String(p.effectiveRate));
+  }
+  function applyBtPaper(id) {
+    setBtPaperId(id);
+    const p = masterPapers.find((x) => x.id === id);
+    if (p && p.effectiveRate != null) setBtRate(String(p.effectiveRate));
+  }
+
+  // Clear the selected brand if the GSM pill changes and no longer matches.
+  useEffect(() => {
+    if (!swPaperId) return;
+    const p = masterPapers.find((x) => x.id === swPaperId);
+    if (!p || String(p.gsm) !== String(swGSM)) setSwPaperId("");
+  }, [swGSM, masterPapers, swPaperId]);
 
   function runCalculate() {
     const r = calculate({
@@ -643,6 +693,27 @@ export default function CupCalculator({ scope = "default" }) {
               ))}
             </div>
           </Field>
+        </div>
+        <div className="field-row">
+          <Field
+            label="Paper brand (from RM Master)"
+            note={
+              swGSM && swPaperOpts.length === 0
+                ? `No paper at ${swGSM} GSM in RM Master — enter rate manually`
+                : swPaperId && masterPapers.find((x) => x.id === swPaperId)?.effectiveRate == null
+                ? "Rate not set in RM Master — enter manually or update Airtable"
+                : ""
+            }
+          >
+            <select value={swPaperId} onChange={(e) => applySwPaper(e.target.value)} disabled={!swGSM || swPaperOpts.length === 0}>
+              <option value="">{swPaperOpts.length ? "Select brand…" : "Pick GSM first"}</option>
+              {swPaperOpts.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.materialName}{p.effectiveRate != null ? ` · ₹${p.effectiveRate}/kg` : " · rate TBD"}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field
             label="Sidewall paper rate (₹/kg)"
             note={
@@ -674,11 +745,30 @@ export default function CupCalculator({ scope = "default" }) {
         <div className="soft-note" style={{ marginBottom: ".75rem" }}>
           <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 2 }}>Standard spec — not editable</div>
           <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-            230 GSM + 15g PE + 15g PE · Roll width: 75mm
+            230 GSM + 15g PE + 15g PE · Roll width: 75mm · PE adds 2PE = ₹{COATING_RATES["2PE"]}/kg on top of baseboard
           </div>
         </div>
         <div className="field-row">
-          <Field label="Bottom RM rate (₹/kg)">
+          <Field
+            label="Baseboard brand (from RM Master)"
+            note={
+              btPaperOpts.length === 0
+                ? "No 230 GSM paper in RM Master — enter rate manually"
+                : btPaperId && masterPapers.find((x) => x.id === btPaperId)?.effectiveRate == null
+                ? "Rate not set in RM Master — enter manually or update Airtable"
+                : ""
+            }
+          >
+            <select value={btPaperId} onChange={(e) => applyBtPaper(e.target.value)} disabled={btPaperOpts.length === 0}>
+              <option value="">{btPaperOpts.length ? "Select brand…" : "—"}</option>
+              {btPaperOpts.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.materialName}{p.effectiveRate != null ? ` · ₹${p.effectiveRate}/kg` : " · rate TBD"}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Baseboard rate (₹/kg)" note="PE coating (₹26/kg for 2PE) is added automatically">
             <NumInput value={btRate} onChange={setBtRate} placeholder="e.g. 90" />
           </Field>
         </div>
