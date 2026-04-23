@@ -12,18 +12,79 @@ const EMPTY = {
   brandManagerEmail: "",
 };
 
-export default function ClientsAdmin({ initialClients }) {
+// Sentinel values for the Brand Manager <select> — empty = "none", "__new__"
+// triggers the inline add-new form.
+const BM_NONE = "";
+const BM_NEW = "__new__";
+
+// Given the list of BMs + the client's stored name/email, pick the option the
+// dropdown should start on. Match by email first (stable); fall back to name.
+function pickInitialBm(bms, name, email) {
+  const e = (email || "").toLowerCase().trim();
+  if (e) {
+    const byEmail = bms.find((x) => (x.email || "").toLowerCase() === e);
+    if (byEmail) return byEmail.id;
+  }
+  const n = (name || "").trim().toLowerCase();
+  if (n) {
+    const byName = bms.find((x) => (x.name || "").trim().toLowerCase() === n);
+    if (byName) return byName.id;
+  }
+  return BM_NONE;
+}
+
+export default function ClientsAdmin({ initialClients, initialBrandManagers = [] }) {
   const [clients, setClients] = useState(initialClients);
+  const [brandManagers, setBrandManagers] = useState(initialBrandManagers);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY);
+  const [bmChoice, setBmChoice] = useState(BM_NONE); // id of picked BM, or BM_NEW, or BM_NONE
+  const [newBm, setNewBm] = useState({ name: "", email: "", busy: false, err: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
   const isEditing = editingId !== null;
 
+  function setBm(id) {
+    setBmChoice(id);
+    if (id === BM_NONE) {
+      setForm((f) => ({ ...f, brandManager: "", brandManagerEmail: "" }));
+    } else if (id === BM_NEW) {
+      // Keep any pre-existing manual values as a starting point for the inline form.
+      setNewBm({ name: form.brandManager || "", email: form.brandManagerEmail || "", busy: false, err: "" });
+    } else {
+      const bm = brandManagers.find((x) => x.id === id);
+      if (bm) setForm((f) => ({ ...f, brandManager: bm.name, brandManagerEmail: bm.email }));
+    }
+  }
+
+  async function saveNewBm() {
+    setNewBm((n) => ({ ...n, busy: true, err: "" }));
+    const res = await fetch("/api/factoryos/brand-managers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newBm.name, email: newBm.email }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setNewBm((n) => ({ ...n, busy: false, err: data.error || "Failed" }));
+      return;
+    }
+    const { brandManager } = await res.json();
+    // Merge into list (dedup by id), auto-select, and copy name/email onto the client form.
+    setBrandManagers((prev) => {
+      const map = new Map(prev.map((x) => [x.id, x]));
+      map.set(brandManager.id, brandManager);
+      return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    });
+    setBmChoice(brandManager.id);
+    setForm((f) => ({ ...f, brandManager: brandManager.name, brandManagerEmail: brandManager.email }));
+    setNewBm({ name: "", email: "", busy: false, err: "" });
+  }
+
   function startEdit(c) {
     setEditingId(c.id);
-    setForm({
+    const next = {
       name: c.name || "",
       code: c.code || "",
       contactPerson: c.contactPerson || "",
@@ -31,13 +92,17 @@ export default function ClientsAdmin({ initialClients }) {
       contactPhone: c.contactPhone || "",
       brandManager: c.brandManager || "",
       brandManagerEmail: c.brandManagerEmail || "",
-    });
+    };
+    setForm(next);
+    setBmChoice(pickInitialBm(brandManagers, next.brandManager, next.brandManagerEmail));
     setErr("");
   }
 
   function cancelEdit() {
     setEditingId(null);
     setForm(EMPTY);
+    setBmChoice(BM_NONE);
+    setNewBm({ name: "", email: "", busy: false, err: "" });
     setErr("");
   }
 
@@ -63,7 +128,6 @@ export default function ClientsAdmin({ initialClients }) {
   }
 
   async function requestDelete(c) {
-    // Fetch the cascade count first so the confirm dialog can show the blast radius.
     const res = await fetch(`/api/factoryos/clients/${c.id}?count=jobs`);
     if (!res.ok) {
       alert(`Couldn't check jobs for this client. ${(await res.json()).error || ""}`);
@@ -99,6 +163,7 @@ export default function ClientsAdmin({ initialClients }) {
             </button>
           )}
         </div>
+
         <div>
           <label className={labelCls}>Name</label>
           <input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
@@ -107,14 +172,53 @@ export default function ClientsAdmin({ initialClients }) {
           <label className={labelCls}>Code (optional)</label>
           <input className={inputCls} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
         </div>
+
         <div>
           <label className={labelCls}>Brand manager</label>
-          <input className={inputCls} value={form.brandManager} onChange={(e) => setForm({ ...form, brandManager: e.target.value })} placeholder="e.g. Vinay Dubey" />
+          <select className={inputCls} value={bmChoice} onChange={(e) => setBm(e.target.value)}>
+            <option value={BM_NONE}>— None —</option>
+            {brandManagers.map((bm) => (
+              <option key={bm.id} value={bm.id}>
+                {bm.name ? `${bm.name} (${bm.email})` : bm.email}
+              </option>
+            ))}
+            <option value={BM_NEW}>+ Add new brand manager…</option>
+          </select>
+          {bmChoice === BM_NEW && (
+            <div className="mt-2 rounded-lg border border-dashed border-gray-300 p-3 space-y-2 dark:border-gray-700">
+              <div>
+                <label className={labelCls}>New brand manager name</label>
+                <input className={inputCls} value={newBm.name} onChange={(e) => setNewBm({ ...newBm, name: e.target.value })} placeholder="e.g. Sneha" />
+              </div>
+              <div>
+                <label className={labelCls}>New brand manager email</label>
+                <input type="email" className={inputCls} value={newBm.email} onChange={(e) => setNewBm({ ...newBm, email: e.target.value })} placeholder="sneha@theepackagingcompany.com" />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={newBm.busy || !newBm.name.trim() || !newBm.email.trim()}
+                  onClick={saveNewBm}
+                  className="bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {newBm.busy ? "Saving…" : "Save brand manager"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBm(BM_NONE)}
+                  className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  Cancel
+                </button>
+              </div>
+              {newBm.err && <p className="text-xs text-red-500">{newBm.err}</p>}
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Creating a brand manager adds them as an Account Manager user with OTP login access to FactoryOS.
+              </p>
+            </div>
+          )}
         </div>
-        <div>
-          <label className={labelCls}>Brand manager email</label>
-          <input type="email" className={inputCls} value={form.brandManagerEmail} onChange={(e) => setForm({ ...form, brandManagerEmail: e.target.value })} placeholder="e.g. vinay@theepackagingcompany.com" />
-        </div>
+
         <div>
           <label className={labelCls}>Contact person</label>
           <input className={inputCls} value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} />
