@@ -64,7 +64,7 @@ export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
   });
 
   useEffect(() => {
-    fetch("/api/rate-cards/_products")
+    fetch("/api/rate-cards/products")
       .then((r) => r.ok ? r.json() : [])
       .then((list) => setProducts(Array.isArray(list) ? list : []))
       .catch(() => setProducts([]));
