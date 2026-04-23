@@ -15,6 +15,89 @@ const OUTER_GSM_OPTS = [240, 260, 280, 300];
 const LOCKED_BT_GSM = "230";
 const LOCKED_BT_COATING = "2PE";
 
+// Export pallet — matches Aeros container-loading spec.
+const PALLET = { L: 1200, W: 1000, maxH: 1600 };
+
+function cartonMetrics(boxL, boxW, boxH, totalBoxes) {
+  const L = parseFloat(boxL), W = parseFloat(boxW), H = parseFloat(boxH);
+  if (!(L > 0 && W > 0 && H > 0)) return null;
+  const cbm = (L * W * H) / 1_000_000_000;
+  const perLayerA = Math.floor(PALLET.L / L) * Math.floor(PALLET.W / W);
+  const perLayerB = Math.floor(PALLET.L / W) * Math.floor(PALLET.W / L);
+  const perLayer = Math.max(perLayerA, perLayerB);
+  const layers = Math.floor(PALLET.maxH / H);
+  const boxesPerPallet = Math.max(0, perLayer * layers);
+  return {
+    cbm,
+    boxesPerPallet,
+    palletCount: boxesPerPallet > 0 ? Math.ceil((totalBoxes || 0) / boxesPerPallet) : 0,
+  };
+}
+
+function csvEscape(v) {
+  const s = String(v ?? "");
+  return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function downloadAdminCsv({ cupVariant, size, sku, qty, casePack, td, bd, h, boxL, boxW, boxH, swGSM, ofGSM, isDW, result }) {
+  const totalCases = qty && casePack ? Math.ceil(parseInt(qty) / parseInt(casePack)) : 0;
+  const m = cartonMetrics(boxL, boxW, boxH, totalCases);
+  const rows = [
+    ["Aeros Paper Cup — Admin Quote"],
+    [],
+    ["Cup type", cupVariant || "—"],
+    ["Size", size || "—"],
+    ["SKU", sku || "—"],
+    ["Cup dimensions (mm)", td && bd && h ? `${td} × ${bd} × ${h}` : "—"],
+    ["Box dimensions (mm)", boxL && boxW && boxH ? `${boxL} × ${boxW} × ${boxH}` : "—"],
+    ["Sidewall GSM", swGSM || "—"],
+    ["Outer fan GSM", isDW ? (ofGSM || "—") : "—"],
+    ["Order qty", qty || "—"],
+    ["Case pack", casePack || "—"],
+    [],
+    ["Cases for order", totalCases || "—"],
+    ["CBM per box", m ? m.cbm.toFixed(3) : "—"],
+    ["Boxes per pallet", m ? m.boxesPerPallet : "—"],
+    ["Pallets required", m ? m.palletCount : "—"],
+    [],
+    ["Cost breakdown (₹/cup)"],
+    ["Sidewall RM", result.swRM.toFixed(4)],
+    ["Sidewall print", result.swPrintCost.toFixed(4)],
+    ...(isDW ? [["Outer fan (RM + print)", result.ofTotal.toFixed(4)]] : []),
+    ["Bottom disc", result.btCost.toFixed(4)],
+    ["Conversion", result.conv.toFixed(4)],
+    ["Packing", result.pack.toFixed(4)],
+    ["Glue", result.glue.toFixed(4)],
+    ["Other", result.other.toFixed(4)],
+    ["Mfg cost / cup", result.mfg.toFixed(4)],
+    [`Factory margin (${result.mp}%)`, result.marginAmt.toFixed(4)],
+    ["Factory SP / cup", result.sp.toFixed(2)],
+    ["Factory SP / case", result.spCase.toFixed(2)],
+    [],
+    ["Cup weight (g)", result.cupWeightG.toFixed(2)],
+    ["  Sidewall", result.swWeightG.toFixed(2)],
+    ["  Bottom", result.btWeightG.toFixed(2)],
+    ...(isDW ? [["  Outer fan", result.ofWeightG.toFixed(2)]] : []),
+  ];
+  if (result.swPlate || result.swDie || result.ofPlate || result.ofDie) {
+    rows.push([], ["One-time costs (billed separately)"]);
+    if (result.swPlate) rows.push(["Sidewall Flexo plates", result.swPlate]);
+    if (result.swDie) rows.push(["Sidewall Offset dies", result.swDie]);
+    if (result.ofPlate) rows.push(["Outer fan Flexo plates", result.ofPlate]);
+    if (result.ofDie) rows.push(["Outer fan Offset dies", result.ofDie]);
+  }
+  const csv = rows.map((r) => r.map(csvEscape).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `aeros-cup-admin-${size || "cup"}-${(cupVariant || "").replace(/\s+/g, "")}-${qty || "0"}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // Self-contained styles scoped to `.cup-app`. Dark-mode variants track the
 // `html.dark` flag set by the catalog's ThemeToggle.
 const css = `
@@ -106,6 +189,11 @@ html.dark .cup-app .saved-order-tag{color:#93c5fd}
 .cup-app .ghost-btn{font-size:12px;background:none;border:0.5px solid var(--border-secondary);border-radius:var(--radius-md);padding:5px 12px;cursor:pointer;color:var(--text-secondary)}
 .cup-app .save-input{flex:1;padding:7px 10px;border:0.5px solid var(--border-secondary);border-radius:var(--radius-md);font-size:13px;background:var(--bg-primary);color:var(--text-primary);outline:none}
 .cup-app .soft-note{background:var(--bg-secondary);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:1rem}
+.cup-app .admin-grid{display:grid;grid-template-columns:1fr;gap:1rem;align-items:start}
+@media(min-width:960px){.cup-app .admin-grid{grid-template-columns:2fr 3fr}}
+.cup-app .admin-left,.cup-app .admin-right{min-width:0}
+.cup-app .admin-right .result-card{margin-top:0}
+.cup-app .admin-right .placeholder{padding:2rem 1.25rem;text-align:center;color:var(--text-secondary);font-size:13px}
 @media(max-width:460px){
   .cup-app .two-col{grid-template-columns:1fr}
   .cup-app .dim-row{grid-template-columns:1fr 1fr}
@@ -508,6 +596,8 @@ export default function CupCalculator({ scope = "default" }) {
   return (
     <div className="cup-app">
       <style>{css}</style>
+      <div className="admin-grid">
+      <div className="admin-left">
 
       {storageReady && (
         <div className="card">
@@ -917,7 +1007,14 @@ export default function CupCalculator({ scope = "default" }) {
       {result && (
         <button className="reset-btn" onClick={() => setResult(null)}>Clear result</button>
       )}
+      </div>
 
+      <div className="admin-right">
+      {!result && (
+        <div className="card placeholder">
+          Pick the specs on the left and click <strong>Calculate rate</strong> — the breakdown will appear here.
+        </div>
+      )}
       {result && (
         <div className="result-card">
           <div style={{ padding: "1rem 1.25rem", borderBottom: "0.5px solid var(--border-tertiary)" }}>
@@ -982,6 +1079,35 @@ export default function CupCalculator({ scope = "default" }) {
               <span className="val" style={{ color: "var(--accent-dark)" }}>{f2(result.sp)}</span>
             </div>
           </div>
+          {(() => {
+            const totalCases = qty && casePack ? Math.ceil(parseInt(qty) / parseInt(casePack)) : 0;
+            const m = cartonMetrics(boxL, boxW, boxH, totalCases);
+            if (!m) return null;
+            return (
+              <div style={{ padding: "0 1.25rem 1rem" }}>
+                <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".06em", padding: ".5rem 0 .5rem" }}>
+                  Logistics
+                </div>
+                <div className="spec-row">
+                  <div className="spec-cell">
+                    <div className="sc-label">CBM / box</div>
+                    <div className="sc-val">{m.cbm.toFixed(3)} m³</div>
+                  </div>
+                  <div className="spec-cell">
+                    <div className="sc-label">Boxes / pallet</div>
+                    <div className="sc-val">{m.boxesPerPallet > 0 ? m.boxesPerPallet : "—"}</div>
+                  </div>
+                  <div className="spec-cell">
+                    <div className="sc-label">Pallets for order</div>
+                    <div className="sc-val">{m.palletCount > 0 ? m.palletCount : "—"}</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
+                  Pallet footprint {PALLET.L}×{PALLET.W} mm · max stack {PALLET.maxH} mm
+                </div>
+              </div>
+            );
+          })()}
           {(result.swPlate || result.swDie || result.ofPlate || result.ofDie) && (
             <div className="memo-box">
               <div className="memo-title">One-time costs — bill separately</div>
@@ -991,8 +1117,28 @@ export default function CupCalculator({ scope = "default" }) {
               {result.ofDie > 0 && <div>Outer fan Offset dies: ₹{result.ofDie.toLocaleString()}</div>}
             </div>
           )}
+          <div style={{ padding: "1rem 1.25rem", borderTop: "0.5px solid var(--border-tertiary)", display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              className="ghost-btn"
+              style={{ flex: 1, padding: "9px 12px", fontSize: 13 }}
+              onClick={() => downloadAdminCsv({ cupVariant, size, sku, qty, casePack, td, bd, h, boxL, boxW, boxH, swGSM, ofGSM, isDW, result })}
+            >
+              Download Excel (.csv)
+            </button>
+            <button
+              type="button"
+              className="ghost-btn"
+              style={{ flex: 1, padding: "9px 12px", fontSize: 13 }}
+              onClick={() => window.print()}
+            >
+              Download PDF
+            </button>
+          </div>
         </div>
       )}
+      </div>
+      </div>
     </div>
   );
 }

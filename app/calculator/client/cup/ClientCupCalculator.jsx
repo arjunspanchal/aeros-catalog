@@ -16,6 +16,76 @@ const COVERAGE_OPTS = [10, 30, 100];
 const INNER_GSM_OPTS = [240, 260, 280, 300, 320];
 const OUTER_GSM_OPTS = [240, 260, 280, 300];
 
+// Standard export pallet footprint and max stack height (mm).
+const PALLET = { L: 1200, W: 1000, maxH: 1600 };
+
+function parseDimsMm(str) {
+  if (!str) return null;
+  const parts = str.split(/[×x*]/).map((p) => parseFloat(p.trim().replace(/[^0-9.]/g, "")));
+  if (parts.length < 3 || !parts.every((n) => n > 0)) return null;
+  return { L: parts[0], W: parts[1], H: parts[2] };
+}
+
+function cartonMetrics(dims, totalBoxes) {
+  if (!dims) return null;
+  const { L, W, H } = dims;
+  const cbm = (L * W * H) / 1_000_000_000;
+  const perLayerA = Math.floor(PALLET.L / L) * Math.floor(PALLET.W / W);
+  const perLayerB = Math.floor(PALLET.L / W) * Math.floor(PALLET.W / L);
+  const perLayer = Math.max(perLayerA, perLayerB);
+  const layers = Math.floor(PALLET.maxH / H);
+  const boxesPerPallet = Math.max(0, perLayer * layers);
+  return {
+    cbm,
+    boxesPerPallet,
+    palletCount: boxesPerPallet > 0 ? Math.ceil(totalBoxes / boxesPerPallet) : 0,
+  };
+}
+
+function downloadCsv(form, result) {
+  const dims = parseDimsMm(result.product?.cartonDimensions);
+  const totalCases = Math.ceil(form.orderQty / result.casePack);
+  const m = cartonMetrics(dims, totalCases);
+  const esc = (v) => {
+    const s = String(v ?? "");
+    return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const rows = [
+    ["Aeros Paper Cup Quote"],
+    [],
+    ["Wall type", form.wallType],
+    ["Volume", form.size],
+    ["SKU", form.sku || "—"],
+    ["Inner wall GSM", form.innerGsm],
+    ["Outer wall GSM", form.wallType === "Single Wall" ? "—" : form.outerGsm],
+    ["Inner coating", form.coating],
+    ["Printing", form.print ? `${form.colours} colour · ${form.coverage}% coverage` : "No printing"],
+    ["Order quantity", form.orderQty],
+    [],
+    ["Box dimensions (mm)", result.product?.cartonDimensions || "—"],
+    ["CBM per box", m ? m.cbm.toFixed(3) : "—"],
+    ["Cases for order", totalCases],
+    ["Boxes per pallet", m && m.boxesPerPallet > 0 ? m.boxesPerPallet : "—"],
+    ["Pallets required", m && m.palletCount > 0 ? m.palletCount : "—"],
+    [],
+    ["One-time plate/die", result.oneTimeTotal || 0],
+    [],
+    ["Cost ladder"],
+    ["Order Qty", "Rate / Cup", "Rate / Case", "Order Total"],
+    ...result.curve.map((c) => [c.qty, c.ratePerCup.toFixed(2), c.ratePerCase.toFixed(2), c.orderTotal.toFixed(2)]),
+  ];
+  const csv = rows.map((r) => r.map(esc).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `aeros-cup-quote-${form.size}-${form.wallType.replace(/\s+/g, "")}-${form.orderQty}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 const DEFAULT_FORM = {
   wallType: "Double Wall",
   size: "8oz",
@@ -290,24 +360,46 @@ export default function ClientCupCalculator() {
               </Card>
             )}
 
-            {result.product?.cartonDimensions && (
-              <Card title="Carton">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wide dark:text-gray-500">Box dimensions (mm)</p>
-                    <p className="text-lg font-semibold text-gray-900 mt-1 dark:text-white">{result.product.cartonDimensions}</p>
+            {result.product?.cartonDimensions && (() => {
+              const dims = parseDimsMm(result.product.cartonDimensions);
+              const totalCases = Math.ceil(form.orderQty / result.casePack);
+              const m = cartonMetrics(dims, totalCases);
+              return (
+                <Card title="Carton">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide dark:text-gray-500">Box dimensions (mm)</p>
+                      <p className="text-lg font-semibold text-gray-900 mt-1 dark:text-white">{result.product.cartonDimensions}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide dark:text-gray-500">CBM per box</p>
+                      <p className="text-lg font-semibold text-gray-900 mt-1 dark:text-white">
+                        {m ? `${m.cbm.toFixed(3)} m³` : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide dark:text-gray-500">Cases for your order</p>
+                      <p className="text-lg font-semibold text-gray-900 mt-1 dark:text-white">
+                        {totalCases.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide dark:text-gray-500">Boxes per pallet</p>
+                      <p className="text-lg font-semibold text-gray-900 mt-1 dark:text-white">
+                        {m && m.boxesPerPallet > 0 ? `${m.boxesPerPallet} (≈${m.palletCount} pallets)` : "—"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-400 uppercase tracking-wide dark:text-gray-500">Cases for your order</p>
-                    <p className="text-lg font-semibold text-gray-900 mt-1 dark:text-white">
-                      {Math.ceil(form.orderQty / result.casePack).toLocaleString()}
+                  {m && m.boxesPerPallet > 0 && (
+                    <p className="text-xs text-gray-400 mt-3 dark:text-gray-500">
+                      Pallet footprint {PALLET.L}×{PALLET.W} mm · max stack height {PALLET.maxH} mm
                     </p>
-                  </div>
-                </div>
-              </Card>
-            )}
+                  )}
+                </Card>
+              );
+            })()}
 
-            <Card title="Rate curve by quantity">
+            <Card title="Cost ladder">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-xs text-gray-400 uppercase border-b border-gray-100 dark:text-gray-500 dark:border-gray-800">
@@ -333,6 +425,28 @@ export default function ClientCupCalculator() {
                   Rate drops at higher qty because plate cost is amortised over more cups.
                 </p>
               )}
+            </Card>
+
+            <Card title="Export">
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => downloadCsv(form, result)}
+                  className="py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  Download Excel (.csv)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  Download PDF
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-3 dark:text-gray-500">
+                PDF uses the browser's Print → Save as PDF.
+              </p>
             </Card>
           </>
         )}
