@@ -7,6 +7,7 @@ import {
   COATING_RATES, DEFAULTS, PACK_LABOUR_PER_CUP, MONTHLY_CAPACITY,
   CONVERSION_DEFAULT_COMPONENTS, CPM_DEFAULTS_BY_SIZE, MONTHLY_HOURS_DEFAULT,
   DW_SPEED_FACTOR, computeConversionCostPerCup, effectiveCpm,
+  MACHINE_COUNT_SW_DEFAULT, MACHINE_COUNT_DW_DEFAULT,
   getOuterFanCount, getSidewallDims,
 } from "@/lib/calc/cup-calculator";
 
@@ -489,6 +490,8 @@ export default function CupCalculator({ scope = "default" }) {
   const [cpm12, setCpm12] = useState(String(CPM_DEFAULTS_BY_SIZE["12oz"]));
   const [cpm16, setCpm16] = useState(String(CPM_DEFAULTS_BY_SIZE["16oz"]));
   const [cpm20, setCpm20] = useState(String(CPM_DEFAULTS_BY_SIZE["20oz"]));
+  const [machineCountSw, setMachineCountSw] = useState(String(MACHINE_COUNT_SW_DEFAULT));
+  const [machineCountDw, setMachineCountDw] = useState(String(MACHINE_COUNT_DW_DEFAULT));
   const [showPackCalc, setShowPackCalc] = useState(false);
   const [packPoly, setPackPoly] = useState(""); const [packCarton, setPackCarton] = useState("");
   const [ofGSM, setOfGSM] = useState(""); const [ofRate, setOfRate] = useState("");
@@ -1059,13 +1062,18 @@ export default function CupCalculator({ scope = "default" }) {
             const total = Object.values(components).reduce((s, v) => s + v, 0);
             const hours = parseFloat(convHours) || 0;
             const cpmBySize = { "8oz": parseFloat(cpm8) || 0, "12oz": parseFloat(cpm12) || 0, "16oz": parseFloat(cpm16) || 0, "20oz": parseFloat(cpm20) || 0 };
-            const perCupForSize = (sz) => computeConversionCostPerCup({ size: sz, wallType: cupType, components, monthlyHours: hours, cpmBySize });
+            const nSw = parseFloat(machineCountSw) || 0;
+            const nDw = parseFloat(machineCountDw) || 0;
+            const totalMachines = nSw + nDw;
+            const swCapPerMonth = nSw * hours * 60 * (parseFloat(cpm8) || 0);
+            const dwCapPerMonth = nDw * hours * 60 * Math.round((parseFloat(cpm8) || 0) * DW_SPEED_FACTOR);
+            const perCupForSize = (sz) => computeConversionCostPerCup({ size: sz, wallType: cupType, components, monthlyHours: hours, cpmBySize, machineCountSw: nSw, machineCountDw: nDw });
             const selectedPerCup = size ? perCupForSize(size) : null;
             const selectedCpm = size ? effectiveCpm(size, cupType, cpmBySize) : null;
             return (
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 8, lineHeight: 1.7 }}>
-                  Cost / cup = <strong>Σ monthly overheads ÷ (hours × 60 × cups-per-minute)</strong>. Double Wall / Ripple runs at {Math.round(DW_SPEED_FACTOR * 100)}% of single-wall speed.
+                  Cost / cup = <strong>Σ monthly overheads ÷ (machines × hours × 60 × cpm)</strong>. Overheads are pooled across the fleet ({nSw} SW + {nDw} DW = {totalMachines} machines). Double Wall / Ripple runs at {Math.round(DW_SPEED_FACTOR * 100)}% of single-wall speed.
                 </div>
                 <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".06em", margin: "8px 0 6px" }}>Monthly overheads</div>
                 <div className="two-col" style={{ marginBottom: 8 }}>
@@ -1085,10 +1093,16 @@ export default function CupCalculator({ scope = "default" }) {
                     <NumInput value={convQc} onChange={setConvQc} placeholder="10000" />
                   </Field>
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".06em", margin: "8px 0 6px" }}>Machine speed</div>
+                <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".06em", margin: "8px 0 6px" }}>Fleet &amp; machine speed</div>
                 <div className="two-col" style={{ marginBottom: 8 }}>
-                  <Field label="Production hours / month" note="Default 12h × 25 days = 300 hrs">
-                    <NumInput value={convHours} onChange={setConvHours} placeholder="300" />
+                  <Field label="Single-wall machines" note="Count of SW cup formers in the fleet">
+                    <NumInput value={machineCountSw} onChange={setMachineCountSw} placeholder="1" />
+                  </Field>
+                  <Field label="Double-wall machines" note="DW formers (Ripple runs on these too)">
+                    <NumInput value={machineCountDw} onChange={setMachineCountDw} placeholder="2" />
+                  </Field>
+                  <Field label="Production hours / month / machine" note="Default: 2 shifts (9am–7pm + 7pm–5am) × 25 days = 500 hrs. Drop to 300 for single-shift weeks.">
+                    <NumInput value={convHours} onChange={setConvHours} placeholder="500" />
                   </Field>
                   <Field label="8oz cups / min (SW)">
                     <NumInput value={cpm8} onChange={setCpm8} placeholder="70" />
@@ -1102,6 +1116,9 @@ export default function CupCalculator({ scope = "default" }) {
                   <Field label="20oz cups / min (SW)">
                     <NumInput value={cpm20} onChange={setCpm20} placeholder="70" />
                   </Field>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 6 }}>
+                  Fleet capacity @ {hours || 0} hrs/machine · 8oz baseline cpm: <strong>{(swCapPerMonth + dwCapPerMonth).toLocaleString("en-IN")}</strong> cups/month ({nSw} SW × {swCapPerMonth.toLocaleString("en-IN")} + {nDw} DW × {(dwCapPerMonth / Math.max(nDw, 1)).toLocaleString("en-IN")})
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 8 }}>
                   Cost / cup by size (current wall type: {cupType || "—"}):
