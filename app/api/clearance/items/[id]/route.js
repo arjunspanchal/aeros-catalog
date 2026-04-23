@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 // PATCH /api/clearance/items/[id]
 // Body: subset of { itemName, brand, category, stockQuantity, unit,
-//                   casePack, description, specifications, status }
+//                   casePack, description, specifications, status,
+//                   price, showPrice }
 export async function PATCH(request, { params }) {
   const session = getSession();
   if (!canManageClearance(session)) {

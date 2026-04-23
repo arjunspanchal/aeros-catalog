@@ -49,7 +49,7 @@ export default async function ManagePage() {
       <AppHeader session={session} />
       <Header
         title="Manage Clearance Stock"
-        subtitle="Edit items and upload photos. Changes reflect on the public page within 60 seconds."
+        subtitle="Edit items and upload photos. Items need a Price to appear on the public catalog. Changes reflect within 60 seconds."
         itemCount={items.length}
         itemLabel="items"
       />
