@@ -24,6 +24,13 @@ const ALL_OPTIONS = [
     accent: "from-blue-600 to-indigo-700",
   },
   {
+    key: "rate_cards",
+    href: "/rate-cards",
+    title: "Rate Cards",
+    description: "Saved price lists per client — view current rates or build a new quote card.",
+    accent: "from-sky-600 to-cyan-700",
+  },
+  {
     key: "factoryos",
     href: "/factoryos",
     title: "FactoryOS",
