@@ -96,7 +96,7 @@ const STATUS_COLORS = {
 };
 
 const TODAY = () => new Date().toISOString().slice(0, 10);
-const EMPTY_LINE = { masterPaperId: "", masterPaperName: "", paperType: "", gsm: "", bf: "", sizeMm: "", form: "", qtyRolls: "", qtyKgs: "" };
+const EMPTY_LINE = { masterPaperId: "", masterPaperName: "", paperType: "", gsm: "", bf: "", sizeMm: "", form: "", coating: "", qtyRolls: "", qtyKgs: "" };
 
 export default function InventoryAdmin({ initialInventory, masterPapers = [] }) {
   const [inventory, setInventory] = useState(initialInventory);
@@ -135,6 +135,9 @@ export default function InventoryAdmin({ initialInventory, masterPapers = [] }) 
       gsm: mp.gsm != null ? String(mp.gsm) : "",
       bf: mp.bf != null ? String(mp.bf) : "",
       form: mp.form || "",
+      // Pre-coated mill SKUs (e.g. ITC IndoBev) carry a Mill Coating tag. Stamp it
+      // on the stock line so the PE coating send-out page naturally skips this stock.
+      coating: mp.millCoating ? `Mill ${mp.millCoating}` : "",
       // infer supplier on the invoice level if empty
     });
     setReceipt((r) => (r.supplier ? r : { ...r, supplier: mp.supplier || "" }));
@@ -212,6 +215,9 @@ export default function InventoryAdmin({ initialInventory, masterPapers = [] }) 
   function onPickMaster(id) {
     const mp = masterPapers.find((x) => x.id === id);
     if (!mp) { setForm((f) => ({ ...f, masterPaperId: "" })); return; }
+    // If the master is pre-coated at the mill (e.g. ITC IndoBev), stamp the stock
+    // line's Coating so the PE coating send-out page naturally skips it.
+    const coatingFromMill = mp.millCoating ? `Mill ${mp.millCoating}` : "";
     setForm((f) => ({
       ...f,
       masterPaperId: id,
@@ -221,6 +227,9 @@ export default function InventoryAdmin({ initialInventory, masterPapers = [] }) 
       bf: mp.bf != null ? String(mp.bf) : f.bf,
       form: mp.form || f.form,
       supplier: mp.supplier || f.supplier,
+      // Only overwrite coating when the master says so — don't clobber a human-entered
+      // value on an uncoated master.
+      coating: coatingFromMill || f.coating,
       baseRate: mp.baseRate != null ? String(mp.baseRate) : f.baseRate,
       discount: mp.discount != null ? String(mp.discount) : f.discount,
     }));
