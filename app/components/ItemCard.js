@@ -3,8 +3,10 @@ export default function ItemCard({ item }) {
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm transition hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
-      {/* Image or placeholder */}
-      <div className="relative aspect-square overflow-hidden bg-gray-100 dark:bg-gray-800">
+      {/* Image or placeholder — always a square tile. Non-square source images
+          are letterboxed/pillarboxed against a neutral background so the
+          entire product stays visible. */}
+      <div className="relative aspect-square overflow-hidden bg-gray-100 p-2 dark:bg-gray-800">
         {item.photoUrl ? (
           // Use plain <img> instead of next/image to avoid optimization pipeline
           // for Airtable URLs (which expire). Simpler and reliable.
@@ -12,7 +14,7 @@ export default function ItemCard({ item }) {
           <img
             src={item.photoUrl}
             alt={item.itemName}
-            className="h-full w-full object-cover transition group-hover:scale-105"
+            className="h-full w-full object-contain transition group-hover:scale-105"
             loading="lazy"
           />
         ) : (
@@ -56,7 +58,7 @@ export default function ItemCard({ item }) {
           {item.itemName}
         </h3>
 
-        <p className="mb-4 text-xs text-gray-600 dark:text-gray-400">
+        <p className="mb-1 text-xs text-gray-600 dark:text-gray-400">
           {item.stockQuantity !== null ? (
             <>
               <span className="font-semibold text-gray-900 dark:text-gray-200">
@@ -66,6 +68,25 @@ export default function ItemCard({ item }) {
             </>
           ) : (
             'Stock TBC'
+          )}
+        </p>
+
+        <p className="mb-4 text-xs">
+          {item.price != null ? (
+            <>
+              <span className="font-semibold text-gray-900 dark:text-gray-200">
+                {new Intl.NumberFormat('en-IN', {
+                  style: 'currency',
+                  currency: 'INR',
+                  maximumFractionDigits: 2,
+                }).format(item.price)}
+              </span>
+              <span className="text-gray-500 dark:text-gray-400">
+                {' '}/ {item.unit || 'unit'}
+              </span>
+            </>
+          ) : (
+            <span className="italic text-gray-500 dark:text-gray-400">Rate Pending</span>
           )}
         </p>
 
