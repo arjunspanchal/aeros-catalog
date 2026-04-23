@@ -31,7 +31,7 @@ export default async function AdminCoatingPage() {
         <h1 className="text-2xl font-bold text-gray-900 mt-4 dark:text-white">PE Coating Jobs</h1>
         <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
           Track uncoated cupstock sent to PE coaters (Jayant Printery / Wikas) and the coated stock that returns.
-          SSP = single-side (~18 g, sidewall fans). DSP = two-side (bottoms). Default PE rate is ₹13/kg for SSP.
+          PE 1-side = ~18 g single-side coat for sidewall fans. PE 2-side = both faces coated for bottoms. Default PE rate is ₹13/kg for 1-side.
         </p>
         <CoatingAdmin initialJobs={jobs} sendableStock={sendable} inventoryById={inventoryById} />
       </main>

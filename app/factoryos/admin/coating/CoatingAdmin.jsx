@@ -4,9 +4,11 @@ import { useRouter } from "next/navigation";
 import { inputCls, labelCls } from "@/app/factoryos/_components/ui";
 
 const COATERS = ["Jayant Printery", "Wikas"];
-const COATING_TYPES = ["SSP", "DSP"];
+// Keep these labels identical to the master's `Mill Coating` enum in the Paper
+// RM Database — one vocabulary across send-out, receive-back, and inventory tags.
+const COATING_TYPES = ["PE 1-side", "PE 2-side"];
 
-const DEFAULT_PE_RATES = { SSP: "13", DSP: "26" };
+const DEFAULT_PE_RATES = { "PE 1-side": "13", "PE 2-side": "26" };
 
 const STATUS_COLORS = {
   Sent: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
@@ -33,7 +35,7 @@ export default function CoatingAdmin({ initialJobs, sendableStock, inventoryById
   const [sendForm, setSendForm] = useState({
     sourceStockLineId: "",
     coater: COATERS[0],
-    coatingType: "SSP",
+    coatingType: "PE 1-side",
     qtySent: "",
     sentDate: TODAY(),
     notes: "",
@@ -73,7 +75,7 @@ export default function CoatingAdmin({ initialJobs, sendableStock, inventoryById
     setSendForm({
       sourceStockLineId: "",
       coater: COATERS[0],
-      coatingType: "SSP",
+      coatingType: "PE 1-side",
       qtySent: "",
       sentDate: TODAY(),
       notes: "",
@@ -180,7 +182,7 @@ export default function CoatingAdmin({ initialJobs, sendableStock, inventoryById
           <div>
             <label className={labelCls}>Coating type</label>
             <select className={inputCls} value={sendForm.coatingType} onChange={(e) => setSendForm({ ...sendForm, coatingType: e.target.value })}>
-              {COATING_TYPES.map((t) => <option key={t} value={t}>{t === "SSP" ? "SSP (sidewall, ~18g)" : "DSP (bottom, two-side)"}</option>)}
+              {COATING_TYPES.map((t) => <option key={t} value={t}>{t === "PE 1-side" ? "PE 1-side (sidewall, ~18g)" : "PE 2-side (bottom)"}</option>)}
             </select>
           </div>
           <div>
