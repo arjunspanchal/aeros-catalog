@@ -7,6 +7,7 @@ import { listCards, createCard } from "@/lib/rate-cards/store";
 import { nextCardRef } from "@/lib/rate-cards/ref";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   let session;

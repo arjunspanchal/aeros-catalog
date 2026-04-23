@@ -4,6 +4,7 @@ import { requireRateCardAdmin } from "@/lib/rate-cards/auth";
 import { updateItem, deleteItem } from "@/lib/rate-cards/store";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function PATCH(req, { params }) {
   try { requireRateCardAdmin(); } catch (r) { return r; }

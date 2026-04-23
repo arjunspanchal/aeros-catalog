@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getRateCardSession } from "@/lib/rate-cards/auth";
 import { listCards } from "@/lib/rate-cards/store";
 import RateCardsList from "./_components/RateCardsList";
+import SetupNotice from "./_components/SetupNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,16 @@ export default async function RateCardsHomePage() {
   if (!session) redirect("/login");
 
   const isAdmin = session.rateCardRole === "admin";
-  const cards = await listCards(isAdmin ? {} : { clientEmail: session.email });
+
+  // Soft-fail Airtable so missing env / tables / PAT scope shows a friendly
+  // setup notice instead of a generic "Application error: digest …" 500.
+  let cards = [];
+  let setupError = null;
+  try {
+    cards = await listCards(isAdmin ? {} : { clientEmail: session.email });
+  } catch (err) {
+    setupError = String(err?.message || err);
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 pb-10 pt-4">
@@ -22,7 +32,11 @@ export default async function RateCardsHomePage() {
           ? "Master pricing sheets per customer. Prices on cup-formula items track the current paper rates automatically."
           : "Your agreed rates per SKU. Prices stay stable unless paper raw-material rates move."}
       </p>
-      <RateCardsList cards={cards} isAdmin={isAdmin} />
+      {setupError ? (
+        <SetupNotice error={setupError} isAdmin={isAdmin} />
+      ) : (
+        <RateCardsList cards={cards} isAdmin={isAdmin} />
+      )}
     </div>
   );
 }

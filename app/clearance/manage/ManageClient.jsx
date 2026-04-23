@@ -161,10 +161,22 @@ function toDraft(item) {
     stockQuantity: item.stockQuantity == null ? "" : String(item.stockQuantity),
     unit: item.unit || "pcs",
     casePack: item.casePack == null ? "" : String(item.casePack),
+    price: item.price == null ? "" : String(item.price),
     status: item.status || "",
     description: item.description || "",
     specifications: item.specifications || "",
   };
+}
+
+// Format a price in INR (₹). Returns null if price is null so caller can render "—".
+function formatPrice(price, unit) {
+  if (price == null) return null;
+  const formatted = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(price);
+  return unit ? `${formatted} / ${unit}` : formatted;
 }
 
 function ReadView({ item, onEdit, savedFlash }) {
@@ -202,7 +214,7 @@ function ReadView({ item, onEdit, savedFlash }) {
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-5">
         <KV label="Stock">
           {item.stockQuantity != null
             ? `${item.stockQuantity.toLocaleString()} ${item.unit || ""}`
@@ -210,6 +222,11 @@ function ReadView({ item, onEdit, savedFlash }) {
         </KV>
         <KV label="Case pack">
           {item.casePack != null ? item.casePack.toLocaleString() : <span className="text-gray-400">—</span>}
+        </KV>
+        <KV label="Rate">
+          {formatPrice(item.price, item.unit) || (
+            <span className="italic text-gray-500">Rate Pending</span>
+          )}
         </KV>
         <KV label="Unit">{item.unit || <span className="text-gray-400">—</span>}</KV>
         <KV label="Status">{item.status || <span className="text-gray-400">—</span>}</KV>
@@ -305,6 +322,17 @@ function EditForm({ draft, setDraft, saving, onCancel, onSave, error }) {
             type="number"
             value={draft.casePack}
             onChange={(e) => set("casePack", e.target.value)}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Rate (₹ per unit)">
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={draft.price}
+            onChange={(e) => set("price", e.target.value)}
+            placeholder="Leave blank for Rate Pending"
             className={inputCls}
           />
         </Field>
@@ -436,13 +464,13 @@ function PhotosColumn({ item, onChange }) {
         {item.photos.map((p) => (
           <div
             key={p.id}
-            className="group relative aspect-square overflow-hidden rounded-md border border-gray-200 bg-gray-50"
+            className="group relative aspect-square overflow-hidden rounded-md border border-gray-200 bg-gray-50 p-1"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={p.thumbnailUrl}
               alt={p.filename}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
               loading="lazy"
             />
             <button

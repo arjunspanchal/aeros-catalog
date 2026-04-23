@@ -4,6 +4,7 @@ import { getRateCardSession } from "@/lib/rate-cards/auth";
 import { getCard, listItems } from "@/lib/rate-cards/store";
 import { priceAll } from "@/lib/rate-cards/pricing";
 import RateCardView from "../_components/RateCardView";
+import SetupNotice from "../_components/SetupNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -11,17 +12,34 @@ export default async function RateCardDetailPage({ params }) {
   const session = getRateCardSession();
   if (!session) redirect("/login");
 
-  const card = await getCard(params.id);
-  if (!card) notFound();
+  const isAdmin = session.rateCardRole === "admin";
 
-  if (session.rateCardRole !== "admin" && card.clientEmail !== session.email) {
-    // Don't leak existence of other clients' cards.
-    notFound();
+  // Soft-fail Airtable so missing env / tables shows a notice not a 500.
+  let card = null;
+  let items = [];
+  let setupError = null;
+  try {
+    card = await getCard(params.id);
+    if (!card) notFound();
+    if (!isAdmin && card.clientEmail !== session.email) {
+      // Don't leak existence of other clients' cards.
+      notFound();
+    }
+    items = await listItems(card.ref);
+  } catch (err) {
+    if (err?.digest?.startsWith?.("NEXT_NOT_FOUND")) throw err;
+    setupError = String(err?.message || err);
   }
 
-  const items = await listItems(card.ref);
+  if (setupError) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 pb-10 pt-4">
+        <SetupNotice error={setupError} isAdmin={isAdmin} />
+      </div>
+    );
+  }
+
   const priced = priceAll(items);
-  const isAdmin = session.rateCardRole === "admin";
 
   return (
     <div className="max-w-5xl mx-auto px-4 pb-10 pt-4">

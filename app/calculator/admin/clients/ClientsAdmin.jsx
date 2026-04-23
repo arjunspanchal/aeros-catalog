@@ -5,11 +5,14 @@ import { CURRENCY_CODES } from "@/lib/calc/calculator";
 
 const EMPTY_NEW = { email: "", name: "", company: "", country: "", marginPct: "10", marginCupsPct: "", discountPct: "0", preferredCurrency: "INR", preferredUnit: "mm" };
 
-// Editable row with an explicit Save button. Local state tracks in-progress edits;
-// nothing hits Airtable until the admin clicks Save.
+// Row renders compact by default: email / name / company / country / pricing
+// summary / currency / status / last-login / actions. Clicking Edit opens an
+// inline detail panel with properly labeled fields so margins + discount
+// aren't cramped into tiny table cells.
 function ClientRow({ client, onPatched, onDeleted }) {
   const [draft, setDraft] = useState(client);
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => setDraft(client), [client]);
 
@@ -57,10 +60,12 @@ function ClientRow({ client, onPatched, onDeleted }) {
       return;
     }
     onPatched(await res.json());
+    setEditing(false);
   }
 
   function cancel() {
     setDraft(client);
+    setEditing(false);
   }
 
   async function remove() {
@@ -71,85 +76,134 @@ function ClientRow({ client, onPatched, onDeleted }) {
     else alert("Delete failed");
   }
 
-  const cellInput = "text-sm bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none px-1 py-0.5 dark:text-gray-200 dark:hover:border-gray-700 dark:focus:border-blue-400";
+  const bagMargin = Number(client.marginPct || 0);
+  const cupInherited = client.marginCupsPct == null || client.marginCupsPct === "";
+  const cupMargin = cupInherited ? bagMargin : Number(client.marginCupsPct);
+  const discount = Number(client.discountPct || 0);
+  const pricingSummary = `Bags ${bagMargin}% · Cups ${cupMargin}%${cupInherited ? " (inherited)" : ""}${discount > 0 ? ` · −${discount}%` : ""}`;
+
+  const statusClass =
+    client.status === "Active" ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+    client.status === "Blocked" ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+    "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
 
   return (
-    <tr className={`border-b border-gray-50 dark:border-gray-800 ${dirty ? "bg-amber-50/30 dark:bg-amber-900/20" : "hover:bg-gray-50 dark:hover:bg-gray-800"}`}>
-      <td className="py-2">
-        <input type="email" className={`${cellInput} w-56`}
-          value={draft.email} onChange={(e) => set("email", e.target.value)} />
-      </td>
-      <td className="py-2">
-        <input className={`${cellInput} w-32`} value={draft.name || ""} onChange={(e) => set("name", e.target.value)} />
-      </td>
-      <td className="py-2">
-        <input className={`${cellInput} w-32`} value={draft.company || ""} onChange={(e) => set("company", e.target.value)} />
-      </td>
-      <td className="py-2">
-        <input className={`${cellInput} w-24`} value={draft.country || ""} onChange={(e) => set("country", e.target.value)} />
-      </td>
-      <td className="py-2 text-right">
-        <input type="number" step="0.5"
-          className={`${cellInput} w-16 text-right`}
-          value={draft.marginPct ?? ""}
-          onChange={(e) => set("marginPct", e.target.value)} />
-        <span className="text-gray-400 text-xs ml-1 dark:text-gray-500">%</span>
-      </td>
-      <td className="py-2 text-right">
-        <input type="number" step="0.5"
-          className={`${cellInput} w-16 text-right`}
-          placeholder="(bags)"
-          value={draft.marginCupsPct ?? ""}
-          onChange={(e) => set("marginCupsPct", e.target.value)} />
-        <span className="text-gray-400 text-xs ml-1 dark:text-gray-500">%</span>
-      </td>
-      <td className="py-2 text-right">
-        <input type="number" step="0.5"
-          className={`${cellInput} w-16 text-right`}
-          value={draft.discountPct ?? 0}
-          onChange={(e) => set("discountPct", e.target.value)} />
-        <span className="text-gray-400 text-xs ml-1 dark:text-gray-500">%</span>
-      </td>
-      <td className="py-2">
-        <select className="text-sm bg-transparent border-none focus:outline-none dark:text-gray-200 dark:[&>option]:bg-gray-800"
-          value={draft.preferredCurrency || "INR"}
-          onChange={(e) => set("preferredCurrency", e.target.value)}>
-          {CURRENCY_CODES.map((cc) => <option key={cc} value={cc}>{cc}</option>)}
-        </select>
-      </td>
-      <td className="py-2">
-        <select className="text-sm bg-transparent border-none focus:outline-none dark:text-gray-200 dark:[&>option]:bg-gray-800"
-          value={draft.preferredUnit || "mm"}
-          onChange={(e) => set("preferredUnit", e.target.value)}>
-          <option value="mm">mm</option>
-          <option value="cm">cm</option>
-          <option value="in">in</option>
-        </select>
-      </td>
-      <td className="py-2">
-        <select className="text-sm bg-transparent border-none focus:outline-none dark:text-gray-200 dark:[&>option]:bg-gray-800"
-          value={draft.status}
-          onChange={(e) => set("status", e.target.value)}>
-          <option value="Active">Active</option>
-          <option value="Pending">Pending</option>
-          <option value="Blocked">Blocked</option>
-        </select>
-      </td>
-      <td className="py-2 text-gray-500 text-xs dark:text-gray-400">{client.lastLogin ? new Date(client.lastLogin).toLocaleDateString() : "—"}</td>
-      <td className="py-2 text-right whitespace-nowrap">
-        {dirty ? (
-          <>
-            <button onClick={save} disabled={saving}
-              className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded hover:bg-blue-700 disabled:opacity-60 mr-1">
-              {saving ? "Saving…" : "Save"}
-            </button>
-            <button onClick={cancel} className="text-xs text-gray-500 hover:text-gray-700 px-1 dark:text-gray-400 dark:hover:text-gray-200">Cancel</button>
-          </>
-        ) : (
-          <button onClick={remove} className="text-red-400 hover:text-red-600 text-xs px-2 dark:text-red-400 dark:hover:text-red-300" title="Delete client">✕</button>
-        )}
-      </td>
-    </tr>
+    <>
+      <tr className={`border-b border-gray-50 dark:border-gray-800 ${dirty ? "bg-amber-50/30 dark:bg-amber-900/20" : "hover:bg-gray-50 dark:hover:bg-gray-800"}`}>
+        <td className="py-2 text-sm dark:text-gray-200">{client.email}</td>
+        <td className="py-2 text-sm dark:text-gray-200">{client.name || "—"}</td>
+        <td className="py-2 text-sm dark:text-gray-200">{client.company || "—"}</td>
+        <td className="py-2 text-sm text-gray-500 dark:text-gray-400">{client.country || "—"}</td>
+        <td className="py-2 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{pricingSummary}</td>
+        <td className="py-2 text-sm text-gray-500 dark:text-gray-400">{client.preferredCurrency || "INR"}</td>
+        <td className="py-2">
+          <span className={`text-xs px-2 py-0.5 rounded ${statusClass}`}>{client.status || "Pending"}</span>
+        </td>
+        <td className="py-2 text-gray-500 text-xs dark:text-gray-400">{client.lastLogin ? new Date(client.lastLogin).toLocaleDateString() : "—"}</td>
+        <td className="py-2 text-right whitespace-nowrap">
+          <button
+            onClick={() => setEditing((v) => !v)}
+            className="text-xs text-blue-600 hover:text-blue-800 px-2 dark:text-blue-400 dark:hover:text-blue-300"
+          >
+            {editing ? "Close" : "Edit"}
+          </button>
+          <button
+            onClick={remove}
+            className="text-red-400 hover:text-red-600 text-xs px-2 dark:text-red-400 dark:hover:text-red-300"
+            title="Delete client"
+          >✕</button>
+        </td>
+      </tr>
+      {editing && (
+        <tr className="border-b border-gray-100 dark:border-gray-800">
+          <td colSpan={9} className="p-4 bg-gray-50 dark:bg-gray-900">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Field label="Email">
+                <input type="email" className={inputCls}
+                  value={draft.email || ""} onChange={(e) => set("email", e.target.value)} />
+              </Field>
+              <Field label="Customer name">
+                <input className={inputCls}
+                  value={draft.name || ""} onChange={(e) => set("name", e.target.value)} />
+              </Field>
+              <Field label="Company">
+                <input className={inputCls}
+                  value={draft.company || ""} onChange={(e) => set("company", e.target.value)} />
+              </Field>
+              <Field label="Country">
+                <input className={inputCls}
+                  value={draft.country || ""} onChange={(e) => set("country", e.target.value)} />
+              </Field>
+              <Field label="Status">
+                <select className={inputCls}
+                  value={draft.status || "Pending"}
+                  onChange={(e) => set("status", e.target.value)}>
+                  <option value="Active">Active</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Blocked">Blocked</option>
+                </select>
+              </Field>
+              <div className="hidden md:block" />
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Pricing</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Field label="Bag margin %" hint="Markup on bag manufacturing cost">
+                  <input type="number" step="0.5" className={inputCls}
+                    value={draft.marginPct ?? ""}
+                    onChange={(e) => set("marginPct", e.target.value)} />
+                </Field>
+                <Field label="Cup / Tub margin %" hint="Leave blank to reuse the bag margin">
+                  <input type="number" step="0.5" className={inputCls}
+                    placeholder="(same as bags)"
+                    value={draft.marginCupsPct ?? ""}
+                    onChange={(e) => set("marginCupsPct", e.target.value)} />
+                </Field>
+                <Field label="Discount %" hint="Applied after margin. Bags only.">
+                  <input type="number" step="0.5" className={inputCls}
+                    value={draft.discountPct ?? 0}
+                    onChange={(e) => set("discountPct", e.target.value)} />
+                </Field>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Preferences</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Field label="Currency">
+                  <select className={inputCls}
+                    value={draft.preferredCurrency || "INR"}
+                    onChange={(e) => set("preferredCurrency", e.target.value)}>
+                    {CURRENCY_CODES.map((cc) => <option key={cc} value={cc}>{cc}</option>)}
+                  </select>
+                </Field>
+                <Field label="Units">
+                  <select className={inputCls}
+                    value={draft.preferredUnit || "mm"}
+                    onChange={(e) => set("preferredUnit", e.target.value)}>
+                    <option value="mm">mm</option>
+                    <option value="cm">cm</option>
+                    <option value="in">inches</option>
+                  </select>
+                </Field>
+              </div>
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <button onClick={save} disabled={saving || !dirty}
+                className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60">
+                {saving ? "Saving…" : "Save changes"}
+              </button>
+              <button onClick={cancel}
+                className="text-sm text-gray-600 hover:text-gray-900 px-4 py-2 dark:text-gray-300 dark:hover:text-white">
+                Cancel
+              </button>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
@@ -262,14 +316,11 @@ export default function ClientsAdmin() {
                   <th className="text-left pb-2 font-medium">Name</th>
                   <th className="text-left pb-2 font-medium">Company</th>
                   <th className="text-left pb-2 font-medium">Country</th>
-                  <th className="text-right pb-2 font-medium">Margin %</th>
-                  <th className="text-right pb-2 font-medium">Margin % Cups</th>
-                  <th className="text-right pb-2 font-medium">Discount %</th>
+                  <th className="text-left pb-2 font-medium">Pricing</th>
                   <th className="text-left pb-2 font-medium">Currency</th>
-                  <th className="text-left pb-2 font-medium">Units</th>
                   <th className="text-left pb-2 font-medium">Status</th>
                   <th className="text-left pb-2 font-medium">Last Login</th>
-                  <th className="pb-2"></th>
+                  <th className="pb-2 text-right"></th>
                 </tr>
               </thead>
               <tbody>
@@ -281,7 +332,7 @@ export default function ClientsAdmin() {
           </div>
         )}
         <p className="text-xs text-gray-400 mt-4 dark:text-gray-500">
-          Edit any cell, then click <strong>Save</strong> to commit. Rows with pending changes are highlighted.<br />
+          Click <strong>Edit</strong> on any row to change pricing, status, currency, or profile. Rows with pending changes are highlighted.<br />
           Final rate = mfg cost × (1 + margin%) × (1 − discount%). Margin marks up, discount marks down.
         </p>
       </Card>
