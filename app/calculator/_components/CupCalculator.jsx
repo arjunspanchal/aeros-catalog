@@ -1322,6 +1322,57 @@ export default function CupCalculator({ scope = "default" }) {
             </div>
           </div>
           {(() => {
+            const oneTime = (result.swPlate || 0) + (result.swDie || 0) + (result.ofPlate || 0) + (result.ofDie || 0);
+            const cp = parseInt(casePack) || 1;
+            const mp = parseFloat(margin) || 0;
+            const tiers = [25000, 50000, 100000, 250000, 500000];
+            const currentQty = parseInt(qty) || 0;
+            const rows = tiers.map((q) => {
+              const oneTimePerCup = q > 0 ? oneTime / q : 0;
+              const mfgPerCup = result.mfg + oneTimePerCup;
+              const marginAmt = mp >= 100 ? 0 : (mfgPerCup * mp) / (100 - mp);
+              const ratePerCup = mfgPerCup + marginAmt;
+              const ratePerCase = ratePerCup * cp;
+              const orderTotal = ratePerCup * q;
+              return { qty: q, ratePerCup, ratePerCase, orderTotal };
+            });
+            return (
+              <div style={{ padding: "0 1.25rem 1rem" }}>
+                <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".06em", padding: ".75rem 0 .5rem" }}>
+                  Cost ladder by quantity
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".05em", borderBottom: "0.5px solid var(--border-tertiary)" }}>
+                      <th style={{ textAlign: "left", padding: "6px 0", fontWeight: 500 }}>Order Qty</th>
+                      <th style={{ textAlign: "right", padding: "6px 0", fontWeight: 500 }}>Rate / Cup</th>
+                      <th style={{ textAlign: "right", padding: "6px 0", fontWeight: 500 }}>Rate / Case</th>
+                      <th style={{ textAlign: "right", padding: "6px 0", fontWeight: 500 }}>Order Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => {
+                      const selected = r.qty === currentQty;
+                      return (
+                        <tr key={r.qty} style={{ borderBottom: "0.5px solid var(--border-tertiary)", background: selected ? "var(--accent-bg)" : "transparent" }}>
+                          <td style={{ padding: "7px 0", fontWeight: selected ? 600 : 400 }}>{r.qty.toLocaleString()}</td>
+                          <td style={{ padding: "7px 0", textAlign: "right", fontWeight: selected ? 600 : 400 }}>₹{r.ratePerCup.toFixed(2)}</td>
+                          <td style={{ padding: "7px 0", textAlign: "right" }}>₹{r.ratePerCase.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td style={{ padding: "7px 0", textAlign: "right", fontWeight: selected ? 600 : 400 }}>₹{Math.round(r.orderTotal).toLocaleString("en-IN")}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {oneTime > 0 && (
+                  <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 6 }}>
+                    One-time plate/die cost (₹{oneTime.toLocaleString()}) amortised over each tier.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+          {(() => {
             const totalCases = qty && casePack ? Math.ceil(parseInt(qty) / parseInt(casePack)) : 0;
             const m = cartonMetrics(boxL, boxW, boxH, totalCases);
             if (!m) return null;
