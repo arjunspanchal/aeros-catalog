@@ -5,6 +5,7 @@ import { getCard, updateCard, deleteCard, listItems } from "@/lib/rate-cards/sto
 import { priceAll } from "@/lib/rate-cards/pricing";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(_req, { params }) {
   let session;
