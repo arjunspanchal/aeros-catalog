@@ -6,7 +6,26 @@ const inputCls =
   "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-900 dark:border-gray-700 dark:text-white";
 const labelCls = "block text-xs font-medium text-gray-500 mb-1 dark:text-gray-400";
 
-const EMPTY_SIGNUP = { name: "", company: "", location: "", email: "", phone: "" };
+// Country codes surfaced in the sign-up phone picker. India first because most
+// of our users are domestic; the rest are the countries our clients ship to or
+// have teams in. Add more here if a prospect asks for one.
+const COUNTRY_CODES = [
+  { code: "+91",  label: "IN  +91"  },
+  { code: "+1",   label: "US  +1"   },
+  { code: "+44",  label: "UK  +44"  },
+  { code: "+971", label: "UAE +971" },
+  { code: "+972", label: "IL  +972" },
+  { code: "+65",  label: "SG  +65"  },
+  { code: "+61",  label: "AU  +61"  },
+  { code: "+81",  label: "JP  +81"  },
+  { code: "+49",  label: "DE  +49"  },
+  { code: "+33",  label: "FR  +33"  },
+  { code: "+880", label: "BD  +880" },
+  { code: "+94",  label: "LK  +94"  },
+  { code: "+977", label: "NP  +977" },
+];
+
+const EMPTY_SIGNUP = { name: "", company: "", location: "", email: "", phoneCountry: "+91", phone: "" };
 
 export default function LoginForm() {
   const router = useRouter();
@@ -73,10 +92,22 @@ export default function LoginForm() {
   async function submitSignup(e) {
     e.preventDefault();
     setErr(""); setBusy(true);
+    // Combine country code + local number so the backend stores the full E.164-ish string.
+    const rawPhone = String(signup.phone || "").trim();
+    const combinedPhone = rawPhone
+      ? `${signup.phoneCountry} ${rawPhone.replace(/^\+?\d{1,4}\s*/, "").trim()}`
+      : "";
+    const payload = {
+      name: signup.name,
+      company: signup.company,
+      location: signup.location,
+      email: signup.email,
+      phone: combinedPhone,
+    };
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(signup),
+      body: JSON.stringify(payload),
     });
     setBusy(false);
     if (!res.ok) { setErr((await res.json()).error || "Failed"); return; }
@@ -98,7 +129,7 @@ export default function LoginForm() {
           <button
             onClick={() => switchMode("client")}
             className={`py-2 rounded-lg text-sm font-medium ${mode === "client" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"}`}
-          >Email</button>
+          >Sign In</button>
           <button
             onClick={() => switchMode("signup")}
             className={`py-2 rounded-lg text-sm font-medium ${mode === "signup" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"}`}
@@ -109,7 +140,7 @@ export default function LoginForm() {
           >Admin</button>
         </div>
 
-        {/* --- EMAIL (existing user OTP) --- */}
+        {/* --- SIGN IN (existing user OTP) --- */}
         {mode === "client" && stage === "enter" && (
           <form onSubmit={requestOtp} className="space-y-3">
             <input
@@ -177,13 +208,25 @@ export default function LoginForm() {
             </div>
             <div>
               <label className={labelCls}>Phone</label>
-              <input
-                type="tel"
-                className={inputCls}
-                placeholder="+91 98765 43210"
-                value={signup.phone}
-                onChange={(e) => setSignup({ ...signup, phone: e.target.value })}
-              />
+              <div className="flex gap-2">
+                <select
+                  className={`${inputCls} w-28 shrink-0`}
+                  value={signup.phoneCountry}
+                  onChange={(e) => setSignup({ ...signup, phoneCountry: e.target.value })}
+                  aria-label="Country code"
+                >
+                  {COUNTRY_CODES.map((c) => (
+                    <option key={c.code} value={c.code}>{c.label}</option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  className={`${inputCls} flex-1`}
+                  placeholder="98765 43210"
+                  value={signup.phone}
+                  onChange={(e) => setSignup({ ...signup, phone: e.target.value })}
+                />
+              </div>
             </div>
             <button disabled={busy} className="w-full bg-blue-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60">
               {busy ? "Creating account…" : "Create account & send code"}
