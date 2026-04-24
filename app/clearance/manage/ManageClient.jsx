@@ -35,18 +35,18 @@ export default function ManageClient({ initialItems }) {
   return (
     <div>
       {/* Filters */}
-      <div className="mb-6 flex flex-wrap gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="mb-6 flex flex-wrap gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <input
           type="search"
           placeholder="Search item, brand, category…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[200px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          className="flex-1 min-w-[200px] rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500"
         />
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
         >
           <option value="">All categories</option>
           {categories.map((c) => (
@@ -55,7 +55,7 @@ export default function ManageClient({ initialItems }) {
             </option>
           ))}
         </select>
-        <div className="flex items-center text-xs text-gray-500">
+        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
           {filtered.length} of {items.length} shown
         </div>
       </div>
@@ -63,7 +63,7 @@ export default function ManageClient({ initialItems }) {
       {/* List */}
       <div className="space-y-3">
         {filtered.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
+          <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
             No items match your filters.
           </div>
         ) : (
@@ -124,7 +124,7 @@ function ItemRow({ item, onChange }) {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+    <div className="rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
       <div className="flex flex-col gap-4 p-4 md:flex-row">
         {/* Photos column */}
         <PhotosColumn item={item} onChange={onChange} />
@@ -184,18 +184,18 @@ function ReadView({ item, onEdit, savedFlash }) {
     <div>
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate text-base font-semibold text-gray-900">
-            {item.itemName || <span className="text-gray-400">(no name)</span>}
+          <h3 className="truncate text-base font-semibold text-gray-900 dark:text-gray-100">
+            {item.itemName || <span className="text-gray-400 dark:text-gray-500">(no name)</span>}
           </h3>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
             {item.brand && <span>{item.brand}</span>}
             {item.category && (
-              <span className="rounded-full bg-gray-100 px-2 py-0.5">
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800 dark:text-gray-300">
                 {item.category}
               </span>
             )}
             {item.status && (
-              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">
+              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                 {item.status}
               </span>
             )}
@@ -203,11 +203,11 @@ function ReadView({ item, onEdit, savedFlash }) {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {savedFlash && (
-            <span className="text-xs font-medium text-green-600">Saved</span>
+            <span className="text-xs font-medium text-green-600 dark:text-green-400">Saved</span>
           )}
           <button
             onClick={onEdit}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             Edit
           </button>
@@ -218,31 +218,31 @@ function ReadView({ item, onEdit, savedFlash }) {
         <KV label="Stock">
           {item.stockQuantity != null
             ? `${item.stockQuantity.toLocaleString()} ${item.unit || ""}`
-            : <span className="text-gray-400">—</span>}
+            : <span className="text-gray-400 dark:text-gray-500">—</span>}
         </KV>
         <KV label="Case pack">
-          {item.casePack != null ? item.casePack.toLocaleString() : <span className="text-gray-400">—</span>}
+          {item.casePack != null ? item.casePack.toLocaleString() : <span className="text-gray-400 dark:text-gray-500">—</span>}
         </KV>
         <KV label="Rate">
           {formatPrice(item.price, item.unit) || (
-            <span className="italic text-gray-500">Rate Pending</span>
+            <span className="italic text-gray-500 dark:text-gray-400">Rate Pending</span>
           )}
         </KV>
-        <KV label="Unit">{item.unit || <span className="text-gray-400">—</span>}</KV>
-        <KV label="Status">{item.status || <span className="text-gray-400">—</span>}</KV>
+        <KV label="Unit">{item.unit || <span className="text-gray-400 dark:text-gray-500">—</span>}</KV>
+        <KV label="Status">{item.status || <span className="text-gray-400 dark:text-gray-500">—</span>}</KV>
       </dl>
 
       {(item.description || item.specifications) && (
-        <div className="mt-3 space-y-1.5 text-xs text-gray-600">
+        <div className="mt-3 space-y-1.5 text-xs text-gray-600 dark:text-gray-300">
           {item.description && (
             <p>
-              <span className="font-medium text-gray-500">Description:</span>{" "}
+              <span className="font-medium text-gray-500 dark:text-gray-400">Description:</span>{" "}
               {item.description}
             </p>
           )}
           {item.specifications && (
             <p>
-              <span className="font-medium text-gray-500">Specs:</span>{" "}
+              <span className="font-medium text-gray-500 dark:text-gray-400">Specs:</span>{" "}
               {item.specifications}
             </p>
           )}
@@ -255,8 +255,8 @@ function ReadView({ item, onEdit, savedFlash }) {
 function KV({ label, children }) {
   return (
     <div>
-      <dt className="text-[10px] uppercase tracking-wide text-gray-400">{label}</dt>
-      <dd className="text-gray-700">{children}</dd>
+      <dt className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{label}</dt>
+      <dd className="text-gray-700 dark:text-gray-200">{children}</dd>
     </div>
   );
 }
@@ -355,7 +355,7 @@ function EditForm({ draft, setDraft, saving, onCancel, onSave, error }) {
       </Field>
 
       {error && (
-        <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+        <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
           {error}
         </p>
       )}
@@ -365,14 +365,14 @@ function EditForm({ draft, setDraft, saving, onCancel, onSave, error }) {
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={saving}
-          className="rounded-md bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700 disabled:opacity-60"
+          className="rounded-md bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700 disabled:opacity-60 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200"
         >
           {saving ? "Saving…" : "Save"}
         </button>
@@ -381,13 +381,15 @@ function EditForm({ draft, setDraft, saving, onCancel, onSave, error }) {
   );
 }
 
+// Shared input styling used across text/number/textarea fields. Includes dark
+// variants for the edit form background and borders, plus placeholder text.
 const inputCls =
-  "w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
+  "w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500";
 
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] uppercase tracking-wide text-gray-500">
+      <span className="mb-1 block text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
         {label}
       </span>
       {children}
@@ -464,7 +466,7 @@ function PhotosColumn({ item, onChange }) {
         {item.photos.map((p) => (
           <div
             key={p.id}
-            className="group relative aspect-square overflow-hidden rounded-md border border-gray-200 bg-gray-50 p-1"
+            className="group relative aspect-square overflow-hidden rounded-md border border-gray-200 bg-gray-50 p-1 dark:border-gray-800 dark:bg-gray-800"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -476,7 +478,7 @@ function PhotosColumn({ item, onChange }) {
             <button
               onClick={() => deletePhoto(p.id)}
               aria-label={`Delete ${p.filename}`}
-              className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-gray-700 opacity-0 shadow-sm transition hover:bg-white hover:text-red-600 group-hover:opacity-100"
+              className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-gray-700 opacity-0 shadow-sm transition hover:bg-white hover:text-red-600 group-hover:opacity-100 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:bg-gray-900 dark:hover:text-red-400"
             >
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -488,7 +490,7 @@ function PhotosColumn({ item, onChange }) {
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
-          className="flex aspect-square flex-col items-center justify-center gap-0.5 rounded-md border-2 border-dashed border-gray-300 text-[10px] font-medium text-gray-500 transition hover:border-brand-400 hover:text-brand-600 disabled:opacity-50"
+          className="flex aspect-square flex-col items-center justify-center gap-0.5 rounded-md border-2 border-dashed border-gray-300 text-[10px] font-medium text-gray-500 transition hover:border-brand-400 hover:text-brand-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:border-brand-400 dark:hover:text-brand-400"
         >
           {uploading ? (
             <span>Uploading…</span>
@@ -511,9 +513,9 @@ function PhotosColumn({ item, onChange }) {
         onChange={(e) => handleFiles(Array.from(e.target.files || []))}
       />
       {error && (
-        <p className="mt-2 text-xs text-red-600">{error}</p>
+        <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
       )}
-      <p className="mt-2 text-[10px] text-gray-400">Max 5 MB per file</p>
+      <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-500">Max 5 MB per file</p>
     </div>
   );
 }

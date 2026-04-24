@@ -7,6 +7,8 @@ import {
   COATING_RATES, DEFAULTS, PACK_LABOUR_PER_CUP, MONTHLY_CAPACITY,
   CONVERSION_DEFAULT_COMPONENTS, CPM_DEFAULTS_BY_SIZE, MONTHLY_HOURS_DEFAULT,
   DW_SPEED_FACTOR, computeConversionCostPerCup, effectiveCpm,
+  MACHINE_COUNT_SW_DEFAULT, MACHINE_COUNT_DW_DEFAULT,
+  PACKING_DEFAULT_MATERIALS, PACKING_DEFAULT_LABOUR_MONTHLY, computePackingCostPerCup,
   getOuterFanCount, getSidewallDims,
 } from "@/lib/calc/cup-calculator";
 
@@ -489,8 +491,14 @@ export default function CupCalculator({ scope = "default" }) {
   const [cpm12, setCpm12] = useState(String(CPM_DEFAULTS_BY_SIZE["12oz"]));
   const [cpm16, setCpm16] = useState(String(CPM_DEFAULTS_BY_SIZE["16oz"]));
   const [cpm20, setCpm20] = useState(String(CPM_DEFAULTS_BY_SIZE["20oz"]));
+  const [machineCountSw, setMachineCountSw] = useState(String(MACHINE_COUNT_SW_DEFAULT));
+  const [machineCountDw, setMachineCountDw] = useState(String(MACHINE_COUNT_DW_DEFAULT));
   const [showPackCalc, setShowPackCalc] = useState(false);
-  const [packPoly, setPackPoly] = useState(""); const [packCarton, setPackCarton] = useState("");
+  const [packPoly, setPackPoly] = useState(String(PACKING_DEFAULT_MATERIALS.poly));
+  const [packCarton, setPackCarton] = useState(String(PACKING_DEFAULT_MATERIALS.carton));
+  const [packTape, setPackTape] = useState(String(PACKING_DEFAULT_MATERIALS.tape));
+  const [packLabel, setPackLabel] = useState(String(PACKING_DEFAULT_MATERIALS.label));
+  const [packLabour, setPackLabour] = useState(String(PACKING_DEFAULT_LABOUR_MONTHLY));
   const [ofGSM, setOfGSM] = useState(""); const [ofRate, setOfRate] = useState("");
   const [ofCoating, setOfCoating] = useState("None"); const [ofCoatingRate, setOfCoatingRate] = useState("");
   const [ofPrint, setOfPrint] = useState("No printing"); const [ofColors, setOfColors] = useState("");
@@ -1059,13 +1067,18 @@ export default function CupCalculator({ scope = "default" }) {
             const total = Object.values(components).reduce((s, v) => s + v, 0);
             const hours = parseFloat(convHours) || 0;
             const cpmBySize = { "8oz": parseFloat(cpm8) || 0, "12oz": parseFloat(cpm12) || 0, "16oz": parseFloat(cpm16) || 0, "20oz": parseFloat(cpm20) || 0 };
-            const perCupForSize = (sz) => computeConversionCostPerCup({ size: sz, wallType: cupType, components, monthlyHours: hours, cpmBySize });
+            const nSw = parseFloat(machineCountSw) || 0;
+            const nDw = parseFloat(machineCountDw) || 0;
+            const totalMachines = nSw + nDw;
+            const swCapPerMonth = nSw * hours * 60 * (parseFloat(cpm8) || 0);
+            const dwCapPerMonth = nDw * hours * 60 * Math.round((parseFloat(cpm8) || 0) * DW_SPEED_FACTOR);
+            const perCupForSize = (sz) => computeConversionCostPerCup({ size: sz, wallType: cupType, components, monthlyHours: hours, cpmBySize, machineCountSw: nSw, machineCountDw: nDw });
             const selectedPerCup = size ? perCupForSize(size) : null;
             const selectedCpm = size ? effectiveCpm(size, cupType, cpmBySize) : null;
             return (
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 8, lineHeight: 1.7 }}>
-                  Cost / cup = <strong>Σ monthly overheads ÷ (hours × 60 × cups-per-minute)</strong>. Double Wall / Ripple runs at {Math.round(DW_SPEED_FACTOR * 100)}% of single-wall speed.
+                  Cost / cup = <strong>Σ monthly overheads ÷ (machines × hours × 60 × cpm)</strong>. Overheads are pooled across the fleet ({nSw} SW + {nDw} DW = {totalMachines} machines). Double Wall / Ripple runs at {Math.round(DW_SPEED_FACTOR * 100)}% of single-wall speed.
                 </div>
                 <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".06em", margin: "8px 0 6px" }}>Monthly overheads</div>
                 <div className="two-col" style={{ marginBottom: 8 }}>
@@ -1085,10 +1098,16 @@ export default function CupCalculator({ scope = "default" }) {
                     <NumInput value={convQc} onChange={setConvQc} placeholder="10000" />
                   </Field>
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".06em", margin: "8px 0 6px" }}>Machine speed</div>
+                <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".06em", margin: "8px 0 6px" }}>Fleet &amp; machine speed</div>
                 <div className="two-col" style={{ marginBottom: 8 }}>
-                  <Field label="Production hours / month" note="Default 12h × 25 days = 300 hrs">
-                    <NumInput value={convHours} onChange={setConvHours} placeholder="300" />
+                  <Field label="Single-wall machines" note="Count of SW cup formers in the fleet">
+                    <NumInput value={machineCountSw} onChange={setMachineCountSw} placeholder="1" />
+                  </Field>
+                  <Field label="Double-wall machines" note="DW formers (Ripple runs on these too)">
+                    <NumInput value={machineCountDw} onChange={setMachineCountDw} placeholder="2" />
+                  </Field>
+                  <Field label="Production hours / month / machine" note="Default: 2 shifts (9am–7pm + 7pm–5am) × 25 days = 500 hrs. Drop to 300 for single-shift weeks.">
+                    <NumInput value={convHours} onChange={setConvHours} placeholder="500" />
                   </Field>
                   <Field label="8oz cups / min (SW)">
                     <NumInput value={cpm8} onChange={setCpm8} placeholder="70" />
@@ -1102,6 +1121,9 @@ export default function CupCalculator({ scope = "default" }) {
                   <Field label="20oz cups / min (SW)">
                     <NumInput value={cpm20} onChange={setCpm20} placeholder="70" />
                   </Field>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 6 }}>
+                  Fleet capacity @ {hours || 0} hrs/machine · 8oz baseline cpm: <strong>{(swCapPerMonth + dwCapPerMonth).toLocaleString("en-IN")}</strong> cups/month ({nSw} SW × {swCapPerMonth.toLocaleString("en-IN")} + {nDw} DW × {(dwCapPerMonth / Math.max(nDw, 1)).toLocaleString("en-IN")})
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 8 }}>
                   Cost / cup by size (current wall type: {cupType || "—"}):
@@ -1135,39 +1157,73 @@ export default function CupCalculator({ scope = "default" }) {
             </span>
           </button>
           {showPackCalc && (() => {
-            const cp = parseInt(casePack) || 1;
-            const polyPerCup = (parseFloat(packPoly) || 0) / cp;
-            const cartonPerCup = (parseFloat(packCarton) || 0) / cp;
-            const totalPerCup = polyPerCup + cartonPerCup + PACK_LABOUR_PER_CUP;
+            const materials = {
+              poly: parseFloat(packPoly) || 0,
+              carton: parseFloat(packCarton) || 0,
+              tape: parseFloat(packTape) || 0,
+              label: parseFloat(packLabel) || 0,
+            };
+            const hours = parseFloat(convHours) || 0;
+            const cpmBySize = { "8oz": parseFloat(cpm8) || 0, "12oz": parseFloat(cpm12) || 0, "16oz": parseFloat(cpm16) || 0, "20oz": parseFloat(cpm20) || 0 };
+            const nSw = parseFloat(machineCountSw) || 0;
+            const nDw = parseFloat(machineCountDw) || 0;
+            const resolvedCasePack = parseInt(casePack) || CASE_PACK_DEFAULTS[cupType]?.[size] || 0;
+            const breakdown = (sz) => computePackingCostPerCup({
+              size: sz, wallType: cupType, casePack: resolvedCasePack,
+              materials, monthlyLabour: parseFloat(packLabour) || 0,
+              monthlyHours: hours, cpmBySize,
+              machineCountSw: nSw, machineCountDw: nDw,
+            });
+            const selected = size && resolvedCasePack ? breakdown(size) : null;
+            const materialTotal = Object.values(materials).reduce((s, v) => s + v, 0);
             return (
               <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 8 }}>
-                  Packing labour: ₹30,000/month ÷ 10,80,000 = <strong>₹{PACK_LABOUR_PER_CUP.toFixed(4)}/cup</strong> (fixed)
+                <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 8, lineHeight: 1.7 }}>
+                  Per-cup packing = <strong>Σ (materials ÷ case pack) + (monthly labour ÷ fleet cups/month)</strong>. DW 500/case absorbs 2× the material cost per cup vs SW 1000/case.
                 </div>
+                <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".06em", margin: "8px 0 6px" }}>Materials (per case)</div>
                 <div className="two-col" style={{ marginBottom: 8 }}>
-                  <Field
-                    label="Poly cost (₹/carton)"
-                    note={casePack ? `Case: ${casePack} cups${polyPerCup > 0 ? " · ₹" + polyPerCup.toFixed(4) + "/cup" : ""}` : ""}
-                  >
-                    <NumInput value={packPoly} onChange={setPackPoly} placeholder="e.g. 1.23" step="0.01" />
+                  <Field label="Poly (₹/case)" note="Food-grade poly sleeve / liner">
+                    <NumInput value={packPoly} onChange={setPackPoly} placeholder="1.25" step="0.01" />
                   </Field>
-                  <Field
-                    label="Carton cost (₹/carton)"
-                    note={casePack ? `Case: ${casePack} cups${cartonPerCup > 0 ? " · ₹" + cartonPerCup.toFixed(4) + "/cup" : ""}` : ""}
-                  >
-                    <NumInput value={packCarton} onChange={setPackCarton} placeholder="e.g. 70" step="0.01" />
+                  <Field label="Carton (₹/case)" note="5-ply brown corrugated box">
+                    <NumInput value={packCarton} onChange={setPackCarton} placeholder="70" step="0.01" />
+                  </Field>
+                  <Field label="Tape / strapping (₹/case)">
+                    <NumInput value={packTape} onChange={setPackTape} placeholder="3" step="0.01" />
+                  </Field>
+                  <Field label="Label / sticker (₹/case)">
+                    <NumInput value={packLabel} onChange={setPackLabel} placeholder="1" step="0.01" />
                   </Field>
                 </div>
-                {(parseFloat(packPoly) || parseFloat(packCarton)) ? (
+                <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".06em", margin: "8px 0 6px" }}>Labour (monthly)</div>
+                <div className="two-col" style={{ marginBottom: 8 }}>
+                  <Field label="Packing labour (₹/month)" note="Pooled across fleet output, like conversion labour">
+                    <NumInput value={packLabour} onChange={setPackLabour} placeholder="30000" />
+                  </Field>
+                </div>
+                {resolvedCasePack > 0 ? (
+                  <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 8 }}>
+                    Material ₹{materialTotal.toFixed(2)}/case ÷ {resolvedCasePack} cups ={" "}
+                    ₹{(materialTotal / resolvedCasePack).toFixed(4)}/cup.{selected && (
+                      <> Labour: ₹{selected.labourPerCup.toFixed(4)}/cup ({size} @ effective cpm).</>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 8 }}>
+                    Pick a size / set a case pack to preview per-cup packing.
+                  </div>
+                )}
+                {selected && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "0.5px solid var(--border-tertiary)", paddingTop: 8 }}>
                     <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                      Poly + Carton + Labour = ₹{totalPerCup.toFixed(4)}/cup
+                      Material + labour = ₹{selected.total.toFixed(4)}/cup
                     </span>
-                    <button className="apply-btn" onClick={() => setPack(totalPerCup.toFixed(4))}>
-                      Apply ₹{totalPerCup.toFixed(4)}/cup →
+                    <button className="apply-btn" onClick={() => setPack(selected.total.toFixed(4))}>
+                      Apply ₹{selected.total.toFixed(4)}/cup →
                     </button>
                   </div>
-                ) : null}
+                )}
               </div>
             );
           })()}
@@ -1265,6 +1321,57 @@ export default function CupCalculator({ scope = "default" }) {
               <span className="val" style={{ color: "var(--accent-dark)" }}>{f2(result.sp)}</span>
             </div>
           </div>
+          {(() => {
+            const oneTime = (result.swPlate || 0) + (result.swDie || 0) + (result.ofPlate || 0) + (result.ofDie || 0);
+            const cp = parseInt(casePack) || 1;
+            const mp = parseFloat(margin) || 0;
+            const tiers = [25000, 50000, 100000, 250000, 500000];
+            const currentQty = parseInt(qty) || 0;
+            const rows = tiers.map((q) => {
+              const oneTimePerCup = q > 0 ? oneTime / q : 0;
+              const mfgPerCup = result.mfg + oneTimePerCup;
+              const marginAmt = mp >= 100 ? 0 : (mfgPerCup * mp) / (100 - mp);
+              const ratePerCup = mfgPerCup + marginAmt;
+              const ratePerCase = ratePerCup * cp;
+              const orderTotal = ratePerCup * q;
+              return { qty: q, ratePerCup, ratePerCase, orderTotal };
+            });
+            return (
+              <div style={{ padding: "0 1.25rem 1rem" }}>
+                <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".06em", padding: ".75rem 0 .5rem" }}>
+                  Cost ladder by quantity
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: ".05em", borderBottom: "0.5px solid var(--border-tertiary)" }}>
+                      <th style={{ textAlign: "left", padding: "6px 0", fontWeight: 500 }}>Order Qty</th>
+                      <th style={{ textAlign: "right", padding: "6px 0", fontWeight: 500 }}>Rate / Cup</th>
+                      <th style={{ textAlign: "right", padding: "6px 0", fontWeight: 500 }}>Rate / Case</th>
+                      <th style={{ textAlign: "right", padding: "6px 0", fontWeight: 500 }}>Order Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => {
+                      const selected = r.qty === currentQty;
+                      return (
+                        <tr key={r.qty} style={{ borderBottom: "0.5px solid var(--border-tertiary)", background: selected ? "var(--accent-bg)" : "transparent" }}>
+                          <td style={{ padding: "7px 0", fontWeight: selected ? 600 : 400 }}>{r.qty.toLocaleString()}</td>
+                          <td style={{ padding: "7px 0", textAlign: "right", fontWeight: selected ? 600 : 400 }}>₹{r.ratePerCup.toFixed(2)}</td>
+                          <td style={{ padding: "7px 0", textAlign: "right" }}>₹{r.ratePerCase.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td style={{ padding: "7px 0", textAlign: "right", fontWeight: selected ? 600 : 400 }}>₹{Math.round(r.orderTotal).toLocaleString("en-IN")}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {oneTime > 0 && (
+                  <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 6 }}>
+                    One-time plate/die cost (₹{oneTime.toLocaleString()}) amortised over each tier.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
           {(() => {
             const totalCases = qty && casePack ? Math.ceil(parseInt(qty) / parseInt(casePack)) : 0;
             const m = cartonMetrics(boxL, boxW, boxH, totalCases);
