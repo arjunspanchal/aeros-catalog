@@ -3,7 +3,7 @@
 // paper rate is taken from a conservative default env until per-paper rates are
 // wired up (the bag calc's Jodhani/Om Shivaay tables are mill-specific and do not
 // apply to box stocks).
-import { calculate, computeRateCurve, optimizationTips } from "@/lib/calc/box-calculator";
+import { calculate, computeRateCurve, optimizationTips, isCorrugated, defaultCorrugatedLayers } from "@/lib/calc/box-calculator";
 import { getSession } from "@/lib/calc/session";
 import { currentClientPricing } from "@/lib/calc/user-directory";
 
@@ -16,10 +16,29 @@ export async function POST(req) {
   const body = await req.json();
   const isClient = session.role === "client";
 
-  // Clients don't supply paper rate or wastage override.
+  const corrugated = isCorrugated(body.boxType);
+
+  // Clients don't supply paper rate, conversion rates, or wastage overrides.
   const paperRate = isClient
     ? Number(process.env.DEFAULT_BOX_PAPER_RATE || 70)
     : Number(body.paperRate) || 0;
+  const corrugationRate = isClient
+    ? Number(process.env.DEFAULT_CORRUGATION_RATE || 25)
+    : Number(body.corrugationRate) || 0;
+  const stitchingPerCarton = isClient
+    ? Number(process.env.DEFAULT_STITCHING_PER_CARTON || 1.5)
+    : Number(body.stitchingPerCarton) || 0;
+
+  // For clients, seed layers server-side from defaults so they don't have to
+  // supply a full BOM. Admin sends the full layers array from the form.
+  let layers = Array.isArray(body.layers) ? body.layers : [];
+  if (corrugated && isClient) {
+    const defaultPaperRate = Number(process.env.DEFAULT_BOX_PAPER_RATE || 70);
+    layers = defaultCorrugatedLayers(Number(body.ply) || 3).map((l) => ({
+      ...l,
+      paperRate: defaultPaperRate * (l.kind === "flute" ? 0.9 : 1),
+    }));
+  }
 
   const fallbackMargin = Number(session.marginPct ?? process.env.DEFAULT_CLIENT_MARGIN ?? 15);
   const { marginPct, discountPct } = isClient
@@ -32,6 +51,11 @@ export async function POST(req) {
     openWidth: Number(body.openWidth) || 0,
     gsm: Number(body.gsm) || 0,
     paperRate,
+    ply: Number(body.ply) || 3,
+    flute: body.flute || "B",
+    layers,
+    corrugationRate,
+    stitchingPerCarton,
     qty: Number(body.qty) || 10000,
     printing: !!body.printing,
     colours: Number(body.colours) || 1,
@@ -47,8 +71,16 @@ export async function POST(req) {
     profitPercent: marginPct,
   };
 
-  if (inputs.openLength <= 0 || inputs.openWidth <= 0 || inputs.gsm <= 0 || inputs.paperRate <= 0) {
-    return Response.json({ error: "Open size, GSM, and paper rate are required." }, { status: 400 });
+  if (inputs.openLength <= 0 || inputs.openWidth <= 0) {
+    return Response.json({ error: "Open size is required." }, { status: 400 });
+  }
+  if (corrugated) {
+    if (!inputs.layers.length) return Response.json({ error: "Corrugated layers are required." }, { status: 400 });
+    if (inputs.layers.some((l) => !Number(l.gsm) || !Number(l.paperRate))) {
+      return Response.json({ error: "Each layer needs a GSM and rate." }, { status: 400 });
+    }
+  } else if (inputs.gsm <= 0 || inputs.paperRate <= 0) {
+    return Response.json({ error: "GSM and paper rate are required." }, { status: 400 });
   }
 
   const rawResult = calculate(inputs);

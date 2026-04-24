@@ -2,8 +2,8 @@
 import { useMemo, useState } from "react";
 import { Card, Field, Toggle, PillBtn, Row, SectionHeader, inputCls } from "@/app/calculator/_components/ui";
 import {
-  BOX_TYPES, calculate, computeRateCurve, optimizationTips,
-  getDefaultWastage, isPasted,
+  BOX_TYPES, FLUTE_PROFILES, PLY_OPTIONS, calculate, computeRateCurve, optimizationTips,
+  getDefaultWastage, isPasted, isCorrugated, defaultCorrugatedLayers,
 } from "@/lib/calc/box-calculator";
 
 const QTY_OPTIONS = [5000, 10000, 25000, 50000, 100000];
@@ -13,6 +13,8 @@ export default function AdminBoxCalculator({ papers = [] }) {
     boxType: "cake",
     openLength: 250, openWidth: 180,
     paperId: "", paperName: "", gsm: 300, paperRate: 70,
+    ply: 3, flute: "B", layers: defaultCorrugatedLayers(3),
+    corrugationRate: 0, stitchingPerCarton: 0,
     printing: false, colours: 1, coverage: 30,
     punching: false, punchingDieCost: 0, punchingPerPiece: 0,
     innerPackRate: 0, innerPackQty: 0,
@@ -23,9 +25,27 @@ export default function AdminBoxCalculator({ papers = [] }) {
     quoteRef: "",
   });
   const [saveStatus, setSaveStatus] = useState(null);
+  const corrugated = isCorrugated(form.boxType);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const num = (k, v) => set(k, parseFloat(v) || 0);
+
+  function setPly(p) {
+    setForm((f) => ({ ...f, ply: p, layers: defaultCorrugatedLayers(p) }));
+  }
+  function setLayer(idx, patch) {
+    setForm((f) => ({ ...f, layers: f.layers.map((l, i) => (i === idx ? { ...l, ...patch } : l)) }));
+  }
+  function selectLayerPaper(idx, id) {
+    const p = papers.find((x) => x.id === id);
+    if (!p) return setLayer(idx, { paperId: "", paperName: "" });
+    setLayer(idx, {
+      paperId: p.id,
+      paperName: p.materialName,
+      gsm: p.gsm || form.layers[idx].gsm,
+      paperRate: p.effectiveRate ?? p.baseRate ?? form.layers[idx].paperRate,
+    });
+  }
 
   function selectPaper(id) {
     const p = papers.find((x) => x.id === id);
@@ -53,7 +73,11 @@ export default function AdminBoxCalculator({ papers = [] }) {
         quoteRef: form.quoteRef || `BQ ${new Date().toISOString().split("T")[0]}`,
         boxType: form.boxType,
         openLength: form.openLength, openWidth: form.openWidth,
-        paperName: form.paperName, gsm: form.gsm, paperRate: form.paperRate,
+        paperName: corrugated
+          ? `${form.ply}-ply ${form.flute}-flute (${form.layers.map((l) => l.gsm).join("/")})`
+          : form.paperName,
+        gsm: corrugated ? form.layers.reduce((s, l) => s + Number(l.gsm || 0), 0) : form.gsm,
+        paperRate: corrugated ? 0 : form.paperRate,
         qty: form.qty,
         printing: form.printing, colours: form.colours, coverage: form.coverage,
         punching: form.punching,
@@ -80,7 +104,9 @@ export default function AdminBoxCalculator({ papers = [] }) {
             ))}
           </div>
           <p className="text-xs text-gray-400 mt-2">
-            {isPasted(form.boxType)
+            {corrugated
+              ? "Multi-ply board with flute take-up. Conversion ₹/kg + stitching/carton are user-supplied."
+              : isPasted(form.boxType)
               ? "Pasting applied at ₹15/kg (clam-forming / 8-side)."
               : "Flat die-cut only — no pasting cost."}
           </p>
@@ -93,33 +119,110 @@ export default function AdminBoxCalculator({ papers = [] }) {
           </div>
         </Card>
 
-        <Card title="Paper">
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Material">
-              {papers.length > 0 ? (
-                <select className={inputCls} value={form.paperId} onChange={(e) => selectPaper(e.target.value)}>
-                  <option value="">— Select paper —</option>
-                  {papers.map((p) => (
-                    <option key={p.id} value={p.id}>{p.materialName}{p.gsm ? ` · ${p.gsm} GSM` : ""}</option>
-                  ))}
+        {!corrugated && (
+          <Card title="Paper">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Material">
+                {papers.length > 0 ? (
+                  <select className={inputCls} value={form.paperId} onChange={(e) => selectPaper(e.target.value)}>
+                    <option value="">— Select paper —</option>
+                    {papers.map((p) => (
+                      <option key={p.id} value={p.id}>{p.materialName}{p.gsm ? ` · ${p.gsm} GSM` : ""}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input type="text" className={inputCls} value={form.paperName} onChange={(e) => set("paperName", e.target.value)} placeholder="e.g. Virgin SBS Board" />
+                )}
+              </Field>
+              <Field label="GSM">
+                <input type="number" className={inputCls} value={form.gsm} onChange={(e) => num("gsm", e.target.value)} min="1" />
+              </Field>
+              <Field label="Rate (₹/kg)" hint={form.paperId ? "Auto-filled from RM; override if needed" : undefined}>
+                <input type="number" className={inputCls} value={form.paperRate} onChange={(e) => num("paperRate", e.target.value)} min="0" step="0.5" />
+              </Field>
+              <Field label="Order Qty">
+                <select className={inputCls} value={form.qty} onChange={(e) => set("qty", parseInt(e.target.value))}>
+                  {QTY_OPTIONS.map((q) => <option key={q} value={q}>{q.toLocaleString()}</option>)}
                 </select>
-              ) : (
-                <input type="text" className={inputCls} value={form.paperName} onChange={(e) => set("paperName", e.target.value)} placeholder="e.g. Virgin SBS Board" />
-              )}
-            </Field>
-            <Field label="GSM">
-              <input type="number" className={inputCls} value={form.gsm} onChange={(e) => num("gsm", e.target.value)} min="1" />
-            </Field>
-            <Field label="Rate (₹/kg)" hint={form.paperId ? "Auto-filled from RM; override if needed" : undefined}>
-              <input type="number" className={inputCls} value={form.paperRate} onChange={(e) => num("paperRate", e.target.value)} min="0" step="0.5" />
-            </Field>
-            <Field label="Order Qty">
-              <select className={inputCls} value={form.qty} onChange={(e) => set("qty", parseInt(e.target.value))}>
-                {QTY_OPTIONS.map((q) => <option key={q} value={q}>{q.toLocaleString()}</option>)}
-              </select>
-            </Field>
-          </div>
-        </Card>
+              </Field>
+            </div>
+          </Card>
+        )}
+
+        {corrugated && (
+          <>
+            <Card title="Board Construction">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Ply">
+                  <div className="flex gap-2">
+                    {PLY_OPTIONS.map((p) => (
+                      <PillBtn key={p} active={form.ply === p} onClick={() => setPly(p)}>{p}-ply</PillBtn>
+                    ))}
+                  </div>
+                </Field>
+                <Field label="Flute profile">
+                  <select className={inputCls} value={form.flute} onChange={(e) => set("flute", e.target.value)}>
+                    {Object.entries(FLUTE_PROFILES).map(([k, v]) => (
+                      <option key={k} value={k}>{v.label} · take-up {v.takeUp}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              <p className="text-xs text-gray-400 mt-3">
+                Flute layers use the take-up factor above when computing weight. Liners don't.
+              </p>
+            </Card>
+
+            <Card title="Layer BOM">
+              <div className="space-y-2">
+                {form.layers.map((l, i) => (
+                  <div key={i} className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-3 text-xs text-gray-500 dark:text-gray-400 pb-2">
+                      {l.position}
+                      <span className={`block text-[10px] uppercase tracking-wide ${l.kind === "flute" ? "text-amber-600" : "text-gray-400"}`}>
+                        {l.kind}
+                      </span>
+                    </div>
+                    <div className="col-span-5">
+                      {papers.length > 0 ? (
+                        <select className={inputCls} value={l.paperId} onChange={(e) => selectLayerPaper(i, e.target.value)}>
+                          <option value="">— Select paper —</option>
+                          {papers.map((p) => (
+                            <option key={p.id} value={p.id}>{p.materialName}{p.gsm ? ` · ${p.gsm} GSM` : ""}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input type="text" className={inputCls} value={l.paperName} onChange={(e) => setLayer(i, { paperName: e.target.value })} placeholder="Kraft / Fluting" />
+                      )}
+                    </div>
+                    <div className="col-span-2">
+                      <input type="number" className={inputCls} value={l.gsm} onChange={(e) => setLayer(i, { gsm: parseFloat(e.target.value) || 0 })} placeholder="GSM" min="1" />
+                    </div>
+                    <div className="col-span-2">
+                      <input type="number" className={inputCls} value={l.paperRate} onChange={(e) => setLayer(i, { paperRate: parseFloat(e.target.value) || 0 })} placeholder="₹/kg" min="0" step="0.5" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card title="Conversion">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Corrugation (₹/kg)" hint="Board-making rate">
+                  <input type="number" className={inputCls} value={form.corrugationRate} onChange={(e) => num("corrugationRate", e.target.value)} min="0" step="0.5" />
+                </Field>
+                <Field label="Stitching/glue (₹/carton)" hint="Finishing per piece">
+                  <input type="number" className={inputCls} value={form.stitchingPerCarton} onChange={(e) => num("stitchingPerCarton", e.target.value)} min="0" step="0.1" />
+                </Field>
+                <Field label="Order Qty">
+                  <select className={inputCls} value={form.qty} onChange={(e) => set("qty", parseInt(e.target.value))}>
+                    {QTY_OPTIONS.map((q) => <option key={q} value={q}>{q.toLocaleString()}</option>)}
+                  </select>
+                </Field>
+              </div>
+            </Card>
+          </>
+        )}
 
         <Card title="Printing">
           <Toggle value={form.printing} onChange={() => set("printing", !form.printing)} label="Printing Required" />
@@ -232,8 +335,10 @@ export default function AdminBoxCalculator({ papers = [] }) {
               <Row label="Weight / box" value={`${result.wkg.toFixed(5)} kg`} />
 
               <SectionHeader label="Per-box costs" />
-              <Row label="Paper" value={`₹${result.paperCost.toFixed(4)}`} />
-              <Row label="Die-cutting" value={`₹${result.dieCutCost.toFixed(4)}`} sub="₹350 / 1000" />
+              <Row label="Paper" value={`₹${result.paperCost.toFixed(4)}`} sub={corrugated ? `${form.ply}-ply, ${form.flute}-flute` : undefined} />
+              {!corrugated && <Row label="Die-cutting" value={`₹${result.dieCutCost.toFixed(4)}`} sub="₹350 / 1000" />}
+              {result.corrugationCost > 0 && <Row label={`Corrugation (₹${form.corrugationRate}/kg)`} value={`₹${result.corrugationCost.toFixed(4)}`} />}
+              {result.stitchingCost > 0 && <Row label="Stitching / glue" value={`₹${result.stitchingCost.toFixed(4)}`} />}
               {result.pastingCost > 0 && <Row label="Pasting (₹15/kg)" value={`₹${result.pastingCost.toFixed(4)}`} />}
               {result.printCost > 0 && <Row label={`Printing (${form.coverage}% coverage)`} value={`₹${result.printCost.toFixed(4)}`} />}
               {result.plateCostTotal > 0 && (
