@@ -9,6 +9,8 @@ import {
   DW_SPEED_FACTOR, computeConversionCostPerCup, effectiveCpm,
   MACHINE_COUNT_SW_DEFAULT, MACHINE_COUNT_DW_DEFAULT,
   PACKING_DEFAULT_MATERIALS, PACKING_DEFAULT_LABOUR_MONTHLY, computePackingCostPerCup,
+  GLUE_GRAMS_PER_CUP_BY_SIZE, GLUE_DEFAULT_RATE, GLUE_DW_FACTOR, computeGlueCostPerCup,
+  ORDER_RUN_SETUP_DEFAULT,
   getOuterFanCount, getSidewallDims,
 } from "@/lib/calc/cup-calculator";
 
@@ -1380,7 +1382,10 @@ export default function CupCalculator({ scope = "default" }) {
             </div>
           </div>
           {(() => {
-            const oneTime = (result.swPlate || 0) + (result.swDie || 0) + (result.ofPlate || 0) + (result.ofDie || 0);
+            const plateDie = (result.swPlate || 0) + (result.swDie || 0) + (result.ofPlate || 0) + (result.ofDie || 0);
+            // Production-run setup (changeover, QC, startup wastage) is
+            // baked into the rate so the ladder moves even on plain orders.
+            const oneTime = plateDie + ORDER_RUN_SETUP_DEFAULT;
             const cp = parseInt(casePack) || 1;
             const mp = parseFloat(margin) || 0;
             const tiers = [25000, 50000, 100000, 250000, 500000];
@@ -1422,11 +1427,9 @@ export default function CupCalculator({ scope = "default" }) {
                     })}
                   </tbody>
                 </table>
-                {oneTime > 0 && (
-                  <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 6 }}>
-                    One-time plate/die cost (₹{oneTime.toLocaleString()}) amortised over each tier.
-                  </p>
-                )}
+                <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 6 }}>
+                  Production-run setup (₹{ORDER_RUN_SETUP_DEFAULT.toLocaleString()}){plateDie > 0 ? ` + plate/die (₹${plateDie.toLocaleString()})` : ""} amortised over each tier — rate drops at higher volumes.
+                </p>
               </div>
             );
           })()}
