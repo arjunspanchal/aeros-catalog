@@ -237,8 +237,55 @@ export default function ClientsAdmin({ initialClients, initialBrandManagers = []
         {err && <p className="text-xs text-red-500">{err}</p>}
       </form>
 
-      <div className="lg:col-span-3 bg-white border border-gray-200 rounded-xl overflow-hidden dark:bg-gray-900 dark:border-gray-800">
-        <table className="w-full text-sm">
+      {/* Mobile: stacked cards so Edit/Delete are always visible.
+          Desktop (sm+): traditional table with actions in the last column. */}
+      <div className="lg:col-span-3 bg-white border border-gray-200 rounded-xl dark:bg-gray-900 dark:border-gray-800 overflow-hidden">
+        {/* --- Mobile cards --- */}
+        <ul className="sm:hidden divide-y divide-gray-100 dark:divide-gray-800">
+          {clients.map((c) => (
+            <li key={c.id} className={`px-4 py-3 ${editingId === c.id ? "bg-blue-50 dark:bg-blue-900/20" : ""}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">{c.name}</div>
+                  {c.code && <div className="text-xs text-gray-500 dark:text-gray-400">{c.code}</div>}
+                  {(c.brandManager || c.brandManagerEmail) && (
+                    <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                      <span className="text-gray-400 dark:text-gray-500">BM: </span>
+                      {c.brandManager || c.brandManagerEmail}
+                    </div>
+                  )}
+                  {(c.contactPerson || c.contactEmail) && (
+                    <div className="text-xs text-gray-600 dark:text-gray-300">
+                      <span className="text-gray-400 dark:text-gray-500">Contact: </span>
+                      {c.contactPerson || c.contactEmail}
+                    </div>
+                  )}
+                </div>
+                <div className="shrink-0 flex flex-col gap-2 items-end">
+                  <button
+                    onClick={() => startEdit(c)}
+                    className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => requestDelete(c)}
+                    disabled={busy}
+                    className="text-xs text-red-600 hover:underline dark:text-red-400 disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </li>
+          ))}
+          {clients.length === 0 && (
+            <li className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No clients yet.</li>
+          )}
+        </ul>
+
+        {/* --- Desktop table --- */}
+        <table className="hidden sm:table w-full text-sm">
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase dark:bg-gray-800/50 dark:text-gray-400">
             <tr>
               <th className="text-left px-4 py-2 font-medium">Name</th>
