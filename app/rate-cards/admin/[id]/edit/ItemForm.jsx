@@ -2,39 +2,15 @@
 // Structured editor for a rate-card line item.
 //
 // Flow:
-//   1. Admin picks an SKU from the Aeros Products Master (catalog base). Pick
-//      auto-fills product name / material / carton / case pack / cup spec.
-//   2. Admin overlays brand + print (plain/printed) per item.
-//   3. Pricing mode chooses between:
-//        • cup_formula — live rate from computeCupRateCurve() against
-//          current paper rates (prices auto-update on RM change).
-//        • fixed       — admin types per-tier rates manually.
+//   1. Admin picks an SKU from the Aeros Products Master. Pick auto-fills
+//      every display spec from the master row (product name, material,
+//      dimension, carton, case pack).
+//   2. Admin overlays per-card details (brand, plain/printed, MOQ, notes).
+//   3. Admin types per-tier rates. Pricing is always fixed — rate cards are
+//      a curated price sheet, not a live calculator.
 
 import { useEffect, useMemo, useState } from "react";
 import { Field, inputCls } from "@/app/calculator/_components/ui";
-import { SIZE_OPTS, CUP_QTY_TIERS } from "@/lib/calc/cup-calculator";
-
-const WALL_TYPES = ["Single Wall", "Double Wall", "Ripple"];
-const COATING_OPTS = ["None", "PE", "2PE", "PLA", "Aqueous"];
-const COVERAGE_OPTS = [10, 30, 100];
-
-const EMPTY_CUP_SPEC = {
-  wallType: "Double Wall",
-  size: "8oz",
-  casePack: "",
-  inner: { gsm: "", coating: "PE", print: false, colours: "", coverage: 30 },
-  outer: { gsm: "", coating: "PE", print: false, colours: "", coverage: 30 },
-};
-
-function mergeCupSpec(spec) {
-  if (!spec) return { ...EMPTY_CUP_SPEC };
-  return {
-    ...EMPTY_CUP_SPEC,
-    ...spec,
-    inner: { ...EMPTY_CUP_SPEC.inner, ...(spec.inner || {}) },
-    outer: { ...EMPTY_CUP_SPEC.outer, ...(spec.outer || {}) },
-  };
-}
 
 function normaliseTiers(raw) {
   // Accept either `[30000, 50000]` or `[{qty, rate}, ...]`.
@@ -42,14 +18,31 @@ function normaliseTiers(raw) {
   return raw.map((t) => (typeof t === "number" ? { qty: t, rate: "" } : { qty: Number(t.qty) || 0, rate: t.rate ?? "" }));
 }
 
-// Build a stable display string from a Paper RM row so the same pick round-
-// trips between the select's value and the stored `material` text.
+// Stable display string for a Paper RM row so the same pick round-trips
+// between the select's value and the stored `material` text.
 function materialLabel(m) {
   if (!m) return "";
   const parts = [m.materialName];
   if (m.gsm) parts.push(`${m.gsm} gsm`);
   if (m.millCoating) parts.push(m.millCoating);
   return parts.filter(Boolean).join(" · ");
+}
+
+// Heuristic: match a master product's GSM + Material to a Paper RM row so we
+// can auto-fill the Material picker on product pick. Returns the RM display
+// label or "" if no confident match.
+function guessMaterialFromProduct(p, materials) {
+  if (!p || !Array.isArray(materials) || materials.length === 0) return "";
+  const targetGsm = typeof p.gsm === "number" ? p.gsm : null;
+  const targetMat = (p.material || "").toLowerCase().trim();
+  if (!targetGsm && !targetMat) return "";
+  // Prefer exact GSM + name substring match.
+  const hit = materials.find((m) => {
+    const gsmOk = targetGsm ? m.gsm === targetGsm : true;
+    const nameOk = targetMat ? (m.materialName || "").toLowerCase().includes(targetMat) || targetMat.includes((m.materialName || "").toLowerCase()) : true;
+    return gsmOk && nameOk;
+  });
+  return hit ? materialLabel(hit) : "";
 }
 
 export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
@@ -71,10 +64,16 @@ export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
     cartonSize: initial.cartonSize || "",
     casePack: initial.casePack || "",
     moq: initial.moq || "",
-    pricingMode: initial.pricingMode || "fixed",
-    cupSpec: mergeCupSpec(initial.cupSpec),
     notes: initial.notes || "",
   });
+  const [tiers, setTiers] = useState(() => {
+    const base = initial.fixedRates?.length
+      ? initial.fixedRates
+      : normaliseTiers(initial.tierQtys);
+    return base.length ? base : [{ qty: 30000, rate: "" }];
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
     fetch("/api/rate-cards/products")
@@ -87,34 +86,6 @@ export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
       .catch(() => setMaterials([]));
   }, []);
 
-  // Filter + match the material list against the typed query. If the current
-  // `material` string doesn't match any RM row (e.g. "PET" or a legacy value),
-  // we show a "Free text" option so the admin isn't forced to pick one.
-  const filteredMaterials = useMemo(() => {
-    const list = materials || [];
-    const q = materialQuery.trim().toLowerCase();
-    if (!q) return list.slice(0, 200);
-    return list
-      .filter((m) => `${m.materialName} ${m.gsm ?? ""} ${m.type ?? ""} ${m.supplier ?? ""} ${m.millCoating ?? ""}`.toLowerCase().includes(q))
-      .slice(0, 200);
-  }, [materials, materialQuery]);
-
-  // Does the current stored `material` match any RM row label?
-  const materialMatchesRM = useMemo(() => {
-    if (!f?.material) return true; // empty counts as "will pick"
-    return (materials || []).some((m) => materialLabel(m) === f.material);
-  }, [materials, f?.material]);
-
-  function onPickMaterial(value) {
-    if (value === "__free__") {
-      setMaterialFreeText(true);
-      return;
-    }
-    setMaterialFreeText(false);
-    const m = (materials || []).find((x) => materialLabel(x) === value);
-    setF((d) => ({ ...d, material: m ? materialLabel(m) : value }));
-  }
-
   const filteredProducts = useMemo(() => {
     const list = products || [];
     const q = productQuery.trim().toLowerCase();
@@ -124,54 +95,56 @@ export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
       .slice(0, 200);
   }, [products, productQuery]);
 
+  const filteredMaterials = useMemo(() => {
+    const list = materials || [];
+    const q = materialQuery.trim().toLowerCase();
+    if (!q) return list.slice(0, 200);
+    return list
+      .filter((m) => `${m.materialName} ${m.gsm ?? ""} ${m.type ?? ""} ${m.supplier ?? ""} ${m.millCoating ?? ""}`.toLowerCase().includes(q))
+      .slice(0, 200);
+  }, [materials, materialQuery]);
+
+  const materialMatchesRM = useMemo(() => {
+    if (!f?.material) return true;
+    return (materials || []).some((m) => materialLabel(m) === f.material);
+  }, [materials, f?.material]);
+
+  function onPickMaterial(value) {
+    if (value === "__free__") { setMaterialFreeText(true); return; }
+    setMaterialFreeText(false);
+    const m = (materials || []).find((x) => materialLabel(x) === value);
+    setF((d) => ({ ...d, material: m ? materialLabel(m) : value }));
+  }
+
+  // On product pick: ALWAYS overwrite the spec fields from the master so admin
+  // sees a clean SKU snapshot. They can still edit any field after if a card-
+  // specific tweak is needed.
   function onPickProduct(id) {
     const p = (products || []).find((x) => x.id === id);
     if (!p) {
       setF((d) => ({ ...d, productId: "", productSku: "" }));
       return;
     }
-    setF((d) => {
-      // Auto-fill display fields and cup spec from the master, but only when
-      // those fields are still empty — don't clobber an admin-entered override.
-      const wallType = ["Single Wall", "Double Wall", "Ripple"].includes(p.wallType) ? p.wallType : d.cupSpec.wallType;
-      const size = SIZE_OPTS.includes(p.sizeVolume) ? p.sizeVolume : d.cupSpec.size;
-      return {
-        ...d,
-        productId: p.id,
-        productSku: p.sku || "",
-        productName: d.productName || p.productName || "",
-        material: d.material || p.material || "",
-        cartonSize: d.cartonSize || p.cartonDimensions || "",
-        casePack: d.casePack || (p.unitsPerCase != null ? String(p.unitsPerCase) : ""),
-        cupSpec: {
-          ...d.cupSpec,
-          wallType,
-          size,
-          inner: {
-            ...d.cupSpec.inner,
-            gsm: d.cupSpec.inner.gsm || (p.gsm != null ? String(p.gsm) : ""),
-            coating: d.cupSpec.inner.coating || p.coating || "None",
-          },
-        },
-      };
-    });
+    const guessedMaterial = guessMaterialFromProduct(p, materials || []);
+    // Build a dimension string from the master's TD/BD/H if the size field
+    // doesn't already include "x"-style dimensions.
+    const dimensionFromMaster = p.cartonDimensions || p.sizeVolume || "";
+    setF((d) => ({
+      ...d,
+      productId: p.id,
+      productSku: p.sku || "",
+      productName: p.productName || "",
+      // RM-resolved material when we can guess; raw master.material as fallback.
+      material: guessedMaterial || p.material || "",
+      dimension: p.sizeVolume || d.dimension,
+      cartonSize: p.cartonDimensions || "",
+      casePack: p.unitsPerCase != null ? String(p.unitsPerCase) : "",
+    }));
+    // If guessed material doesn't match any RM row, surface the free-text mode.
+    if (!guessedMaterial && p.material) setMaterialFreeText(true);
   }
-  const [tiers, setTiers] = useState(() => {
-    const base = initial.pricingMode === "fixed"
-      ? (initial.fixedRates?.length ? initial.fixedRates : normaliseTiers(initial.tierQtys))
-      : normaliseTiers(initial.tierQtys?.length ? initial.tierQtys : CUP_QTY_TIERS);
-    return base.length ? base : [{ qty: 30000, rate: "" }];
-  });
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState("");
 
   const set = (k, v) => setF((d) => ({ ...d, [k]: v }));
-  const setCup = (path, v) => setF((d) => {
-    const next = { ...d, cupSpec: { ...d.cupSpec, inner: { ...d.cupSpec.inner }, outer: { ...d.cupSpec.outer } } };
-    if (path[0] === "inner" || path[0] === "outer") next.cupSpec[path[0]][path[1]] = v;
-    else next.cupSpec[path[0]] = v;
-    return next;
-  });
 
   function setTierQty(idx, qty) {
     setTiers((t) => t.map((row, i) => i === idx ? { ...row, qty: Number(qty) || 0 } : row));
@@ -204,18 +177,15 @@ export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
       cartonSize: f.cartonSize,
       casePack: f.casePack ? Number(f.casePack) : null,
       moq: f.moq,
-      pricingMode: f.pricingMode,
+      // Always fixed — cup_formula was retired; rate cards are curated price
+      // sheets. Old rows on the table may still carry "cup_formula" but new
+      // writes always set "fixed".
+      pricingMode: "fixed",
+      cupSpec: null,
       tierQtys: validTiers.map((t) => Number(t.qty)),
+      fixedRates: validTiers.map((t) => ({ qty: Number(t.qty), rate: Number(t.rate) || 0 })),
       notes: f.notes,
     };
-
-    if (f.pricingMode === "cup_formula") {
-      payload.cupSpec = f.cupSpec;
-      payload.fixedRates = [];
-    } else {
-      payload.cupSpec = null;
-      payload.fixedRates = validTiers.map((t) => ({ qty: Number(t.qty), rate: Number(t.rate) || 0 }));
-    }
 
     setSaving(true);
     const ok = await onSubmit(payload);
@@ -261,7 +231,7 @@ export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
         )}
         {f.productSku && (
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            SKU: <strong>{f.productSku}</strong> — master spec auto-filled below. Edit only to override for this card.
+            SKU: <strong>{f.productSku}</strong> — auto-filled from master. Edit any field below to override for this card.
           </p>
         )}
       </div>
@@ -288,9 +258,9 @@ export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
         </div>
       </div>
 
-      {/* 3 — Display fields (pre-filled from master, editable) */}
+      {/* 3 — Spec fields (auto-filled from master, editable) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Field label="Product name *" hint="Pre-filled from master; edit to customise display">
+        <Field label="Product name *" hint="Auto-filled from master; edit to customise display">
           <input required className={inputCls} value={f.productName} onChange={(e) => set("productName", e.target.value)} />
         </Field>
         <Field label="Section" hint="Group header, e.g. Paper Hot Cups — Printed">
@@ -364,65 +334,11 @@ export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
         </Field>
       </div>
 
-      {/* Pricing mode */}
-      <div>
-        <div className="text-xs font-medium text-gray-500 mb-2 dark:text-gray-400">Pricing mode</div>
-        <div className="flex gap-2">
-          <ModeBtn active={f.pricingMode === "fixed"} onClick={() => set("pricingMode", "fixed")}>
-            Fixed rates
-            <span className="block text-xs font-normal opacity-80">Admin-entered per tier. Used for PET, lids, anything without a paper RM index.</span>
-          </ModeBtn>
-          <ModeBtn active={f.pricingMode === "cup_formula"} onClick={() => set("pricingMode", "cup_formula")}>
-            Cup formula (live)
-            <span className="block text-xs font-normal opacity-80">Paper cup spec → rate curve. Recomputes when paper rates change.</span>
-          </ModeBtn>
-        </div>
-      </div>
-
-      {/* Cup spec */}
-      {f.pricingMode === "cup_formula" && (
-        <div className="border border-gray-200 rounded-lg p-3 dark:border-gray-700">
-          <div className="text-xs font-medium text-gray-500 mb-2 dark:text-gray-400">Cup specification</div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <Field label="Wall type">
-              <select className={inputCls} value={f.cupSpec.wallType} onChange={(e) => setCup(["wallType"], e.target.value)}>
-                {WALL_TYPES.map((w) => <option key={w} value={w}>{w}</option>)}
-              </select>
-            </Field>
-            <Field label="Size">
-              <select className={inputCls} value={f.cupSpec.size} onChange={(e) => setCup(["size"], e.target.value)}>
-                {SIZE_OPTS.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </Field>
-            <Field label="Case pack override" hint="Blank = use default for size/wall">
-              <input type="number" className={inputCls} value={f.cupSpec.casePack} onChange={(e) => setCup(["casePack"], e.target.value)} />
-            </Field>
-          </div>
-
-          <PaperBlock
-            label="Inner (sidewall)"
-            paper={f.cupSpec.inner}
-            onChange={(k, v) => setCup(["inner", k], v)}
-          />
-          {(f.cupSpec.wallType === "Double Wall" || f.cupSpec.wallType === "Ripple") && (
-            <PaperBlock
-              label="Outer fan"
-              paper={f.cupSpec.outer}
-              onChange={(k, v) => setCup(["outer", k], v)}
-            />
-          )}
-
-          <p className="text-xs text-gray-400 mt-2 dark:text-gray-500">
-            Paper rates and conversion costs come from <code>lib/calc/cup-calculator.js</code> (<code>CUSTOMER_DEFAULTS</code>). Update those to shift all rate cards at once.
-          </p>
-        </div>
-      )}
-
-      {/* Tiers */}
+      {/* Tier qtys + rates */}
       <div className="border border-gray-200 rounded-lg p-3 dark:border-gray-700">
         <div className="flex items-center justify-between mb-2">
           <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
-            {f.pricingMode === "fixed" ? "Quantity tiers + rates" : "Quantity tiers (rates computed live)"}
+            Quantity tiers + rates
           </div>
           <button type="button" onClick={addTier} className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400">+ Add tier</button>
         </div>
@@ -431,13 +347,9 @@ export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
             <div key={i} className="flex items-center gap-2">
               <input type="number" className={`${inputCls} w-40`} placeholder="Qty (e.g. 30000)"
                 value={t.qty || ""} onChange={(e) => setTierQty(i, e.target.value)} />
-              {f.pricingMode === "fixed" && (
-                <>
-                  <span className="text-xs text-gray-400 dark:text-gray-500">@</span>
-                  <input type="number" step="0.01" className={`${inputCls} w-32`} placeholder="Rate (₹)"
-                    value={t.rate ?? ""} onChange={(e) => setTierRate(i, e.target.value)} />
-                </>
-              )}
+              <span className="text-xs text-gray-400 dark:text-gray-500">@</span>
+              <input type="number" step="0.01" className={`${inputCls} w-32`} placeholder="Rate (₹)"
+                value={t.rate ?? ""} onChange={(e) => setTierRate(i, e.target.value)} />
               <button type="button" onClick={() => removeTier(i)} className="text-xs text-red-500 hover:text-red-600 px-2">✕</button>
             </div>
           ))}
@@ -460,50 +372,5 @@ export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
         {err && <p className="text-xs text-red-500">{err}</p>}
       </div>
     </form>
-  );
-}
-
-function ModeBtn({ active, onClick, children }) {
-  return (
-    <button type="button" onClick={onClick}
-      className={`flex-1 text-left text-sm font-medium px-3 py-2 rounded-lg border transition-colors ${
-        active
-          ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-400"
-          : "border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-      }`}>
-      {children}
-    </button>
-  );
-}
-
-function PaperBlock({ label, paper, onChange }) {
-  return (
-    <div className="mt-3">
-      <div className="text-xs text-gray-500 mb-2 dark:text-gray-400">{label}</div>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-        <Field label="GSM">
-          <input type="number" className={inputCls} value={paper.gsm || ""} onChange={(e) => onChange("gsm", e.target.value)} placeholder="280" />
-        </Field>
-        <Field label="Coating">
-          <select className={inputCls} value={paper.coating || "None"} onChange={(e) => onChange("coating", e.target.value)}>
-            {["None", "PE", "2PE", "PLA", "Aqueous"].map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </Field>
-        <Field label="Printed">
-          <select className={inputCls} value={paper.print ? "yes" : "no"} onChange={(e) => onChange("print", e.target.value === "yes")}>
-            <option value="no">Plain</option>
-            <option value="yes">Printed (Flexo)</option>
-          </select>
-        </Field>
-        <Field label="Colours">
-          <input type="number" disabled={!paper.print} className={inputCls} value={paper.colours || ""} onChange={(e) => onChange("colours", e.target.value)} />
-        </Field>
-        <Field label="Coverage %">
-          <select disabled={!paper.print} className={inputCls} value={paper.coverage || 30} onChange={(e) => onChange("coverage", Number(e.target.value))}>
-            {[10, 30, 100].map((c) => <option key={c} value={c}>{c}%</option>)}
-          </select>
-        </Field>
-      </div>
-    </div>
   );
 }
