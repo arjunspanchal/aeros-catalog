@@ -507,6 +507,8 @@ export default function CupCalculator({ scope = "default" }) {
   const [ofRate1, setOfRate1] = useState(""); const [ofRateN, setOfRateN] = useState("");
   const [result, setResult] = useState(null);
   const [presetLocked, setPresetLocked] = useState(false);
+  const [savingQuote, setSavingQuote] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null);
 
   const [savedOrders, setSavedOrders] = useState([]);
   const [loadedOrderKey, setLoadedOrderKey] = useState("");
@@ -778,6 +780,51 @@ export default function CupCalculator({ scope = "default" }) {
       conv, pack, glue, otherCost,
     });
     setResult(r);
+  }
+
+  async function saveQuote() {
+    if (!result) return;
+    setSavingQuote(true);
+    setSaveStatus(null);
+    const plateDie = (result.swPlate || 0) + (result.swDie || 0) + (result.ofPlate || 0) + (result.ofDie || 0);
+    const cpNum = parseInt(casePack) || 0;
+    const payload = {
+      quoteRef: quoteRef || `${cupVariant || "Cup"} ${size || ""}`.trim(),
+      wallType: cupType,
+      size,
+      sku,
+      innerGsm: swGSM ? Number(swGSM) : undefined,
+      outerGsm: isDW && ofGSM ? Number(ofGSM) : undefined,
+      innerCoating: swCoating || undefined,
+      printing: swPrint !== "No printing" || ofPrint !== "No printing",
+      colours: swColors ? Number(swColors) : (ofColors ? Number(ofColors) : undefined),
+      casePack: cpNum || undefined,
+      orderQty: qty ? parseInt(qty) : undefined,
+      marginPct: result.mp,
+      mfgCost: Math.round(result.mfg * 10000) / 10000,
+      sellingPrice: Math.round(result.sp * 100) / 100,
+      costPerCase: cpNum ? Math.round(result.sp * cpNum * 100) / 100 : undefined,
+      orderTotal: qty ? Math.round(result.sp * parseInt(qty) * 100) / 100 : undefined,
+      cupWeightG: Math.round(result.cupWeightG * 100) / 100,
+      oneTimeTotal: plateDie || undefined,
+    };
+    try {
+      const res = await fetch("/api/calc/cup-quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setSaveStatus({ ok: true, msg: `✓ Saved as "${payload.quoteRef}"` });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setSaveStatus({ ok: false, msg: err.error || "Save failed" });
+      }
+    } catch (e) {
+      setSaveStatus({ ok: false, msg: e.message || "Save failed" });
+    } finally {
+      setSavingQuote(false);
+    }
   }
 
   const f4 = (n) => `₹${(n || 0).toFixed(4)}`;
@@ -1471,11 +1518,11 @@ export default function CupCalculator({ scope = "default" }) {
               {result.ofDie > 0 && <div>Outer fan Offset dies: ₹{result.ofDie.toLocaleString()}</div>}
             </div>
           )}
-          <div style={{ padding: "1rem 1.25rem", borderTop: "0.5px solid var(--border-tertiary)", display: "flex", gap: 8 }}>
+          <div style={{ padding: "1rem 1.25rem", borderTop: "0.5px solid var(--border-tertiary)", display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button
               type="button"
               className="ghost-btn"
-              style={{ flex: 1, padding: "9px 12px", fontSize: 13 }}
+              style={{ flex: "1 1 120px", padding: "9px 12px", fontSize: 13 }}
               onClick={() => downloadAdminCsv({ cupVariant, size, sku, qty, casePack, td, bd, h, boxL, boxW, boxH, swGSM, ofGSM, isDW, result })}
             >
               Download Excel (.csv)
@@ -1483,12 +1530,25 @@ export default function CupCalculator({ scope = "default" }) {
             <button
               type="button"
               className="ghost-btn"
-              style={{ flex: 1, padding: "9px 12px", fontSize: 13 }}
+              style={{ flex: "1 1 120px", padding: "9px 12px", fontSize: 13 }}
               onClick={() => openAdminPrintView({ cupVariant, size, sku, qty, casePack, td, bd, h, boxL, boxW, boxH, swGSM, ofGSM, isDW, result, quoteRef })}
             >
               Download PDF
             </button>
+            <button
+              type="button"
+              disabled={savingQuote}
+              style={{ flex: "1 1 120px", padding: "9px 12px", fontSize: 13, background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", fontWeight: 500 }}
+              onClick={saveQuote}
+            >
+              {savingQuote ? "Saving…" : "Save quote"}
+            </button>
           </div>
+          {saveStatus && (
+            <div style={{ padding: "0 1.25rem 1rem", fontSize: 12, color: saveStatus.ok ? "var(--text-success)" : "#dc2626" }}>
+              {saveStatus.msg}
+            </div>
+          )}
         </div>
       )}
       </div>
