@@ -722,6 +722,13 @@ export default function CupCalculator({ scope = "default" }) {
     });
   }, [cupType, size, casePack, packPoly, packCarton, packTape, packLabel, packLabour, convHours, cpm8, cpm12, cpm16, cpm20, machineCountSw, machineCountDw]);
 
+  // Glue: always computed from size × wall type — no admin UI input, just
+  // baked into the mfg cost so the rate stays honest.
+  const autoGlue = useMemo(() => {
+    if (!cupType || !size) return null;
+    return computeGlueCostPerCup({ size, wallType: cupType });
+  }, [cupType, size]);
+
   const [convOverride, setConvOverride] = useState(false);
   const [packOverride, setPackOverride] = useState(false);
   useEffect(() => {
@@ -732,6 +739,10 @@ export default function CupCalculator({ scope = "default" }) {
     if (packOverride || !autoPack) return;
     setPack(autoPack.total.toFixed(4));
   }, [autoPack, packOverride]);
+  useEffect(() => {
+    if (autoGlue == null) return;
+    setGlue(autoGlue.toFixed(4));
+  }, [autoGlue]);
 
   // Papers filtered to the sidewall GSM / bottom 230 GSM. Rates may be blank
   // in the RM Master — we still surface the brand but only autofill rate when
@@ -1157,11 +1168,7 @@ export default function CupCalculator({ scope = "default" }) {
           <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.7 }}>
             Conversion: <strong>₹{autoConv != null ? autoConv.toFixed(4) : "—"}/cup</strong>
             {" · "}Packing: <strong>₹{autoPack != null ? autoPack.total.toFixed(4) : "—"}/cup</strong>
-            {autoPack && (
-              <span style={{ color: "var(--text-tertiary)" }}>
-                {" "}(mat ₹{autoPack.materialPerCup.toFixed(4)} + lab ₹{autoPack.labourPerCup.toFixed(4)})
-              </span>
-            )}
+            {" · "}Glue: <strong>₹{autoGlue != null ? autoGlue.toFixed(4) : "—"}/cup</strong>
             <br />
             <span style={{ color: "var(--text-tertiary)" }}>
               {(convOverride || packOverride) ? "Manual override in effect — clear fields below to re-auto-fill." : "Auto-filled from factory defaults. Tune only if needed."}
@@ -1342,9 +1349,6 @@ export default function CupCalculator({ scope = "default" }) {
               placeholder="auto"
               step="0.0001"
             />
-          </Field>
-          <Field label="Glue cost (₹/cup)">
-            <NumInput value={glue} onChange={setGlue} placeholder="e.g. 0.05" step="0.01" />
           </Field>
           <Field label="Other cost (₹/cup)">
             <NumInput value={otherCost} onChange={setOtherCost} placeholder="e.g. 0.00" step="0.01" />
