@@ -677,6 +677,58 @@ export default function CupCalculator({ scope = "default" }) {
   const ofDims = size && OF_DIMS[size] ? OF_DIMS[size] : null;
   const ofFans = getOuterFanCount(size);
 
+  // Auto-fill conversion + packing from fleet/material settings. Admin can
+  // still type a manual override in the conv/pack fields — the effect only
+  // pushes when override flag is false.
+  const autoConv = useMemo(() => {
+    if (!cupType || !size) return null;
+    return computeConversionCostPerCup({
+      size, wallType: cupType,
+      components: {
+        salary: parseFloat(convSalary) || 0,
+        electricity: parseFloat(convElec) || 0,
+        rent: parseFloat(convRent) || 0,
+        maintenance: parseFloat(convMaint) || 0,
+        qc: parseFloat(convQc) || 0,
+      },
+      monthlyHours: parseFloat(convHours) || 0,
+      cpmBySize: { "8oz": parseFloat(cpm8) || 0, "12oz": parseFloat(cpm12) || 0, "16oz": parseFloat(cpm16) || 0, "20oz": parseFloat(cpm20) || 0 },
+      machineCountSw: parseFloat(machineCountSw) || 0,
+      machineCountDw: parseFloat(machineCountDw) || 0,
+    });
+  }, [cupType, size, convSalary, convElec, convRent, convMaint, convQc, convHours, cpm8, cpm12, cpm16, cpm20, machineCountSw, machineCountDw]);
+
+  const autoPack = useMemo(() => {
+    if (!cupType || !size) return null;
+    const cp = parseInt(casePack) || CASE_PACK_DEFAULTS[cupType]?.[size] || 0;
+    if (!cp) return null;
+    return computePackingCostPerCup({
+      size, wallType: cupType, casePack: cp,
+      materials: {
+        poly: parseFloat(packPoly) || 0,
+        carton: parseFloat(packCarton) || 0,
+        tape: parseFloat(packTape) || 0,
+        label: parseFloat(packLabel) || 0,
+      },
+      monthlyLabour: parseFloat(packLabour) || 0,
+      monthlyHours: parseFloat(convHours) || 0,
+      cpmBySize: { "8oz": parseFloat(cpm8) || 0, "12oz": parseFloat(cpm12) || 0, "16oz": parseFloat(cpm16) || 0, "20oz": parseFloat(cpm20) || 0 },
+      machineCountSw: parseFloat(machineCountSw) || 0,
+      machineCountDw: parseFloat(machineCountDw) || 0,
+    });
+  }, [cupType, size, casePack, packPoly, packCarton, packTape, packLabel, packLabour, convHours, cpm8, cpm12, cpm16, cpm20, machineCountSw, machineCountDw]);
+
+  const [convOverride, setConvOverride] = useState(false);
+  const [packOverride, setPackOverride] = useState(false);
+  useEffect(() => {
+    if (convOverride || !autoConv) return;
+    setConv(autoConv.toFixed(4));
+  }, [autoConv, convOverride]);
+  useEffect(() => {
+    if (packOverride || !autoPack) return;
+    setPack(autoPack.total.toFixed(4));
+  }, [autoPack, packOverride]);
+
   // Papers filtered to the sidewall GSM / bottom 230 GSM. Rates may be blank
   // in the RM Master — we still surface the brand but only autofill rate when
   // it's populated, and flag the missing-rate case in the UI.
@@ -1049,9 +1101,28 @@ export default function CupCalculator({ scope = "default" }) {
       <div className="card">
         <div className="card-title">Conversion &amp; packing</div>
 
+        <div className="soft-note" style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+            {cupType && size ? `${cupType} · ${size}` : "Pick wall type and size above"}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.7 }}>
+            Conversion: <strong>₹{autoConv != null ? autoConv.toFixed(4) : "—"}/cup</strong>
+            {" · "}Packing: <strong>₹{autoPack != null ? autoPack.total.toFixed(4) : "—"}/cup</strong>
+            {autoPack && (
+              <span style={{ color: "var(--text-tertiary)" }}>
+                {" "}(mat ₹{autoPack.materialPerCup.toFixed(4)} + lab ₹{autoPack.labourPerCup.toFixed(4)})
+              </span>
+            )}
+            <br />
+            <span style={{ color: "var(--text-tertiary)" }}>
+              {(convOverride || packOverride) ? "Manual override in effect — clear fields below to re-auto-fill." : "Auto-filled from factory defaults. Tune only if needed."}
+            </span>
+          </div>
+        </div>
+
         <div className="soft-note">
           <button className="expander-btn" onClick={() => setShowConvCalc((v) => !v)}>
-            <span style={{ fontSize: 12, fontWeight: 500 }}>Calculate conversion cost</span>
+            <span style={{ fontSize: 12, fontWeight: 500 }}>Advanced: edit factory overheads, fleet &amp; packing materials</span>
             <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
               {showConvCalc ? "▲ hide" : "▼ expand"}
             </span>
@@ -1130,33 +1201,15 @@ export default function CupCalculator({ scope = "default" }) {
                   {" "}8oz ₹{perCupForSize("8oz").toFixed(4)} · 12oz ₹{perCupForSize("12oz").toFixed(4)} · 16oz ₹{perCupForSize("16oz").toFixed(4)} · 20oz ₹{perCupForSize("20oz").toFixed(4)}
                 </div>
                 {total > 0 && size && selectedPerCup != null && (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "0.5px solid var(--border-tertiary)", paddingTop: 8 }}>
-                    <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                      ₹{total.toLocaleString()} / month · {size} @ {selectedCpm} cpm
-                    </span>
-                    <button className="apply-btn" onClick={() => setConv(selectedPerCup.toFixed(4))}>
-                      Apply ₹{selectedPerCup.toFixed(4)}/cup →
-                    </button>
-                  </div>
-                )}
-                {!size && total > 0 && (
-                  <div style={{ fontSize: 12, color: "var(--text-tertiary)", borderTop: "0.5px solid var(--border-tertiary)", paddingTop: 8 }}>
-                    Pick a cup size above to apply the per-cup rate.
+                  <div style={{ fontSize: 11, color: "var(--text-tertiary)", borderTop: "0.5px solid var(--border-tertiary)", paddingTop: 8 }}>
+                    ₹{total.toLocaleString()} / month · {size} @ {selectedCpm} cpm → ₹{selectedPerCup.toFixed(4)}/cup (auto-applied)
                   </div>
                 )}
               </div>
             );
           })()}
-        </div>
 
-        <div className="soft-note">
-          <button className="expander-btn" onClick={() => setShowPackCalc((v) => !v)}>
-            <span style={{ fontSize: 12, fontWeight: 500 }}>Calculate packing cost</span>
-            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-              {showPackCalc ? "▲ hide" : "▼ expand"}
-            </span>
-          </button>
-          {showPackCalc && (() => {
+          {showConvCalc && (() => {
             const materials = {
               poly: parseFloat(packPoly) || 0,
               carton: parseFloat(packCarton) || 0,
@@ -1215,13 +1268,8 @@ export default function CupCalculator({ scope = "default" }) {
                   </div>
                 )}
                 {selected && (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "0.5px solid var(--border-tertiary)", paddingTop: 8 }}>
-                    <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                      Material + labour = ₹{selected.total.toFixed(4)}/cup
-                    </span>
-                    <button className="apply-btn" onClick={() => setPack(selected.total.toFixed(4))}>
-                      Apply ₹{selected.total.toFixed(4)}/cup →
-                    </button>
+                  <div style={{ fontSize: 11, color: "var(--text-tertiary)", borderTop: "0.5px solid var(--border-tertiary)", paddingTop: 8 }}>
+                    Material + labour = ₹{selected.total.toFixed(4)}/cup (auto-applied)
                   </div>
                 )}
               </div>
@@ -1230,11 +1278,21 @@ export default function CupCalculator({ scope = "default" }) {
         </div>
 
         <div className="two-col">
-          <Field label="Conversion cost (₹/cup)">
-            <NumInput value={conv} onChange={setConv} placeholder="e.g. 0.3680" step="0.0001" />
+          <Field label="Conversion cost (₹/cup)" note={convOverride ? "Manual — clear to re-auto" : "Auto from fleet settings"}>
+            <NumInput
+              value={conv}
+              onChange={(v) => { setConv(v); setConvOverride(v !== "" && (!autoConv || v !== autoConv.toFixed(4))); }}
+              placeholder="auto"
+              step="0.0001"
+            />
           </Field>
-          <Field label="Packing cost (₹/cup)">
-            <NumInput value={pack} onChange={setPack} placeholder="e.g. 0.10" step="0.0001" />
+          <Field label="Packing cost (₹/cup)" note={packOverride ? "Manual — clear to re-auto" : "Auto from materials + labour"}>
+            <NumInput
+              value={pack}
+              onChange={(v) => { setPack(v); setPackOverride(v !== "" && (!autoPack || v !== autoPack.total.toFixed(4))); }}
+              placeholder="auto"
+              step="0.0001"
+            />
           </Field>
           <Field label="Glue cost (₹/cup)">
             <NumInput value={glue} onChange={setGlue} placeholder="e.g. 0.05" step="0.01" />
