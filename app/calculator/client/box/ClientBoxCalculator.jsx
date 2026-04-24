@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Card, Field, Toggle, PillBtn, inputCls } from "@/app/calculator/_components/ui";
-import { BOX_TYPES } from "@/lib/calc/box-calculator";
+import { BOX_TYPES, FLUTE_PROFILES, PLY_OPTIONS, isCorrugated } from "@/lib/calc/box-calculator";
 
 const QTY_OPTIONS = [5000, 10000, 25000, 50000, 100000];
 
@@ -10,6 +10,7 @@ export default function ClientBoxCalculator({ papers = [] }) {
     boxType: "cake",
     openLength: 250, openWidth: 180,
     paperId: "", paperName: "", gsm: 300,
+    ply: 3, flute: "B",
     printing: false, colours: 1, coverage: 30,
     punching: false, punchingDieCost: 0, punchingPerPiece: 0,
     innerPackRate: 0, innerPackQty: 0,
@@ -17,6 +18,7 @@ export default function ClientBoxCalculator({ papers = [] }) {
     qty: 10000,
     quoteRef: "",
   });
+  const corrugated = isCorrugated(form.boxType);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [saveStatus, setSaveStatus] = useState(null);
@@ -89,25 +91,48 @@ export default function ClientBoxCalculator({ papers = [] }) {
           </div>
         </Card>
 
-        <Card title="Paper">
-          <div className="grid grid-cols-1 gap-3">
-            <Field label="Material">
-              {papers.length > 0 ? (
-                <select className={inputCls} value={form.paperId} onChange={(e) => selectPaper(e.target.value)}>
-                  <option value="">— Select paper —</option>
-                  {papers.map((p) => (
-                    <option key={p.id} value={p.id}>{p.materialName}{p.gsm ? ` · ${p.gsm} GSM` : ""}</option>
+        {!corrugated && (
+          <Card title="Paper">
+            <div className="grid grid-cols-1 gap-3">
+              <Field label="Material">
+                {papers.length > 0 ? (
+                  <select className={inputCls} value={form.paperId} onChange={(e) => selectPaper(e.target.value)}>
+                    <option value="">— Select paper —</option>
+                    {papers.map((p) => (
+                      <option key={p.id} value={p.id}>{p.materialName}{p.gsm ? ` · ${p.gsm} GSM` : ""}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input type="text" className={inputCls} value={form.paperName} onChange={(e) => set("paperName", e.target.value)} placeholder="e.g. Virgin SBS Board" />
+                )}
+              </Field>
+              <Field label="GSM">
+                <input type="number" className={inputCls} value={form.gsm} onChange={(e) => num("gsm", e.target.value)} min="1" />
+              </Field>
+            </div>
+          </Card>
+        )}
+
+        {corrugated && (
+          <Card title="Board Construction">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Ply">
+                <div className="flex gap-2">
+                  {PLY_OPTIONS.map((p) => (
+                    <PillBtn key={p} active={form.ply === p} onClick={() => set("ply", p)}>{p}-ply</PillBtn>
+                  ))}
+                </div>
+              </Field>
+              <Field label="Flute profile">
+                <select className={inputCls} value={form.flute} onChange={(e) => set("flute", e.target.value)}>
+                  {Object.entries(FLUTE_PROFILES).map(([k, v]) => (
+                    <option key={k} value={k}>{v.label}</option>
                   ))}
                 </select>
-              ) : (
-                <input type="text" className={inputCls} value={form.paperName} onChange={(e) => set("paperName", e.target.value)} placeholder="e.g. Virgin SBS Board" />
-              )}
-            </Field>
-            <Field label="GSM">
-              <input type="number" className={inputCls} value={form.gsm} onChange={(e) => num("gsm", e.target.value)} min="1" />
-            </Field>
-          </div>
-        </Card>
+              </Field>
+            </div>
+          </Card>
+        )}
 
         <Card title="Order Quantity">
           <select className={inputCls} value={form.qty} onChange={(e) => set("qty", parseInt(e.target.value))}>

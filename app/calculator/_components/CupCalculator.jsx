@@ -722,6 +722,13 @@ export default function CupCalculator({ scope = "default" }) {
     });
   }, [cupType, size, casePack, packPoly, packCarton, packTape, packLabel, packLabour, convHours, cpm8, cpm12, cpm16, cpm20, machineCountSw, machineCountDw]);
 
+  // Glue: always computed from size × wall type — no admin UI input, just
+  // baked into the mfg cost so the rate stays honest.
+  const autoGlue = useMemo(() => {
+    if (!cupType || !size) return null;
+    return computeGlueCostPerCup({ size, wallType: cupType });
+  }, [cupType, size]);
+
   const [convOverride, setConvOverride] = useState(false);
   const [packOverride, setPackOverride] = useState(false);
   useEffect(() => {
@@ -732,6 +739,10 @@ export default function CupCalculator({ scope = "default" }) {
     if (packOverride || !autoPack) return;
     setPack(autoPack.total.toFixed(4));
   }, [autoPack, packOverride]);
+  useEffect(() => {
+    if (autoGlue == null) return;
+    setGlue(autoGlue.toFixed(4));
+  }, [autoGlue]);
 
   // Papers filtered to the sidewall GSM / bottom 230 GSM. Rates may be blank
   // in the RM Master — we still surface the brand but only autofill rate when
@@ -1157,11 +1168,7 @@ export default function CupCalculator({ scope = "default" }) {
           <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.7 }}>
             Conversion: <strong>₹{autoConv != null ? autoConv.toFixed(4) : "—"}/cup</strong>
             {" · "}Packing: <strong>₹{autoPack != null ? autoPack.total.toFixed(4) : "—"}/cup</strong>
-            {autoPack && (
-              <span style={{ color: "var(--text-tertiary)" }}>
-                {" "}(mat ₹{autoPack.materialPerCup.toFixed(4)} + lab ₹{autoPack.labourPerCup.toFixed(4)})
-              </span>
-            )}
+            {" · "}Glue: <strong>₹{autoGlue != null ? autoGlue.toFixed(4) : "—"}/cup</strong>
             <br />
             <span style={{ color: "var(--text-tertiary)" }}>
               {(convOverride || packOverride) ? "Manual override in effect — clear fields below to re-auto-fill." : "Auto-filled from factory defaults. Tune only if needed."}
@@ -1343,9 +1350,6 @@ export default function CupCalculator({ scope = "default" }) {
               step="0.0001"
             />
           </Field>
-          <Field label="Glue cost (₹/cup)">
-            <NumInput value={glue} onChange={setGlue} placeholder="e.g. 0.05" step="0.01" />
-          </Field>
           <Field label="Other cost (₹/cup)">
             <NumInput value={otherCost} onChange={setOtherCost} placeholder="e.g. 0.00" step="0.01" />
           </Field>
@@ -1372,16 +1376,67 @@ export default function CupCalculator({ scope = "default" }) {
               {td && bd && h ? ` · Cup: ${td}×${bd}×${h}mm` : ""}
               {boxL && boxW && boxH ? ` · Box: ${boxL}×${boxW}×${boxH}mm` : ""}
             </div>
-            <div className="sp-highlight">
-              <div>
-                <div className="sp-label">Factory SP / cup</div>
-                <div className="sp-val">{f2(result.sp)}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div className="sp-label">SP per case ({casePack || "—"} cups)</div>
-                <div style={{ fontSize: 16, fontWeight: 500, color: "var(--accent-dark)" }}>{f2(result.spCase)}</div>
-              </div>
-            </div>
+            {(() => {
+              const qtyNum = qty ? parseInt(qty) : 0;
+              const cpNum = parseInt(casePack) || 0;
+              const orderTotal = qtyNum > 0 ? result.sp * qtyNum : 0;
+              return (
+                <>
+                  <div style={{
+                    background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                    borderRadius: 12,
+                    padding: "1.25rem 1.5rem",
+                    color: "#fff",
+                    marginTop: ".75rem",
+                  }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                      <div>
+                        <div style={{ fontSize: 12, color: "#bfdbfe", marginBottom: 4 }}>Selling Price / cup</div>
+                        <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{f2(result.sp)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, color: "#bfdbfe", marginBottom: 4 }}>
+                          Cost / Case ({cpNum || "—"})
+                        </div>
+                        <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{f2(result.spCase)}</div>
+                      </div>
+                    </div>
+                    <div style={{
+                      marginTop: "1rem",
+                      paddingTop: "1rem",
+                      borderTop: "1px solid rgba(255,255,255,0.2)",
+                    }}>
+                      <div style={{ fontSize: 12, color: "#bfdbfe", marginBottom: 4 }}>
+                        Order Total — {qtyNum ? qtyNum.toLocaleString("en-IN") + " cups" : "—"}
+                      </div>
+                      <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>
+                        ₹{orderTotal > 0 ? orderTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{
+                    background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                    borderRadius: 12,
+                    padding: "1rem 1.5rem",
+                    color: "#fff",
+                    marginTop: ".75rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1.5rem",
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, color: "#fecaca", marginBottom: 4 }}>Manufacturing Cost</div>
+                      <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{f4(result.mfg)}</div>
+                    </div>
+                    <div style={{ width: 1, alignSelf: "stretch", background: "rgba(255,255,255,0.25)" }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, color: "#fecaca", marginBottom: 4 }}>Profit ({result.mp}%)</div>
+                      <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{f4(result.marginAmt)}</div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
             <div className="weight-box">
               <div>
                 <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 2 }}>
