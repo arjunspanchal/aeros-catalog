@@ -95,6 +95,20 @@ function subTabsFor(pathname, session) {
     return [];
   }
 
+  if (active === "catalogue") {
+    // Show a Manage tab for Admin / Factory Manager / Factory Executive.
+    // Everyone else just sees the catalogue — no sub-tabs needed.
+    const role = session?.modules?.factoryos;
+    const canEdit = role === "admin" || role === "factory_manager" || role === "factory_executive";
+    if (canEdit || session?.isAdmin) {
+      return [
+        { href: "/catalog",         label: "Catalogue", short: "Browse" },
+        { href: "/catalog/manage",  label: "Manage",    short: "Manage" },
+      ];
+    }
+    return [];
+  }
+
   if (active === "clearance") {
     // Show a Manage tab for anyone with manage access. The base /clearance
     // tab is implicit (home of the module).
