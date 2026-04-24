@@ -42,9 +42,22 @@ function normaliseTiers(raw) {
   return raw.map((t) => (typeof t === "number" ? { qty: t, rate: "" } : { qty: Number(t.qty) || 0, rate: t.rate ?? "" }));
 }
 
+// Build a stable display string from a Paper RM row so the same pick round-
+// trips between the select's value and the stored `material` text.
+function materialLabel(m) {
+  if (!m) return "";
+  const parts = [m.materialName];
+  if (m.gsm) parts.push(`${m.gsm} gsm`);
+  if (m.millCoating) parts.push(m.millCoating);
+  return parts.filter(Boolean).join(" · ");
+}
+
 export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
   const [products, setProducts] = useState(null); // null = loading
   const [productQuery, setProductQuery] = useState("");
+  const [materials, setMaterials] = useState(null);
+  const [materialQuery, setMaterialQuery] = useState("");
+  const [materialFreeText, setMaterialFreeText] = useState(false);
   const [f, setF] = useState({
     section: initial.section || "",
     sortOrder: initial.sortOrder || 0,
@@ -68,7 +81,39 @@ export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
       .then((r) => r.ok ? r.json() : [])
       .then((list) => setProducts(Array.isArray(list) ? list : []))
       .catch(() => setProducts([]));
+    fetch("/api/rate-cards/materials")
+      .then((r) => r.ok ? r.json() : [])
+      .then((list) => setMaterials(Array.isArray(list) ? list : []))
+      .catch(() => setMaterials([]));
   }, []);
+
+  // Filter + match the material list against the typed query. If the current
+  // `material` string doesn't match any RM row (e.g. "PET" or a legacy value),
+  // we show a "Free text" option so the admin isn't forced to pick one.
+  const filteredMaterials = useMemo(() => {
+    const list = materials || [];
+    const q = materialQuery.trim().toLowerCase();
+    if (!q) return list.slice(0, 200);
+    return list
+      .filter((m) => `${m.materialName} ${m.gsm ?? ""} ${m.type ?? ""} ${m.supplier ?? ""} ${m.millCoating ?? ""}`.toLowerCase().includes(q))
+      .slice(0, 200);
+  }, [materials, materialQuery]);
+
+  // Does the current stored `material` match any RM row label?
+  const materialMatchesRM = useMemo(() => {
+    if (!f?.material) return true; // empty counts as "will pick"
+    return (materials || []).some((m) => materialLabel(m) === f.material);
+  }, [materials, f?.material]);
+
+  function onPickMaterial(value) {
+    if (value === "__free__") {
+      setMaterialFreeText(true);
+      return;
+    }
+    setMaterialFreeText(false);
+    const m = (materials || []).find((x) => materialLabel(x) === value);
+    setF((d) => ({ ...d, material: m ? materialLabel(m) : value }));
+  }
 
   const filteredProducts = useMemo(() => {
     const list = products || [];
@@ -251,8 +296,59 @@ export default function ItemForm({ initial, submitLabel, onSubmit, onCancel }) {
         <Field label="Section" hint="Group header, e.g. Paper Hot Cups — Printed">
           <input className={inputCls} value={f.section} onChange={(e) => set("section", e.target.value)} />
         </Field>
-        <Field label="Material">
-          <input className={inputCls} value={f.material} onChange={(e) => set("material", e.target.value)} placeholder="260 gsm Aqua + 240 gsm (DW)" />
+        <Field
+          label="Material"
+          hint={
+            materials === null
+              ? "Loading from Paper RM Master…"
+              : materialFreeText || (!materialMatchesRM && f.material)
+              ? "Free text — not matched to a Paper RM SKU"
+              : `Pick from ${materials.length} Paper RM SKUs, or switch to free text`
+          }
+        >
+          {materialFreeText || (!materialMatchesRM && f.material) ? (
+            <div className="flex gap-2">
+              <input
+                className={inputCls}
+                value={f.material}
+                onChange={(e) => set("material", e.target.value)}
+                placeholder="260 gsm Aqua + 240 gsm (DW)"
+              />
+              <button
+                type="button"
+                onClick={() => { setMaterialFreeText(false); set("material", ""); }}
+                className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 whitespace-nowrap px-2"
+                title="Switch back to Paper RM picker"
+              >
+                Pick RM →
+              </button>
+            </div>
+          ) : (
+            <>
+              {materials && materials.length > 0 && (
+                <input
+                  className={`${inputCls} mb-2`}
+                  placeholder="Search Paper RM by name / GSM / supplier…"
+                  value={materialQuery}
+                  onChange={(e) => setMaterialQuery(e.target.value)}
+                />
+              )}
+              <select
+                className={inputCls}
+                value={f.material}
+                onChange={(e) => onPickMaterial(e.target.value)}
+                disabled={!materials}
+              >
+                <option value="">— Select a Paper RM material —</option>
+                {filteredMaterials.map((m) => (
+                  <option key={m.id} value={materialLabel(m)}>
+                    {materialLabel(m)}{m.supplier ? ` (${m.supplier})` : ""}
+                  </option>
+                ))}
+                <option value="__free__">+ Type custom material…</option>
+              </select>
+            </>
+          )}
         </Field>
         <Field label="Dimension (mm)">
           <input className={inputCls} value={f.dimension} onChange={(e) => set("dimension", e.target.value)} placeholder="90 TD x 60 BD x 85 H" />
