@@ -1376,16 +1376,67 @@ export default function CupCalculator({ scope = "default" }) {
               {td && bd && h ? ` · Cup: ${td}×${bd}×${h}mm` : ""}
               {boxL && boxW && boxH ? ` · Box: ${boxL}×${boxW}×${boxH}mm` : ""}
             </div>
-            <div className="sp-highlight">
-              <div>
-                <div className="sp-label">Factory SP / cup</div>
-                <div className="sp-val">{f2(result.sp)}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div className="sp-label">SP per case ({casePack || "—"} cups)</div>
-                <div style={{ fontSize: 16, fontWeight: 500, color: "var(--accent-dark)" }}>{f2(result.spCase)}</div>
-              </div>
-            </div>
+            {(() => {
+              const qtyNum = qty ? parseInt(qty) : 0;
+              const cpNum = parseInt(casePack) || 0;
+              const orderTotal = qtyNum > 0 ? result.sp * qtyNum : 0;
+              return (
+                <>
+                  <div style={{
+                    background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                    borderRadius: 12,
+                    padding: "1.25rem 1.5rem",
+                    color: "#fff",
+                    marginTop: ".75rem",
+                  }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                      <div>
+                        <div style={{ fontSize: 12, color: "#bfdbfe", marginBottom: 4 }}>Selling Price / cup</div>
+                        <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{f2(result.sp)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, color: "#bfdbfe", marginBottom: 4 }}>
+                          Cost / Case ({cpNum || "—"})
+                        </div>
+                        <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{f2(result.spCase)}</div>
+                      </div>
+                    </div>
+                    <div style={{
+                      marginTop: "1rem",
+                      paddingTop: "1rem",
+                      borderTop: "1px solid rgba(255,255,255,0.2)",
+                    }}>
+                      <div style={{ fontSize: 12, color: "#bfdbfe", marginBottom: 4 }}>
+                        Order Total — {qtyNum ? qtyNum.toLocaleString("en-IN") + " cups" : "—"}
+                      </div>
+                      <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>
+                        ₹{orderTotal > 0 ? orderTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{
+                    background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                    borderRadius: 12,
+                    padding: "1rem 1.5rem",
+                    color: "#fff",
+                    marginTop: ".75rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1.5rem",
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, color: "#fecaca", marginBottom: 4 }}>Manufacturing Cost</div>
+                      <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{f4(result.mfg)}</div>
+                    </div>
+                    <div style={{ width: 1, alignSelf: "stretch", background: "rgba(255,255,255,0.25)" }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, color: "#fecaca", marginBottom: 4 }}>Profit ({result.mp}%)</div>
+                      <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{f4(result.marginAmt)}</div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
             <div className="weight-box">
               <div>
                 <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 2 }}>
