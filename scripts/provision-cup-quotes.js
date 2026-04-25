@@ -70,6 +70,15 @@ const FIELDS = [
   { name: "Inner Coating", type: "singleSelect", options: { choices: [
     { name: "None" }, { name: "PE" }, { name: "2PE" }, { name: "Aqueous" }, { name: "PLA" },
   ] } },
+  { name: "Sidewall Rate INR/kg", type: "number", options: { precision: 2 } },
+  { name: "Bottom Rate INR/kg", type: "number", options: { precision: 2 } },
+  { name: "Outer Rate INR/kg", type: "number", options: { precision: 2 } },
+  { name: "Print Method", type: "singleSelect", options: { choices: [
+    { name: "No printing" }, { name: "Flexo" }, { name: "Offset" },
+  ] } },
+  { name: "Outer Print Method", type: "singleSelect", options: { choices: [
+    { name: "No printing" }, { name: "Flexo" }, { name: "Offset" },
+  ] } },
   { name: "Plain/Printed", type: "singleSelect", options: { choices: [
     { name: "Plain" }, { name: "Printed" },
   ] } },

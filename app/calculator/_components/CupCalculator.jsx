@@ -540,17 +540,59 @@ export default function CupCalculator({ scope = "default" }) {
     if (q.innerGsm != null) setSwGSM(String(q.innerGsm));
     if (q.outerGsm != null) setOfGSM(String(q.outerGsm));
     if (q.innerCoating) setSwCoating(q.innerCoating);
+    // Restore RM rates so the recalculated mfg matches the saved quote.
+    if (q.swRate != null) setSwRate(String(q.swRate));
+    if (q.btRate != null) setBtRate(String(q.btRate));
+    if (q.ofRate != null) setOfRate(String(q.ofRate));
+    const swPrintMethod = q.printMethod || (q.plainPrinted === "Printed" ? "Flexo" : "No printing");
+    const ofPrintMethod = q.outerPrintMethod || swPrintMethod;
+    setSwPrint(swPrintMethod);
+    setOfPrint(ofPrintMethod);
     if (q.colours != null) {
-      setSwPrint(q.plainPrinted === "Printed" ? "Flexo" : "No printing");
       setSwColors(q.colours ? String(q.colours) : "");
+      setOfColors(q.colours ? String(q.colours) : "");
     }
     if (q.casePack != null) setCasePack(String(q.casePack));
     if (q.orderQty != null) setQty(String(q.orderQty));
     if (q.marginPct != null) setMargin(String(q.marginPct));
     if (q.quoteRef) setQuoteRef(q.quoteRef);
-    setResult(null);
     setSaveStatus(null);
     setPresetLocked(false);
+
+    // Auto-show the calculated rate using the loaded values directly so
+    // the admin doesn't have to hit Calculate. Bypasses state batching by
+    // computing inline with the loaded quote's values.
+    const isDwLoaded = q.wallType === "Double Wall" || q.wallType === "Ripple";
+    const cpForLoad = q.casePack || CASE_PACK_DEFAULTS[q.wallType]?.[q.size] || 500;
+    const r = calculate({
+      wallType: q.wallType,
+      size: q.size,
+      casePack: String(q.casePack ?? cpForLoad),
+      margin: String(q.marginPct ?? 15),
+      swGSM: String(q.innerGsm ?? ""),
+      swRate: String(q.swRate ?? ""),
+      swCoating: q.innerCoating || "None",
+      swCoatingRate: "",
+      swPrint: swPrintMethod,
+      swColors: q.colours != null ? String(q.colours) : "",
+      swRate1: "", swRateN: "",
+      btGSM: LOCKED_BT_GSM,
+      btRate: String(q.btRate ?? ""),
+      btCoating: LOCKED_BT_COATING,
+      btCoatingRate: "",
+      ofGSM: isDwLoaded && q.outerGsm != null ? String(q.outerGsm) : "",
+      ofRate: isDwLoaded && q.ofRate != null ? String(q.ofRate) : "",
+      ofCoating: "None",
+      ofCoatingRate: "",
+      ofPrint: ofPrintMethod,
+      ofColors: q.colours != null ? String(q.colours) : "",
+      ofRate1: "", ofRateN: "",
+      conv: String(computeConversionCostPerCup({ size: q.size, wallType: q.wallType })),
+      pack: String(computePackingCostPerCup({ size: q.size, wallType: q.wallType, casePack: cpForLoad }).total),
+      glue: String(computeGlueCostPerCup({ size: q.size, wallType: q.wallType })),
+      otherCost: "0",
+    });
+    setResult(r);
   }
 
   const [savedOrders, setSavedOrders] = useState([]);
@@ -850,8 +892,15 @@ export default function CupCalculator({ scope = "default" }) {
       innerGsm: swGSM ? Number(swGSM) : undefined,
       outerGsm: isDW && ofGSM ? Number(ofGSM) : undefined,
       innerCoating: swCoating || undefined,
+      // Paper rates (RM ₹/kg) — without these the loaded quote can't recompute.
+      swRate: swRate ? Number(swRate) : undefined,
+      btRate: btRate ? Number(btRate) : undefined,
+      ofRate: isDW && ofRate ? Number(ofRate) : undefined,
+      printMethod: swPrint || undefined,
+      outerPrintMethod: isDW ? (ofPrint || undefined) : undefined,
       printing: swPrint !== "No printing" || ofPrint !== "No printing",
       colours: swColors ? Number(swColors) : (ofColors ? Number(ofColors) : undefined),
+      coverage: undefined, // admin doesn't expose coverage; keep blank
       casePack: cpNum || undefined,
       orderQty: qty ? parseInt(qty) : undefined,
       marginPct: result.mp,
