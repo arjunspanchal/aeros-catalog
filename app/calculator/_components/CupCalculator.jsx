@@ -1384,54 +1384,56 @@ export default function CupCalculator({ scope = "default" }) {
                 <>
                   <div style={{
                     background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                    borderRadius: 12,
-                    padding: "1.25rem 1.5rem",
+                    borderRadius: 16,
+                    padding: "1.75rem 2rem",
                     color: "#fff",
                     marginTop: ".75rem",
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                   }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
                       <div>
-                        <div style={{ fontSize: 12, color: "#bfdbfe", marginBottom: 4 }}>Selling Price / cup</div>
-                        <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{f2(result.sp)}</div>
+                        <div style={{ fontSize: 13, color: "#bfdbfe", marginBottom: 8, fontWeight: 400 }}>Selling Price / cup</div>
+                        <div style={{ fontSize: 44, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.02em" }}>{f2(result.sp)}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 12, color: "#bfdbfe", marginBottom: 4 }}>
+                        <div style={{ fontSize: 13, color: "#bfdbfe", marginBottom: 8, fontWeight: 400 }}>
                           Cost / Case ({cpNum || "—"})
                         </div>
-                        <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{f2(result.spCase)}</div>
+                        <div style={{ fontSize: 44, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.02em" }}>{f2(result.spCase)}</div>
                       </div>
                     </div>
                     <div style={{
-                      marginTop: "1rem",
-                      paddingTop: "1rem",
+                      marginTop: "1.5rem",
+                      paddingTop: "1.5rem",
                       borderTop: "1px solid rgba(255,255,255,0.2)",
                     }}>
-                      <div style={{ fontSize: 12, color: "#bfdbfe", marginBottom: 4 }}>
+                      <div style={{ fontSize: 13, color: "#bfdbfe", marginBottom: 8, fontWeight: 400 }}>
                         Order Total — {qtyNum ? qtyNum.toLocaleString("en-IN") + " cups" : "—"}
                       </div>
-                      <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>
+                      <div style={{ fontSize: 44, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.02em" }}>
                         ₹{orderTotal > 0 ? orderTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
                       </div>
                     </div>
                   </div>
                   <div style={{
                     background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-                    borderRadius: 12,
-                    padding: "1rem 1.5rem",
+                    borderRadius: 16,
+                    padding: "1.5rem 2rem",
                     color: "#fff",
                     marginTop: ".75rem",
                     display: "flex",
                     alignItems: "center",
-                    gap: "1.5rem",
+                    gap: "2rem",
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                   }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, color: "#fecaca", marginBottom: 4 }}>Manufacturing Cost</div>
-                      <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{f4(result.mfg)}</div>
+                      <div style={{ fontSize: 13, color: "#fecaca", marginBottom: 8, fontWeight: 400 }}>Manufacturing Cost</div>
+                      <div style={{ fontSize: 36, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.02em" }}>{f4(result.mfg)}</div>
                     </div>
                     <div style={{ width: 1, alignSelf: "stretch", background: "rgba(255,255,255,0.25)" }} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, color: "#fecaca", marginBottom: 4 }}>Profit ({result.mp}%)</div>
-                      <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{f4(result.marginAmt)}</div>
+                      <div style={{ fontSize: 13, color: "#fecaca", marginBottom: 8, fontWeight: 400 }}>Profit ({result.mp}%)</div>
+                      <div style={{ fontSize: 36, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.02em" }}>{f4(result.marginAmt)}</div>
                     </div>
                   </div>
                 </>
