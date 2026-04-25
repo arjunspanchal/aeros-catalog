@@ -449,13 +449,18 @@ export default function ClientCupCalculator() {
 
         <button
           onClick={calculate}
-          disabled={loading || !form.sku}
+          disabled={loading}
           className="w-full bg-blue-600 text-white font-medium py-3 rounded-lg hover:bg-blue-700 disabled:opacity-60"
         >
           {loading ? "Calculating…" : "Calculate Rate"}
         </button>
         {err && <p className="text-sm text-red-500 mt-2">{err}</p>}
-        {!form.sku && <p className="text-xs text-gray-500 mt-2 dark:text-gray-400">No SKU in Products Master for this combination — contact sales.</p>}
+        {!form.sku && (
+          <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/50 text-xs text-amber-800 dark:text-amber-200">
+            <p className="font-medium mb-1">No SKU mapped for {form.wallType} {form.size}.</p>
+            <p>You can still get a rate based on standard {form.size} dimensions. For an exact carton size, CBM, or a custom variant, <a href="mailto:sales@aeros-x.com?subject=Map%20a%20new%20cup%20SKU" className="underline">email sales</a> to register the SKU.</p>
+          </div>
+        )}
       </div>
 
       <div className="lg:col-span-3 space-y-4">
