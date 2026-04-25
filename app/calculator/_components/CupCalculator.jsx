@@ -509,6 +509,49 @@ export default function CupCalculator({ scope = "default" }) {
   const [presetLocked, setPresetLocked] = useState(false);
   const [savingQuote, setSavingQuote] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
+  const [pastQuotes, setPastQuotes] = useState([]);
+  const [loadedQuoteId, setLoadedQuoteId] = useState("");
+
+  async function refreshPastQuotes(autoLoadId) {
+    try {
+      const res = await fetch("/api/calc/cup-quotes");
+      if (!res.ok) return;
+      const list = await res.json();
+      setPastQuotes(Array.isArray(list) ? list : []);
+      if (autoLoadId && Array.isArray(list) && list.some((q) => q.id === autoLoadId)) {
+        setLoadedQuoteId(autoLoadId);
+      }
+    } catch {}
+  }
+  useEffect(() => { refreshPastQuotes(); }, []);
+
+  function loadPastQuote(id) {
+    setLoadedQuoteId(id);
+    if (!id) return;
+    const q = pastQuotes.find((x) => x.id === id);
+    if (!q) return;
+    const variant = q.wallType === "Single Wall" ? "SW Standard"
+      : q.wallType === "Ripple" ? "Ripple Standard"
+      : q.wallType === "Double Wall" ? "DW Standard"
+      : "";
+    if (variant) setCupVariant(variant);
+    if (q.size) setSize(q.size);
+    if (q.sku) setSku(q.sku);
+    if (q.innerGsm != null) setSwGSM(String(q.innerGsm));
+    if (q.outerGsm != null) setOfGSM(String(q.outerGsm));
+    if (q.innerCoating) setSwCoating(q.innerCoating);
+    if (q.colours != null) {
+      setSwPrint(q.plainPrinted === "Printed" ? "Flexo" : "No printing");
+      setSwColors(q.colours ? String(q.colours) : "");
+    }
+    if (q.casePack != null) setCasePack(String(q.casePack));
+    if (q.orderQty != null) setQty(String(q.orderQty));
+    if (q.marginPct != null) setMargin(String(q.marginPct));
+    if (q.quoteRef) setQuoteRef(q.quoteRef);
+    setResult(null);
+    setSaveStatus(null);
+    setPresetLocked(false);
+  }
 
   const [savedOrders, setSavedOrders] = useState([]);
   const [loadedOrderKey, setLoadedOrderKey] = useState("");
@@ -826,7 +869,9 @@ export default function CupCalculator({ scope = "default" }) {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
+        const created = await res.json().catch(() => null);
         setSaveStatus({ ok: true, msg: `✓ Saved as "${payload.quoteRef}"` });
+        refreshPastQuotes(created?.id);
       } else {
         const err = await res.json().catch(() => ({}));
         setSaveStatus({ ok: false, msg: err.error || "Save failed" });
@@ -850,6 +895,34 @@ export default function CupCalculator({ scope = "default" }) {
       <style>{css}</style>
       <div className="admin-grid">
       <div className="admin-left">
+
+      {pastQuotes.length > 0 && (
+        <div className="card">
+          <div className="card-title">Load a past quote</div>
+          <div className="field-row" style={{ alignItems: "flex-end" }}>
+            <Field label={loadedQuoteId ? `Editing — clear to start fresh` : "Pick a saved cup quote"}>
+              <select value={loadedQuoteId} onChange={(e) => loadPastQuote(e.target.value)}>
+                <option value="">— New quote —</option>
+                {pastQuotes.map((q) => (
+                  <option key={q.id} value={q.id}>
+                    {q.quoteRef || "(no ref)"}{q.wallType ? ` — ${q.wallType}` : ""}{q.size ? ` ${q.size}` : ""}{q.date ? ` · ${q.date}` : ""}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {loadedQuoteId && (
+              <div style={{ paddingBottom: 2 }}>
+                <button className="ghost-btn" onClick={() => loadPastQuote("")}>Clear</button>
+              </div>
+            )}
+          </div>
+          {loadedQuoteId && (
+            <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
+              Specs reloaded. Recalculate, then Save quote to overwrite.
+            </div>
+          )}
+        </div>
+      )}
 
       {storageReady && (
         <div className="card">
