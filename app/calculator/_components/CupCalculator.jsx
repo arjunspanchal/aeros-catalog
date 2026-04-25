@@ -924,55 +924,6 @@ export default function CupCalculator({ scope = "default" }) {
         </div>
       )}
 
-      {storageReady && (
-        <div className="card">
-          <div className="card-title">Saved orders</div>
-          <div className="field-row" style={{ alignItems: "flex-end" }}>
-            <Field label="Load a saved order">
-              <select value={loadedOrderKey} onChange={(e) => loadOrder(e.target.value)}>
-                <option value="">Select saved order…</option>
-                {savedOrders.map((o) => (
-                  <option key={o.key} value={o.key}>{o.label}</option>
-                ))}
-              </select>
-            </Field>
-            {loadedOrderKey && (
-              <div style={{ paddingBottom: 2 }}>
-                <button className="del-btn" onClick={() => deleteOrder(loadedOrderKey)}>🗑 Delete</button>
-              </div>
-            )}
-          </div>
-          {loadedOrder && (
-            <div className="saved-order-tag" style={{ marginBottom: ".5rem" }}>
-              📋 Loaded: {loadedOrder.label}
-            </div>
-          )}
-          {!showSaveInput ? (
-            <button onClick={() => setShowSaveInput(true)} className="ghost-btn">
-              + Save current as new order
-            </button>
-          ) : (
-            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-              <input
-                type="text"
-                value={saveLabel}
-                onChange={(e) => setSaveLabel(e.target.value)}
-                placeholder="e.g. 8oz SW – Wellbeing's Israel"
-                className="save-input"
-                onKeyDown={(e) => e.key === "Enter" && saveOrder()}
-              />
-              <button className="apply-btn" onClick={saveOrder}>Save</button>
-              <button
-                onClick={() => { setShowSaveInput(false); setSaveLabel(""); }}
-                className="ghost-btn"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="card">
         <div className="card-title">Basics</div>
         <div className="field-row">
