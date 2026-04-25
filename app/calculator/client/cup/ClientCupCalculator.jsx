@@ -347,19 +347,27 @@ export default function ClientCupCalculator() {
           </div>
         </Card>
 
-        {variants.length > 1 && (
-          <Card title="Variant">
-            <Field label="Pick the cup form" hint="Same volume, different dimensions">
+        {form.size && (
+          <Card title="SKU">
+            <Field
+              label="Pick the cup variant"
+              hint={variants.length === 0 ? "No SKU mapped for this size — using standard dimensions" : "Same volume, different dimensions / case packs"}
+            >
               <select
                 className={inputCls}
                 value={form.sku}
                 onChange={(e) => { set("sku", e.target.value); setResult(null); }}
+                disabled={variants.length === 0}
               >
-                {variants.map((v) => (
-                  <option key={v.sku} value={v.sku}>
-                    {v.variant} — {v.td}×{v.bd}×{v.h} mm · {v.sku}
-                  </option>
-                ))}
+                {variants.length === 0 ? (
+                  <option value="">No SKU mapped — standard dims</option>
+                ) : (
+                  variants.map((v) => (
+                    <option key={v.sku} value={v.sku}>
+                      {v.variant} — {v.td}×{v.bd}×{v.h} mm · {v.sku}
+                    </option>
+                  ))
+                )}
               </select>
             </Field>
           </Card>
