@@ -92,10 +92,13 @@ export default function LoginForm() {
   async function submitSignup(e) {
     e.preventDefault();
     setErr(""); setBusy(true);
-    // Combine country code + local number so the backend stores the full E.164-ish string.
+    // Combine country code + local number so the backend stores the full
+    // E.164-ish string. Only strip a leading "+CC " if the user actually
+    // pasted one — without the literal "+" guard the regex eats the first
+    // digits of a plain local number.
     const rawPhone = String(signup.phone || "").trim();
     const combinedPhone = rawPhone
-      ? `${signup.phoneCountry} ${rawPhone.replace(/^\+?\d{1,4}\s*/, "").trim()}`
+      ? `${signup.phoneCountry} ${rawPhone.replace(/^\+\d{1,4}\s*/, "").trim()}`
       : "";
     const payload = {
       name: signup.name,
@@ -210,7 +213,11 @@ export default function LoginForm() {
               <label className={labelCls}>Phone</label>
               <div className="flex gap-2">
                 <select
-                  className={`${inputCls} w-28 shrink-0`}
+                  /* !w-28 fights inputCls's w-full: Tailwind emits w-full
+                     after w-28 in its generated CSS, so without `!important`
+                     the country select expands to fill the row and pushes
+                     the phone-number input off-screen. */
+                  className={`${inputCls} !w-28 shrink-0`}
                   value={signup.phoneCountry}
                   onChange={(e) => setSignup({ ...signup, phoneCountry: e.target.value })}
                   aria-label="Country code"
