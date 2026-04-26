@@ -1,24 +1,13 @@
 "use client";
 import { useMemo, useState } from "react";
 import { Card, Field, PillBtn, Row, SectionHeader, inputCls } from "@/app/calculator/_components/ui";
-import { calculate, PP_PRESETS, PP_RM_GRADES } from "@/lib/calc/pp-calculator";
+import { calculate, PP_PRESETS, PP_RM_GRADES, SIMPLE_MODEL_OVERRIDES } from "@/lib/calc/pp-calculator";
 
 const DEFAULT_FORM = {
   preset: "custom",
   itemName: "",
-  itemWeight: 0,
+  ...PP_PRESETS.custom,
   rmRate: 116,
-  cycleTime: 8,
-  itemsPerShot: 4,
-  shiftHrs: 10,
-  shiftsPerDay: 2,
-  labourCostPerDay: 12000,
-  innerSleeveCost: 0,
-  innerPackingLabour: 0,
-  unitsPerSleeve: 25,
-  cartonCost: 60,
-  casePack: 1000,
-  profitPercent: 12,
 };
 
 export default function AdminPpCalculator() {
@@ -30,23 +19,11 @@ export default function AdminPpCalculator() {
   function applyPreset(key) {
     const p = PP_PRESETS[key];
     if (!p) return;
-    setForm((f) => ({
-      ...f,
-      preset: key,
-      itemName: p.label,
-      itemWeight: p.itemWeight,
-      cycleTime: p.cycleTime,
-      itemsPerShot: p.itemsPerShot,
-      shiftHrs: p.shiftHrs,
-      shiftsPerDay: p.shiftsPerDay,
-      labourCostPerDay: p.labourCostPerDay,
-      innerSleeveCost: p.innerSleeveCost,
-      innerPackingLabour: p.innerPackingLabour,
-      unitsPerSleeve: p.unitsPerSleeve,
-      cartonCost: p.cartonCost,
-      casePack: p.casePack,
-      profitPercent: p.profitPercent,
-    }));
+    setForm((f) => ({ ...f, ...p, preset: key, itemName: p.label, rmRate: f.rmRate }));
+  }
+
+  function applySimpleModel() {
+    setForm((f) => ({ ...f, ...SIMPLE_MODEL_OVERRIDES }));
   }
 
   const result = useMemo(() => calculate(form), [form]);
@@ -116,6 +93,38 @@ export default function AdminPpCalculator() {
           </div>
         </Card>
 
+        <Card title="Sheet Yield & Regrind" right={
+          <span className="text-xs text-gray-400 dark:text-gray-500">trim recovery</span>
+        }>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Sheet Yield (%)" hint="% of sheet that ends up as part">
+              <input
+                type="number"
+                className={inputCls}
+                value={form.yieldPercent}
+                onChange={(e) => num("yieldPercent", e.target.value)}
+                min="1"
+                max="100"
+                step="0.5"
+              />
+            </Field>
+            <Field label="Regrind Capture (%)" hint="% of trim recovered as regrind">
+              <input
+                type="number"
+                className={inputCls}
+                value={form.regrindCapturePercent}
+                onChange={(e) => num("regrindCapturePercent", e.target.value)}
+                min="0"
+                max="100"
+                step="0.5"
+              />
+            </Field>
+          </div>
+          <p className="text-xs text-gray-400 mt-3 dark:text-gray-500">
+            Sheet wt: {result.sheetWeight} g · Trim: {result.trimWeight} g · Regrind credit: ₹{result.regrindCredit.toFixed(4)}
+          </p>
+        </Card>
+
         <Card title="Forming">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Cycle Time (sec)">
@@ -169,6 +178,70 @@ export default function AdminPpCalculator() {
               />
             </Field>
           </div>
+        </Card>
+
+        <Card title="Electricity">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Machine Power (kW)" hint="Heaters + vacuum + chiller">
+              <input
+                type="number"
+                className={inputCls}
+                value={form.machinePowerKw}
+                onChange={(e) => num("machinePowerKw", e.target.value)}
+                min="0"
+                step="1"
+              />
+            </Field>
+            <Field label="Tariff (₹/kWh)">
+              <input
+                type="number"
+                className={inputCls}
+                value={form.electricityRate}
+                onChange={(e) => num("electricityRate", e.target.value)}
+                min="0"
+                step="0.1"
+              />
+            </Field>
+          </div>
+        </Card>
+
+        <Card title="Mold Amortisation">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Mold Cost (₹)">
+              <input
+                type="number"
+                className={inputCls}
+                value={form.moldCost}
+                onChange={(e) => num("moldCost", e.target.value)}
+                min="0"
+                step="1000"
+              />
+            </Field>
+            <Field label="Mold Life (shots)" hint="× items-per-shot = total parts">
+              <input
+                type="number"
+                className={inputCls}
+                value={form.moldLifeShots}
+                onChange={(e) => num("moldLifeShots", e.target.value)}
+                min="1"
+                step="10000"
+              />
+            </Field>
+          </div>
+        </Card>
+
+        <Card title="Rejects">
+          <Field label="Reject Rate (%)" hint="Uplifts forming costs to cover scrapped parts">
+            <input
+              type="number"
+              className={inputCls}
+              value={form.rejectPercent}
+              onChange={(e) => num("rejectPercent", e.target.value)}
+              min="0"
+              max="50"
+              step="0.5"
+            />
+          </Field>
         </Card>
 
         <Card title="Packing">
@@ -237,6 +310,13 @@ export default function AdminPpCalculator() {
               step="0.5"
             />
           </Field>
+          <button
+            type="button"
+            onClick={applySimpleModel}
+            className="mt-3 w-full text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline"
+          >
+            Switch to simple model (zero out yield, electricity, mold, reject)
+          </button>
         </Card>
       </div>
 
@@ -275,10 +355,18 @@ export default function AdminPpCalculator() {
             <tbody>
               <SectionHeader label="Raw Material" />
               <Row
-                label="RM cost"
-                value={`₹${result.rmCost.toFixed(4)}`}
-                sub={`${form.itemWeight} g × ₹${form.rmRate}/kg`}
+                label="Sheet RM (gross)"
+                value={`₹${result.sheetRmCost.toFixed(4)}`}
+                sub={`${result.sheetWeight} g × ₹${form.rmRate}/kg @ ${form.yieldPercent}% yield`}
               />
+              {result.regrindCredit > 0 && (
+                <Row
+                  label={`− Regrind credit (${form.regrindCapturePercent}% of trim)`}
+                  value={`−₹${result.regrindCredit.toFixed(4)}`}
+                  sub={`${result.regrindWeight} g recovered`}
+                />
+              )}
+              <Row label="Net RM" value={`₹${result.rmCost.toFixed(4)}`} />
 
               <SectionHeader label="Forming" />
               <Row
@@ -286,6 +374,28 @@ export default function AdminPpCalculator() {
                 value={`₹${result.labourCostPerItem.toFixed(4)}`}
                 sub={`₹${form.labourCostPerDay.toLocaleString("en-IN")} / ${result.unitsPerDay.toLocaleString("en-IN")} units/day`}
               />
+              {result.electricityCostPerItem > 0 && (
+                <Row
+                  label="Electricity"
+                  value={`₹${result.electricityCostPerItem.toFixed(4)}`}
+                  sub={`${form.machinePowerKw} kW × ₹${form.electricityRate}/kWh ÷ ${result.itemsPerHr.toFixed(0)} items/hr`}
+                />
+              )}
+              {result.moldCostPerItem > 0 && (
+                <Row
+                  label="Mold amortisation"
+                  value={`₹${result.moldCostPerItem.toFixed(4)}`}
+                  sub={`₹${form.moldCost.toLocaleString("en-IN")} / (${form.moldLifeShots.toLocaleString("en-IN")} shots × ${form.itemsPerShot})`}
+                />
+              )}
+              {result.rejectUplift > 0 && (
+                <Row
+                  label={`Reject uplift (${form.rejectPercent}%)`}
+                  value={`₹${result.rejectUplift.toFixed(4)}`}
+                  sub={`× ${result.rejectFactor.toFixed(4)} on RM + forming`}
+                />
+              )}
+              <Row label="Per-part subtotal" value={`₹${result.formedCost.toFixed(4)}`} />
 
               <SectionHeader label="Packing" />
               <Row
