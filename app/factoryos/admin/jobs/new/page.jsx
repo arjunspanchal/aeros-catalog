@@ -13,13 +13,20 @@ export default async function NewJobPage() {
   const s = getSession();
   if (!s) redirect("/login");
   if (s.role !== ROLES.ADMIN && s.role !== ROLES.FACTORY_MANAGER) redirect("/factoryos");
-  const [clients, users, catalog, masterPapers, printingVendors] = await Promise.all([
+  const [clients, users, catalogResult, masterPapers, printingVendors] = await Promise.all([
     listClients(),
     listUsers(),
-    fetchCatalog().catch((e) => { console.error("Catalog fetch failed:", e); return []; }),
+    fetchCatalog()
+      .then((products) => ({ products, error: null }))
+      .catch((e) => {
+        console.error("Catalog fetch failed:", e);
+        return { products: [], error: e?.message || String(e) };
+      }),
     listMasterPapers().catch((e) => { console.error("Master paper fetch failed:", e); return []; }),
     listVendors({ type: "Printing", activeOnly: true }).catch((e) => { console.error("Vendor fetch failed:", e); return []; }),
   ]);
+  const catalog = catalogResult.products;
+  const catalogError = catalogResult.error;
   const accountManagers = users.filter((u) => u.role === ROLES.ACCOUNT_MANAGER && u.active);
   // Slim down the product payload for the client bundle — we only need what the form uses.
   const products = catalog.map((p) => ({
@@ -42,6 +49,7 @@ export default async function NewJobPage() {
           clients={clients}
           accountManagers={accountManagers}
           products={products}
+          catalogError={catalogError}
           masterPapers={masterPapers}
           printingVendors={printingVendors.map((v) => v.name)}
         />

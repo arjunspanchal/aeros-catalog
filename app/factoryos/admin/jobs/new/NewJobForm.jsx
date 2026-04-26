@@ -27,6 +27,7 @@ export default function NewJobForm({
   clients: initialClients,
   accountManagers,
   products = [],
+  catalogError = null,
   masterPapers = [],
   printingVendors = [],
 }) {
@@ -257,9 +258,17 @@ export default function NewJobForm({
             ))}
           </select>
           {products.length === 0 && (
-            <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-              No master products loaded. Check CATALOG_BASE_ID / CATALOG_TABLE_ID env vars before creating jobs.
-            </p>
+            <div className="mt-1 text-xs text-red-600 dark:text-red-400 space-y-1">
+              <p>No master products loaded.</p>
+              {catalogError ? (
+                <p className="font-mono text-[11px] break-words">Error: {catalogError}</p>
+              ) : (
+                <p>The catalog returned 0 records — check that the catalog table actually has rows with a Product Name.</p>
+              )}
+              <p className="text-gray-500 dark:text-gray-400">
+                Required env vars: <code>AIRTABLE_TOKEN</code>, <code>CATALOG_BASE_ID</code>, <code>CATALOG_TABLE_ID</code>.
+              </p>
+            </div>
           )}
         </div>
         <div>

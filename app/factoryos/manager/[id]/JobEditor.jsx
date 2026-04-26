@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { StageBadge, StageTimeline, inputCls, labelCls, formatDate, formatDateTime } from "@/app/factoryos/_components/ui";
 import { ROLES, STAGES } from "@/lib/factoryos/constants";
 
-export default function JobEditor({ job: initialJob, initialUpdates, clientMap, role, products = [] }) {
+export default function JobEditor({ job: initialJob, initialUpdates, clientMap, role, products = [], catalogError = null }) {
   const router = useRouter();
   const [job, setJob] = useState(initialJob);
   const [updates, setUpdates] = useState(initialUpdates);
@@ -208,9 +208,17 @@ export default function JobEditor({ job: initialJob, initialUpdates, clientMap, 
             )}
           </div>
           {products.length === 0 ? (
-            <p className="text-xs text-red-600 dark:text-red-400">
-              No master products loaded. Check CATALOG_BASE_ID / CATALOG_TABLE_ID env vars.
-            </p>
+            <div className="text-xs text-red-600 dark:text-red-400 space-y-1">
+              <p>No master products loaded.</p>
+              {catalogError ? (
+                <p className="font-mono text-[11px] break-words">Error: {catalogError}</p>
+              ) : (
+                <p>The catalog returned 0 records — check that the catalog table actually has rows with a Product Name.</p>
+              )}
+              <p className="text-gray-500 dark:text-gray-400">
+                Required env vars: <code>AIRTABLE_TOKEN</code>, <code>CATALOG_BASE_ID</code>, <code>CATALOG_TABLE_ID</code>.
+              </p>
+            </div>
           ) : (
             <>
               <input
