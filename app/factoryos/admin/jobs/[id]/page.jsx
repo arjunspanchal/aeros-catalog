@@ -14,12 +14,19 @@ export default async function AdminJobDetail({ params }) {
   if (s.role !== ROLES.ADMIN && s.role !== ROLES.FACTORY_MANAGER) redirect("/factoryos");
   const job = await getJob(params.id);
   if (!job) notFound();
-  const [updates, clients, catalog] = await Promise.all([
+  const [updates, clients, catalogResult] = await Promise.all([
     listJobUpdates(job.id),
     listClients(),
     // Catalog is optional on edit — if it fails we still let the page load read-only.
-    fetchCatalog().catch((e) => { console.error("Catalog fetch failed:", e); return []; }),
+    fetchCatalog()
+      .then((products) => ({ products, error: null }))
+      .catch((e) => {
+        console.error("Catalog fetch failed:", e);
+        return { products: [], error: e?.message || String(e) };
+      }),
   ]);
+  const catalog = catalogResult.products;
+  const catalogError = catalogResult.error;
   const clientMap = Object.fromEntries(clients.map((c) => [c.id, c]));
   // Slim the catalog payload — same shape NewJobForm uses.
   const products = catalog.map((p) => ({
@@ -38,7 +45,7 @@ export default async function AdminJobDetail({ params }) {
         <Link href="/factoryos/admin" className="text-xs text-gray-500 hover:text-blue-700 dark:text-gray-400 dark:hover:text-blue-400">
           ← Back to admin
         </Link>
-        <JobEditor job={job} initialUpdates={updates} clientMap={clientMap} role={s.role} products={products} />
+        <JobEditor job={job} initialUpdates={updates} clientMap={clientMap} role={s.role} products={products} catalogError={catalogError} />
       </main>
     </div>
   );
