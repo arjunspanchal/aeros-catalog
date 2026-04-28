@@ -93,22 +93,21 @@ export default function AdminPpCalculator() {
           </div>
         </Card>
 
-        <Card title="Sheet Yield & Regrind" right={
-          <span className="text-xs text-gray-400 dark:text-gray-500">trim recovery</span>
+        <Card title="Runner & Regrind" right={
+          <span className="text-xs text-gray-400 dark:text-gray-500">cold-runner waste</span>
         }>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Sheet Yield (%)" hint="% of sheet that ends up as part">
+            <Field label="Runner Weight per Shot (g)" hint="Sprue + gates per cycle (0 for hot runner)">
               <input
                 type="number"
                 className={inputCls}
-                value={form.yieldPercent}
-                onChange={(e) => num("yieldPercent", e.target.value)}
-                min="1"
-                max="100"
+                value={form.runnerWeightPerShot}
+                onChange={(e) => num("runnerWeightPerShot", e.target.value)}
+                min="0"
                 step="0.5"
               />
             </Field>
-            <Field label="Regrind Capture (%)" hint="% of trim recovered as regrind">
+            <Field label="Regrind Capture (%)" hint="% of runner reground in-house">
               <input
                 type="number"
                 className={inputCls}
@@ -121,7 +120,7 @@ export default function AdminPpCalculator() {
             </Field>
           </div>
           <p className="text-xs text-gray-400 mt-3 dark:text-gray-500">
-            Sheet wt: {result.sheetWeight} g · Trim: {result.trimWeight} g · Regrind credit: ₹{result.regrindCredit.toFixed(4)}
+            Runner share: {result.runnerSharePerItem} g/item · Regrind credit: ₹{result.regrindCredit.toFixed(4)}
           </p>
         </Card>
 
@@ -355,13 +354,13 @@ export default function AdminPpCalculator() {
             <tbody>
               <SectionHeader label="Raw Material" />
               <Row
-                label="Sheet RM (gross)"
-                value={`₹${result.sheetRmCost.toFixed(4)}`}
-                sub={`${result.sheetWeight} g × ₹${form.rmRate}/kg @ ${form.yieldPercent}% yield`}
+                label="Gross RM (item + runner share)"
+                value={`₹${result.grossRmCost.toFixed(4)}`}
+                sub={`${result.grossRmWeight} g × ₹${form.rmRate}/kg (item ${form.itemWeight}g + runner ${result.runnerSharePerItem}g)`}
               />
               {result.regrindCredit > 0 && (
                 <Row
-                  label={`− Regrind credit (${form.regrindCapturePercent}% of trim)`}
+                  label={`− Regrind credit (${form.regrindCapturePercent}% of runner)`}
                   value={`−₹${result.regrindCredit.toFixed(4)}`}
                   sub={`${result.regrindWeight} g recovered`}
                 />
