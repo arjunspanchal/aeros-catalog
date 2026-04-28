@@ -469,20 +469,36 @@ export default function AdminPpCalculator() {
 
       {/* Right: results */}
       <div className="lg:col-span-3 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-5 text-white shadow">
-            <p className="text-blue-100 text-xs mb-1">Selling Price / item</p>
-            <p className="text-3xl font-bold">₹{result.sellingPrice.toFixed(2)}</p>
-            <p className="text-xs text-blue-100 mt-2">{result.profitPct}% margin over mfg</p>
+        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-5 text-white shadow">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-blue-200 text-xs mb-0.5">Selling Price / item</p>
+              <p className="text-2xl font-bold">₹{result.sellingPrice.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-blue-200 text-xs mb-0.5">SP / Case ({form.casePack || 0})</p>
+              <p className="text-2xl font-bold">
+                ₹{result.spPerCase.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+              </p>
+              <p className="text-blue-200 text-xs mt-0.5">{result.profitPct}% margin over mfg</p>
+            </div>
           </div>
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 dark:bg-gray-900 dark:border-gray-800">
-            <p className="text-xs text-gray-400 mb-1">SP / Case ({form.casePack || 0})</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              ₹{result.spPerCase.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+          <div className="mt-4 pt-4 border-t border-blue-500">
+            <p className="text-blue-200 text-xs mb-0.5">Daily Output — {result.unitsPerDay.toLocaleString("en-IN")} units</p>
+            <p className="text-2xl font-bold">
+              ₹{(result.sellingPrice * result.unitsPerDay).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
-            <p className="text-xs text-gray-500 mt-2 dark:text-gray-400">
-              Mfg: ₹{result.totalMfg.toFixed(4)} · Profit: ₹{result.profit.toFixed(4)}
-            </p>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-5 text-white shadow flex flex-wrap gap-6">
+          <div>
+            <p className="text-red-200 text-xs">Manufacturing Cost</p>
+            <p className="text-3xl font-bold">₹{result.totalMfg.toFixed(4)}</p>
+          </div>
+          <div className="border-l border-red-400 pl-6">
+            <p className="text-red-200 text-xs">Profit ({result.profitPct}%)</p>
+            <p className="text-3xl font-bold">₹{result.profit.toFixed(4)}</p>
           </div>
         </div>
 
