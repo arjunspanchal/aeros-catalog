@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, Field, PillBtn, Row, SectionHeader, inputCls } from "@/app/calculator/_components/ui";
 import { calculate, PP_PRESETS, PP_RM_GRADES, SIMPLE_MODEL_OVERRIDES } from "@/lib/calc/pp-calculator";
+import { exportPpCSV, exportPpPDF } from "@/app/calculator/_components/pp-export";
 
 const DEFAULT_FORM = {
   preset: "custom",
@@ -151,25 +152,33 @@ export default function AdminPpCalculator() {
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       {/* Left: inputs */}
       <div className="lg:col-span-2 space-y-4">
-        {pastQuotes.length > 0 && (
-          <Card title="Load a past quote" right={loadedQuoteId && (
-            <button onClick={() => loadQuote("")} className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">Clear</button>
-          )}>
-            <select className={inputCls} value={loadedQuoteId} onChange={(e) => loadQuote(e.target.value)}>
-              <option value="">— New quote —</option>
-              {pastQuotes.map((q) => (
-                <option key={q.id} value={q.id}>
-                  {q.quoteRef}{q.itemName && !q.quoteRef.includes(q.itemName) ? ` — ${q.itemName}` : ""}{q.date ? ` · ${q.date}` : ""}
-                </option>
-              ))}
-            </select>
-            {loadedQuoteId && (
-              <p className="text-xs text-gray-500 mt-2 dark:text-gray-400">
-                Editing <strong>{pastQuotes.find((q) => q.id === loadedQuoteId)?.quoteRef}</strong>. After recalculating you can update it or save as new.
-              </p>
-            )}
-          </Card>
-        )}
+        <Card title="Load a past quote" right={loadedQuoteId && (
+          <button onClick={() => loadQuote("")} className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">Clear</button>
+        )}>
+          <select
+            className={inputCls}
+            value={loadedQuoteId}
+            onChange={(e) => loadQuote(e.target.value)}
+            disabled={pastQuotes.length === 0}
+          >
+            <option value="">— New quote —</option>
+            {pastQuotes.map((q) => (
+              <option key={q.id} value={q.id}>
+                {q.quoteRef}{q.itemName && !q.quoteRef.includes(q.itemName) ? ` — ${q.itemName}` : ""}{q.date ? ` · ${q.date}` : ""}
+              </option>
+            ))}
+          </select>
+          {pastQuotes.length === 0 && (
+            <p className="text-xs text-gray-400 mt-2 dark:text-gray-500">
+              No saved quotes yet — save one below to enable updates. (Make sure the “PP Quotes” table exists in Airtable.)
+            </p>
+          )}
+          {loadedQuoteId && (
+            <p className="text-xs text-gray-500 mt-2 dark:text-gray-400">
+              Editing <strong>{pastQuotes.find((q) => q.id === loadedQuoteId)?.quoteRef}</strong>. After recalculating you can update it or save as new.
+            </p>
+          )}
+        </Card>
 
         <Card title="PP Item">
           <Field label="Preset">
@@ -554,6 +563,23 @@ export default function AdminPpCalculator() {
               <Row label="Selling price" value={`₹${result.sellingPrice.toFixed(4)}`} highlight />
             </tbody>
           </table>
+        </Card>
+
+        <Card title="Export">
+          <div className="flex gap-2">
+            <button
+              onClick={() => exportPpCSV({ form, result })}
+              className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
+              Download Excel (.csv)
+            </button>
+            <button
+              onClick={() => exportPpPDF({ form, result })}
+              className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
+              Download PDF
+            </button>
+          </div>
         </Card>
 
         <Card title="Save Quote">
