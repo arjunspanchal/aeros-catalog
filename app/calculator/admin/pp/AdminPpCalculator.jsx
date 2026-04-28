@@ -1,17 +1,22 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, Field, PillBtn, Row, SectionHeader, inputCls } from "@/app/calculator/_components/ui";
 import { calculate, PP_PRESETS, PP_RM_GRADES, SIMPLE_MODEL_OVERRIDES } from "@/lib/calc/pp-calculator";
 
 const DEFAULT_FORM = {
   preset: "custom",
   itemName: "",
+  quoteRef: "",
   ...PP_PRESETS.custom,
   rmRate: 116,
 };
 
 export default function AdminPpCalculator() {
   const [form, setForm] = useState(DEFAULT_FORM);
+  const [pastQuotes, setPastQuotes] = useState([]);
+  const [loadedQuoteId, setLoadedQuoteId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const num = (k, v) => set(k, parseFloat(v) || 0);
@@ -26,12 +31,146 @@ export default function AdminPpCalculator() {
     setForm((f) => ({ ...f, ...SIMPLE_MODEL_OVERRIDES }));
   }
 
+  async function refreshQuotes(autoLoadId) {
+    try {
+      const res = await fetch("/api/calc/pp-quotes");
+      if (!res.ok) return;
+      const list = await res.json();
+      setPastQuotes(Array.isArray(list) ? list : []);
+      if (autoLoadId && Array.isArray(list) && list.some((q) => q.id === autoLoadId)) {
+        setTimeout(() => loadQuoteFromList(autoLoadId, list), 0);
+      }
+    } catch {}
+  }
+
+  function loadQuoteFromList(id, list) {
+    const q = list.find((x) => x.id === id);
+    if (!q) return;
+    setLoadedQuoteId(id);
+    setForm((f) => ({
+      ...f,
+      preset: q.presetKey || "custom",
+      itemName: q.itemName || "",
+      quoteRef: q.quoteRef || "",
+      itemWeight: q.itemWeight ?? f.itemWeight,
+      itemsPerShot: q.cavities ?? f.itemsPerShot,
+      cycleTime: q.cycleTime ?? f.cycleTime,
+      shiftHrs: q.shiftHrs ?? f.shiftHrs,
+      shiftsPerDay: q.shiftsPerDay ?? f.shiftsPerDay,
+      labourCostPerDay: q.labourCostPerDay ?? f.labourCostPerDay,
+      rmRate: q.rmRate ?? f.rmRate,
+      runnerWeightPerShot: q.runnerWeightPerShot ?? f.runnerWeightPerShot,
+      regrindCapturePercent: q.regrindCapturePercent ?? f.regrindCapturePercent,
+      machinePowerKw: q.machinePowerKw ?? f.machinePowerKw,
+      electricityRate: q.electricityRate ?? f.electricityRate,
+      moldCost: q.moldCost ?? f.moldCost,
+      moldLifeShots: q.moldLifeShots ?? f.moldLifeShots,
+      rejectPercent: q.rejectPercent ?? f.rejectPercent,
+      innerSleeveCost: q.innerSleeveCost ?? f.innerSleeveCost,
+      innerPackingLabour: q.innerPackingLabour ?? f.innerPackingLabour,
+      unitsPerSleeve: q.unitsPerSleeve ?? f.unitsPerSleeve,
+      cartonCost: q.cartonCost ?? f.cartonCost,
+      casePack: q.casePack ?? f.casePack,
+      profitPercent: q.profitPct ?? f.profitPercent,
+    }));
+    setSaveStatus(null);
+  }
+
+  function loadQuote(id) {
+    setLoadedQuoteId(id);
+    setSaveStatus(null);
+    if (!id) return;
+    loadQuoteFromList(id, pastQuotes);
+  }
+
+  useEffect(() => {
+    const urlQuoteId = typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("quote")
+      : null;
+    refreshQuotes(urlQuoteId);
+  }, []);
+
   const result = useMemo(() => calculate(form), [form]);
+
+  async function saveQuote({ asNew }) {
+    setSaving(true);
+    setSaveStatus(null);
+    const payload = {
+      quoteRef: form.quoteRef || `PP ${new Date().toISOString().split("T")[0]}${form.itemName ? ` — ${form.itemName}` : ""}`,
+      itemName: form.itemName || PP_PRESETS[form.preset]?.label || "",
+      presetKey: form.preset,
+      itemWeight: form.itemWeight,
+      cavities: form.itemsPerShot,
+      cycleTime: form.cycleTime,
+      shiftHrs: form.shiftHrs,
+      shiftsPerDay: form.shiftsPerDay,
+      labourCostPerDay: form.labourCostPerDay,
+      rmRate: form.rmRate,
+      runnerWeightPerShot: form.runnerWeightPerShot,
+      regrindCapturePercent: form.regrindCapturePercent,
+      machinePowerKw: form.machinePowerKw,
+      electricityRate: form.electricityRate,
+      moldCost: form.moldCost,
+      moldLifeShots: form.moldLifeShots,
+      rejectPercent: form.rejectPercent,
+      innerSleeveCost: form.innerSleeveCost,
+      innerPackingLabour: form.innerPackingLabour,
+      unitsPerSleeve: form.unitsPerSleeve,
+      cartonCost: form.cartonCost,
+      casePack: form.casePack,
+      profitPct: form.profitPercent,
+      mfgCost: result.totalMfg,
+      sellingPrice: result.sellingPrice,
+      spPerCase: result.spPerCase,
+    };
+    const method = loadedQuoteId && !asNew ? "PATCH" : "POST";
+    if (method === "PATCH") payload.id = loadedQuoteId;
+
+    try {
+      const res = await fetch("/api/calc/pp-quotes", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setSaving(false);
+      if (!res.ok) {
+        setSaveStatus("error");
+        return;
+      }
+      const saved = await res.json().catch(() => null);
+      setSaveStatus(asNew ? "success_new" : loadedQuoteId ? "success_update" : "success");
+      if (method === "POST" && saved?.id) setLoadedQuoteId(saved.id);
+      refreshQuotes();
+    } catch {
+      setSaving(false);
+      setSaveStatus("error");
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       {/* Left: inputs */}
       <div className="lg:col-span-2 space-y-4">
+        {pastQuotes.length > 0 && (
+          <Card title="Load a past quote" right={loadedQuoteId && (
+            <button onClick={() => loadQuote("")} className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">Clear</button>
+          )}>
+            <select className={inputCls} value={loadedQuoteId} onChange={(e) => loadQuote(e.target.value)}>
+              <option value="">— New quote —</option>
+              {pastQuotes.map((q) => (
+                <option key={q.id} value={q.id}>
+                  {q.quoteRef}{q.itemName && !q.quoteRef.includes(q.itemName) ? ` — ${q.itemName}` : ""}{q.date ? ` · ${q.date}` : ""}
+                </option>
+              ))}
+            </select>
+            {loadedQuoteId && (
+              <p className="text-xs text-gray-500 mt-2 dark:text-gray-400">
+                Editing <strong>{pastQuotes.find((q) => q.id === loadedQuoteId)?.quoteRef}</strong>. After recalculating you can update it or save as new.
+              </p>
+            )}
+          </Card>
+        )}
+
         <Card title="PP Item">
           <Field label="Preset">
             <select
@@ -415,6 +554,45 @@ export default function AdminPpCalculator() {
               <Row label="Selling price" value={`₹${result.sellingPrice.toFixed(4)}`} highlight />
             </tbody>
           </table>
+        </Card>
+
+        <Card title="Save Quote">
+          <input
+            className={`${inputCls} mb-3`}
+            placeholder="Quote ref (e.g. PP01 — Zepto 600mL Cup)"
+            value={form.quoteRef}
+            onChange={(e) => set("quoteRef", e.target.value)}
+          />
+          {loadedQuoteId ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => saveQuote({ asNew: false })}
+                disabled={saving}
+                className="flex-1 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60"
+              >
+                {saving ? "Saving…" : "Update this quote"}
+              </button>
+              <button
+                onClick={() => saveQuote({ asNew: true })}
+                disabled={saving}
+                className="flex-1 bg-white border border-blue-600 text-blue-700 text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-50 disabled:opacity-60 dark:bg-transparent dark:text-blue-400 dark:hover:bg-blue-900/30"
+              >
+                Save as new
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => saveQuote({ asNew: false })}
+              disabled={saving}
+              className="w-full bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          )}
+          {saveStatus === "success" && <p className="text-xs text-green-600 mt-2">✓ Saved to PP Quotes.</p>}
+          {saveStatus === "success_update" && <p className="text-xs text-green-600 mt-2">✓ Quote updated.</p>}
+          {saveStatus === "success_new" && <p className="text-xs text-green-600 mt-2">✓ Saved as new quote.</p>}
+          {saveStatus === "error" && <p className="text-xs text-red-500 mt-2">Save failed — make sure the “PP Quotes” table exists in Airtable.</p>}
         </Card>
       </div>
     </div>

@@ -79,9 +79,28 @@ const DETAIL_FIELDS_BY_TYPE = {
     { key: "orderTotal", label: "Order total", highlight: true, format: fmtRupeeIN },
     { key: "oneTimeTotal", label: "One-time plate/die", skipIfEmpty: true, format: (v) => `₹${Number(v).toLocaleString("en-IN")}` },
   ],
+  PP: [
+    { key: "quoteRef", label: "Quote ref" },
+    { key: "date", label: "Date" },
+    { key: "itemName", label: "Item" },
+    { key: "itemWeight", label: "Item weight", skipIfEmpty: true, suffix: " g" },
+    { key: "cavities", label: "Cavities", skipIfEmpty: true },
+    { key: "cycleTime", label: "Cycle time", skipIfEmpty: true, suffix: " s" },
+    { key: "rmRate", label: "RM rate (₹/kg)", skipIfEmpty: true, format: fmtRupee },
+    { key: "runnerWeightPerShot", label: "Runner / shot", skipIfEmpty: true, suffix: " g" },
+    { key: "regrindCapturePercent", label: "Regrind capture", skipIfEmpty: true, suffix: "%" },
+    { key: "machinePowerKw", label: "Machine power", skipIfEmpty: true, suffix: " kW" },
+    { key: "moldCost", label: "Mold cost", skipIfEmpty: true, format: (v) => `₹${Number(v).toLocaleString("en-IN")}` },
+    { key: "rejectPercent", label: "Reject %", skipIfEmpty: true, suffix: "%" },
+    { key: "casePack", label: "Case pack" },
+    { key: "profitPct", label: "Profit %", skipIfEmpty: true, suffix: "%" },
+    { key: "mfgCost", label: "Mfg cost / item", skipIfEmpty: true, format: fmtRupee4 },
+    { key: "sellingPrice", label: "Selling price / item", highlight: true, format: fmtRupee4 },
+    { key: "spPerCase", label: "SP / case", format: fmtRupeeIN },
+  ],
 };
 
-const TYPE_PILLS = ["All", "Bag", "Cup", "Box"];
+const TYPE_PILLS = ["All", "Bag", "Cup", "Box", "PP"];
 
 function specSummary(quote) {
   if (quote.productType === "Bag") {
@@ -93,6 +112,12 @@ function specSummary(quote) {
   if (quote.productType === "Cup") {
     return `${quote.size || "?"} · IW${quote.innerGsm || "?"}G${quote.outerGsm ? ` / OW${quote.outerGsm}G` : ""}${quote.innerCoating ? ` · ${quote.innerCoating}` : ""}`;
   }
+  if (quote.productType === "PP") {
+    const w = quote.itemWeight ? `${quote.itemWeight}g` : "?";
+    const cav = quote.cavities ? ` · ${quote.cavities}-cav` : "";
+    const rate = quote.rmRate ? ` · ₹${quote.rmRate}/kg` : "";
+    return `${w}${cav}${rate}`;
+  }
   return "—";
 }
 
@@ -100,6 +125,7 @@ function reopenHref(quote) {
   if (quote.productType === "Bag") return `/calculator/admin?quote=${quote.id}`;
   if (quote.productType === "Box") return `/calculator/admin/box?quote=${quote.id}`;
   if (quote.productType === "Cup") return `/calculator/admin/cup?quote=${quote.id}`;
+  if (quote.productType === "PP") return `/calculator/admin/pp?quote=${quote.id}`;
   return "#";
 }
 
@@ -107,6 +133,7 @@ function typeColor(type) {
   if (type === "Bag") return "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
   if (type === "Box") return "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
   if (type === "Cup") return "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
+  if (type === "PP") return "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300";
   return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300";
 }
 
@@ -159,8 +186,9 @@ export default function QuoteHistoryTable({ showClientColumn }) {
       fetch("/api/calc/quotes").then((r) => r.ok ? r.json() : []).then((arr) => arr.map((x) => ({ ...x, productType: "Bag" }))).catch(() => []),
       fetch("/api/calc/box-quotes").then((r) => r.ok ? r.json() : []).then((arr) => arr.map((x) => ({ ...x, productType: "Box", orderQty: x.qty }))).catch(() => []),
       fetch("/api/calc/cup-quotes").then((r) => r.ok ? r.json() : []).then((arr) => arr.map((x) => ({ ...x, productType: "Cup" }))).catch(() => []),
-    ]).then(([bags, boxes, cups]) => {
-      const all = [...bags, ...boxes, ...cups];
+      fetch("/api/calc/pp-quotes").then((r) => r.ok ? r.json() : []).then((arr) => arr.map((x) => ({ ...x, productType: "PP", orderTotal: x.spPerCase }))).catch(() => []),
+    ]).then(([bags, boxes, cups, pps]) => {
+      const all = [...bags, ...boxes, ...cups, ...pps];
       // Sort by date desc — Airtable already sorts within type but we just merged.
       all.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
       setQuotes(all);
@@ -173,7 +201,7 @@ export default function QuoteHistoryTable({ showClientColumn }) {
     return quotes.filter((x) => {
       if (typeFilter !== "All" && x.productType !== typeFilter) return false;
       if (!needle) return true;
-      return [x.quoteRef, x.brand, x.item, x.bagType, x.boxType, x.wallType, x.size, x.sku, x.plainPrinted, x.clientEmail, x.mill, x.paperName]
+      return [x.quoteRef, x.brand, x.item, x.bagType, x.boxType, x.wallType, x.size, x.sku, x.plainPrinted, x.clientEmail, x.mill, x.paperName, x.itemName]
         .filter(Boolean).some((s) => String(s).toLowerCase().includes(needle));
     });
   }, [quotes, q, typeFilter]);
@@ -218,6 +246,7 @@ export default function QuoteHistoryTable({ showClientColumn }) {
               const productLabel = quote.productType === "Bag" ? quote.bagType
                 : quote.productType === "Box" ? quote.boxType
                 : quote.productType === "Cup" ? quote.wallType
+                : quote.productType === "PP" ? quote.itemName
                 : "—";
               return (
                 <>
