@@ -21,11 +21,19 @@ Open http://localhost:3000
 
 ## Environment variables
 
+Airtable access uses **six scoped PATs**, one per base. Mint each at https://airtable.com/create/tokens and pin the listed base — a leak (or rotation) of any one only affects that base. Mirrors `.env.example`.
+
 | Variable | Required | Description |
 |---|---|---|
-| `AIRTABLE_TOKEN` | ✅ | Personal Access Token from https://airtable.com/create/tokens with `data.records:read` scope |
-| `AIRTABLE_BASE_ID` | ✅ | Airtable base ID (for Aeros Clearance Stock: `appRMQ2om6bffGVBS`) |
-| `AIRTABLE_TABLE_ID` | ✅ | Table ID (for Inventory: `tblZTt0xRzTrFkgc0`) |
+| `AIRTABLE_PAT_CLEARANCE` | ✅ | `data.records:read+write` on `appRMQ2om6bffGVBS` (Clearance) |
+| `AIRTABLE_PAT_PRODUCTS` | ✅ | `data.records:read+write` on `appZuFJJTEf7TL0IQ` (Products Master) — admin can edit products via `/catalog/manage` |
+| `AIRTABLE_PAT_PAPER_RM` | ✅ | `data.records:read+write` on `appSllndIZszJSCma` (Paper RM) — admin patches Base Rate / Discount via `/factoryos/admin/master-papers` |
+| `AIRTABLE_PAT_ORDERS` | ✅ | `data.records:read+write` on `appDEhKCVRAsYjSX2` (Orders / FactoryOS); add `schema.bases:read+write` if you run `scripts/provision-orders-schema.js` |
+| `AIRTABLE_PAT_HR` | ❌ | Placeholder — wired up in 1.3 when HR tables move out of Orders. Mint with empty scope for now or skip until then. |
+| `AIRTABLE_PAT_CALCULATOR` | ✅ | `data.records:read+write` on `appWO53wnIZKdKRlq` (Calculator) — catalog calc + rate-cards + the legacy `aeros-paper-bag-calculator` app |
+| `AIRTABLE_TOKEN` | ⚠️ deprecated | Legacy single-base PAT. Helpers fall back to this if a scoped PAT above is unset. Remove after 1.2 cutover (when `git grep AIRTABLE_TOKEN lib/ scripts/` is clean). |
+| `AIRTABLE_BASE_ID` | ✅ | Clearance base ID (`appRMQ2om6bffGVBS`) |
+| `AIRTABLE_TABLE_ID` | ✅ | Clearance Inventory table ID |
 | `AIRTABLE_VIEW` | ❌ | Optional view name to fetch from (e.g., `Public Catalog`) |
 
 ## Deploy to Vercel

@@ -7,9 +7,9 @@
  * Re-running after tables exist will fail on those tables — it's not idempotent.
  */
 
-const TOKEN = process.env.AIRTABLE_TOKEN;
-const BASE = process.env.AIRTABLE_ORDERS_BASE_ID;
-if (!TOKEN || !BASE) { console.error("Set AIRTABLE_TOKEN and AIRTABLE_ORDERS_BASE_ID"); process.exit(1); }
+const TOKEN = process.env.AIRTABLE_PAT_ORDERS || process.env.AIRTABLE_TOKEN;
+const BASE = process.env.AIRTABLE_FACTORYOS_BASE_ID || process.env.AIRTABLE_ORDERS_BASE_ID;
+if (!TOKEN || !BASE) { console.error("Set AIRTABLE_PAT_ORDERS (or legacy AIRTABLE_TOKEN) and AIRTABLE_FACTORYOS_BASE_ID"); process.exit(1); }
 
 const API = `https://api.airtable.com/v0/meta/bases/${BASE}/tables`;
 

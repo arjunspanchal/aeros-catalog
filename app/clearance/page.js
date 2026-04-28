@@ -47,8 +47,8 @@ export default async function ClearancePage() {
             <p className="font-semibold">Could not load inventory.</p>
             <p className="mt-1 text-sm">{error}</p>
             <p className="mt-2 text-xs">
-              Check that AIRTABLE_TOKEN, AIRTABLE_BASE_ID, and AIRTABLE_TABLE_ID are set
-              in your Vercel environment variables.
+              Check that AIRTABLE_PAT_CLEARANCE, AIRTABLE_BASE_ID, and AIRTABLE_TABLE_ID
+              are set in your Vercel environment variables.
             </p>
           </div>
         ) : (

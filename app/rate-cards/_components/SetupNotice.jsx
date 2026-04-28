@@ -31,7 +31,8 @@ export default function SetupNotice({ error, isAdmin }) {
         <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
           <p>An Airtable env var is missing. Set these on Vercel (Project Settings → Environment Variables):</p>
           <pre className="text-xs bg-gray-50 dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto">
-{`AIRTABLE_CALC_BASE_ID=<your calc base id>
+{`AIRTABLE_PAT_CALCULATOR=<your calc PAT>
+AIRTABLE_CALC_BASE_ID=<your calc base id>
 AIRTABLE_RATE_CARDS_TABLE=Rate Cards
 AIRTABLE_RATE_CARD_ITEMS_TABLE=Rate Card Items`}
           </pre>
@@ -52,7 +53,7 @@ AIRTABLE_RATE_CARD_ITEMS_TABLE=Rate Card Items`}
       {isAuth && !isMissingEnv && !isMissingTable && (
         <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
           <p>
-            Airtable rejected the request. Likely the <code>AIRTABLE_TOKEN</code> PAT doesn&apos;t have
+            Airtable rejected the request. Likely the <code>AIRTABLE_PAT_CALCULATOR</code> PAT doesn&apos;t have
             <strong> data.records:read</strong> + <strong> data.records:write</strong> scope on the
             calc base, or the calc base isn&apos;t in the PAT&apos;s Access list.
           </p>

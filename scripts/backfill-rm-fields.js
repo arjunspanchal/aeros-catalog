@@ -14,11 +14,11 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 
 const API = "https://api.airtable.com/v0";
-const TOKEN = process.env.AIRTABLE_TOKEN;
-const BASE = process.env.AIRTABLE_ORDERS_BASE_ID;
-const T = { jobs: process.env.AIRTABLE_ORDERS_JOBS_TABLE || "Jobs" };
+const TOKEN = process.env.AIRTABLE_PAT_ORDERS || process.env.AIRTABLE_TOKEN;
+const BASE = process.env.AIRTABLE_FACTORYOS_BASE_ID || process.env.AIRTABLE_ORDERS_BASE_ID;
+const T = { jobs: process.env.AIRTABLE_FACTORYOS_JOBS_TABLE || process.env.AIRTABLE_ORDERS_JOBS_TABLE || "Jobs" };
 
-if (!TOKEN || !BASE) { console.error("Set AIRTABLE_TOKEN and AIRTABLE_ORDERS_BASE_ID"); process.exit(1); }
+if (!TOKEN || !BASE) { console.error("Set AIRTABLE_PAT_ORDERS (or legacy AIRTABLE_TOKEN) and AIRTABLE_FACTORYOS_BASE_ID"); process.exit(1); }
 const xlsx = process.argv[2];
 if (!xlsx || !fs.existsSync(xlsx)) { console.error("Usage: node scripts/backfill-rm-fields.js <xlsx>"); process.exit(1); }
 

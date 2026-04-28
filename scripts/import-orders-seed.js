@@ -22,15 +22,15 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const API = "https://api.airtable.com/v0";
-const TOKEN = process.env.AIRTABLE_TOKEN;
-const BASE = process.env.AIRTABLE_ORDERS_BASE_ID;
+const TOKEN = process.env.AIRTABLE_PAT_ORDERS || process.env.AIRTABLE_TOKEN;
+const BASE = process.env.AIRTABLE_FACTORYOS_BASE_ID || process.env.AIRTABLE_ORDERS_BASE_ID;
 const T = {
-  clients: process.env.AIRTABLE_ORDERS_CLIENTS_TABLE || "Clients",
-  jobs: process.env.AIRTABLE_ORDERS_JOBS_TABLE || "Jobs",
+  clients: process.env.AIRTABLE_FACTORYOS_CLIENTS_TABLE || process.env.AIRTABLE_ORDERS_CLIENTS_TABLE || "Clients",
+  jobs: process.env.AIRTABLE_FACTORYOS_JOBS_TABLE || process.env.AIRTABLE_ORDERS_JOBS_TABLE || "Jobs",
 };
 
 if (!TOKEN || !BASE) {
-  console.error("ERROR: set AIRTABLE_TOKEN and AIRTABLE_ORDERS_BASE_ID before running.");
+  console.error("ERROR: set AIRTABLE_PAT_ORDERS (or legacy AIRTABLE_TOKEN) and AIRTABLE_FACTORYOS_BASE_ID before running.");
   console.error("Tip (Node 20+): node --env-file=.env.local scripts/import-orders-seed.js <file>");
   process.exit(1);
 }

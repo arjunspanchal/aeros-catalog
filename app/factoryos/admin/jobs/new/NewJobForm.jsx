@@ -266,7 +266,7 @@ export default function NewJobForm({
                 <p>The catalog returned 0 records — check that the catalog table actually has rows with a Product Name.</p>
               )}
               <p className="text-gray-500 dark:text-gray-400">
-                Required env vars: <code>AIRTABLE_TOKEN</code>, <code>CATALOG_BASE_ID</code>, <code>CATALOG_TABLE_ID</code>.
+                Required env vars: <code>AIRTABLE_PAT_PRODUCTS</code>, <code>CATALOG_BASE_ID</code>, <code>CATALOG_TABLE_ID</code>.
               </p>
             </div>
           )}

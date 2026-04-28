@@ -8,12 +8,12 @@
  * already exists, it adds any missing fields rather than failing.
  */
 
-const TOKEN = process.env.AIRTABLE_TOKEN;
+const TOKEN = process.env.AIRTABLE_PAT_CALCULATOR || process.env.AIRTABLE_TOKEN;
 const BASE = process.env.AIRTABLE_CALC_BASE_ID;
 const TABLE_NAME = process.env.AIRTABLE_CUP_QUOTES_TABLE || "Cup Quotes";
 
 if (!TOKEN || !BASE) {
-  console.error("Set AIRTABLE_TOKEN and AIRTABLE_CALC_BASE_ID in .env.local");
+  console.error("Set AIRTABLE_PAT_CALCULATOR (or legacy AIRTABLE_TOKEN) and AIRTABLE_CALC_BASE_ID in .env.local");
   process.exit(1);
 }
 

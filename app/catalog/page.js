@@ -40,8 +40,8 @@ export default async function CatalogPage() {
             <p className="font-semibold">Could not load catalog.</p>
             <p className="mt-1 text-sm">{error}</p>
             <p className="mt-2 text-xs">
-              Check that AIRTABLE_TOKEN, CATALOG_BASE_ID, and CATALOG_TABLE_ID are set
-              in your environment variables.
+              Check that AIRTABLE_PAT_PRODUCTS, CATALOG_BASE_ID, and CATALOG_TABLE_ID
+              are set in your environment variables.
             </p>
           </div>
         ) : (
