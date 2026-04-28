@@ -11,17 +11,45 @@ import {
   PRINTING_RATES,
   HANDLE_DEFAULT_COST, HANDLE_WEIGHT_KG,
 } from "@/lib/calc/calculator";
+import { fetchPaperRMTables } from "@/lib/calc/rmRates";
 
-export default function AdminRatesPage() {
+export default async function AdminRatesPage() {
   const session = getSession();
   if (!session) redirect("/login");
   if (session.role !== "admin") redirect("/calculator/client");
 
+  // Pull live rates from the Paper RM Database. If unavailable (token missing,
+  // network error), fall through to the static tables baked into the source.
+  const live = await fetchPaperRMTables();
+  const liveJodhani = live?.bySupplier?.Jodhani;
+  const liveOmShivaay = live?.bySupplier?.["Om Shivaay"];
+
   // Jodhani rates are baseline; effective = base − discount + default transport (₹5).
   const defaultTransport = 5;
-  const jodhaniEffective = (base) => Math.round((base - JODHANI_DISCOUNT + defaultTransport) * 100) / 100;
   const jodhaniGSMs = ["82", "90", "100", "110", "120", "130", "140"];
   const jodhaniBFs = [24, 26, 28];
+
+  // Build the displayed cell value for a Jodhani GSM × BF intersection.
+  // Prefers the live RM row; falls back to the static JODHANI_RATES constant.
+  function jodhaniCell(gsm, bf) {
+    const liveRow = liveJodhani?.[gsm]?.[bf];
+    if (liveRow) {
+      const eff = Math.round((liveRow.baseRate - liveRow.discount + defaultTransport) * 100) / 100;
+      return { effective: eff, base: liveRow.baseRate, source: "live" };
+    }
+    const staticBase = JODHANI_RATES[gsm]?.[bf];
+    if (!staticBase) return null;
+    const eff = Math.round((staticBase - JODHANI_DISCOUNT + defaultTransport) * 100) / 100;
+    return { effective: eff, base: staticBase, source: "static" };
+  }
+
+  function omShivaayCell(gsm) {
+    const liveRow = liveOmShivaay?.[gsm]?.[28];
+    if (liveRow) return { rate: liveRow.baseRate - liveRow.discount, source: "live" };
+    const staticRow = OM_SHIVAAY_RATES[String(gsm)]?.[28];
+    if (staticRow) return { rate: staticRow, source: "static" };
+    return null;
+  }
 
   // Fallback rates used by lookupPaperRate when no specific mill table matches.
   const fallbackRates = [
@@ -34,10 +62,16 @@ export default function AdminRatesPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <div className="max-w-5xl mx-auto px-4 pb-10">
         <h1 className="text-2xl font-bold text-gray-900 mb-1 dark:text-white">Mill Rates & Calculator Constants</h1>
-        <p className="text-sm text-gray-500 mb-6 dark:text-gray-400">
-          Read-only reference. These are the numbers the calculator is using right now.
-          To change any of them, edit <code className="text-xs bg-gray-100 px-1 py-0.5 rounded dark:bg-gray-800 dark:text-gray-200">lib/calc/calculator.js</code> and redeploy.
+        <p className="text-sm text-gray-500 mb-3 dark:text-gray-400">
+          Read-only reference. Paper rates are pulled live from the <strong>Paper RM Database</strong> on Airtable.
+          To change a rate, edit the row in the <em>Raw Materials</em> table and the calculator picks it up within ~5 minutes.
+          Other constants (glue, case pack, handle cost, conversion labour, setup, plate, printing) are still in
+          <code className="text-xs bg-gray-100 px-1 py-0.5 rounded dark:bg-gray-800 dark:text-gray-200"> lib/calc/calculator.js</code>.
         </p>
+        <div className={`mb-6 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${live ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"}`}>
+          <span className={`h-2 w-2 rounded-full ${live ? "bg-green-500" : "bg-amber-500"}`} />
+          {live ? "Live from Paper RM Database" : "Using fallback constants — Airtable unreachable or AIRTABLE_PAPER_RM_BASE_ID not set"}
+        </div>
 
         <div className="space-y-6">
           <Card title="Jodhani — Brown Kraft (effective ₹/kg)">
@@ -59,12 +93,14 @@ export default function AdminRatesPage() {
                     <tr key={gsm} className="border-b border-gray-50 dark:border-gray-800">
                       <td className="py-2 font-medium text-gray-700 dark:text-gray-200">{gsm}</td>
                       {jodhaniBFs.map((bf) => {
-                        const base = JODHANI_RATES[gsm]?.[bf];
-                        if (!base) return <td key={bf} className="py-2 text-right text-gray-300 dark:text-gray-600">—</td>;
+                        const cell = jodhaniCell(gsm, bf);
+                        if (!cell) return <td key={bf} className="py-2 text-right text-gray-300 dark:text-gray-600">—</td>;
                         return (
                           <td key={bf} className="py-2 text-right">
-                            <span className="font-medium text-gray-900 dark:text-white">₹{jodhaniEffective(base).toFixed(2)}</span>
-                            <span className="block text-xs text-gray-400 dark:text-gray-500">base ₹{base}</span>
+                            <span className="font-medium text-gray-900 dark:text-white">₹{cell.effective.toFixed(2)}</span>
+                            <span className="block text-xs text-gray-400 dark:text-gray-500">
+                              base ₹{cell.base}{cell.source === "static" ? " (static)" : ""}
+                            </span>
                           </td>
                         );
                       })}
@@ -85,12 +121,19 @@ export default function AdminRatesPage() {
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(OM_SHIVAAY_RATES).map(([gsm, bfs]) => (
-                  <tr key={gsm} className="border-b border-gray-50 dark:border-gray-800">
-                    <td className="py-2 font-medium text-gray-700 dark:text-gray-200">{gsm}</td>
-                    <td className="py-2 text-right font-medium text-gray-900 dark:text-white">₹{bfs[28]?.toFixed(2)}</td>
-                  </tr>
-                ))}
+                {["60", "70"].map((gsm) => {
+                  const cell = omShivaayCell(gsm);
+                  if (!cell) return null;
+                  return (
+                    <tr key={gsm} className="border-b border-gray-50 dark:border-gray-800">
+                      <td className="py-2 font-medium text-gray-700 dark:text-gray-200">{gsm}</td>
+                      <td className="py-2 text-right">
+                        <span className="font-medium text-gray-900 dark:text-white">₹{cell.rate.toFixed(2)}</span>
+                        {cell.source === "static" && <span className="block text-xs text-gray-400 dark:text-gray-500">static fallback</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </Card>

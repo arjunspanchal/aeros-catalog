@@ -4,6 +4,7 @@
 import { calculate, computeRateCurve, optimizationTips, lookupPaperRate } from "@/lib/calc/calculator";
 import { getSession } from "@/lib/calc/session";
 import { currentClientPricing } from "@/lib/calc/user-directory";
+import { fetchPaperRMTables, lookupRMPaperRate } from "@/lib/calc/rmRates";
 
 function applyDiscount(curve, discountPct) {
   if (!discountPct) return curve;
@@ -26,9 +27,19 @@ export async function POST(req) {
   const isClient = session.role === "client";
 
   // Clients never supply paper rate or wastage — both are derived server-side.
-  const paperRate = isClient
-    ? lookupPaperRate({ paperType: body.paperType, mill: body.mill, gsm: Number(body.gsm), bf: body.bf })
-    : Number(body.paperRate) || 0;
+  // Try live RM Master first, fall back to the static tables in calculator.js.
+  let paperRate = Number(body.paperRate) || 0;
+  if (isClient) {
+    const rmTables = await fetchPaperRMTables();
+    const live = lookupRMPaperRate(rmTables, {
+      paperType: body.paperType, mill: body.mill,
+      gsm: Number(body.gsm), bf: body.bf ? Number(body.bf) : null,
+    });
+    paperRate = live ?? lookupPaperRate({
+      paperType: body.paperType, mill: body.mill,
+      gsm: Number(body.gsm), bf: body.bf,
+    });
+  }
 
   const fallbackMargin = Number(session.marginPct ?? process.env.DEFAULT_CLIENT_MARGIN ?? 15);
   const { marginPct, discountPct } = isClient
