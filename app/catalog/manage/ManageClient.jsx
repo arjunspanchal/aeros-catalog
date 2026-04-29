@@ -1,10 +1,32 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 // Editor UI for the Product Catalogue. Mirrors the Clearance "Manage" page —
 // cards with in-place edit + save, plus a top "New product" form that drops
 // the new row at the top of the list on success.
+
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // FileReader returns "data:<mime>;base64,<payload>" — strip the prefix.
+      const result = String(reader.result || "");
+      const idx = result.indexOf(",");
+      resolve(idx >= 0 ? result.slice(idx + 1) : result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function formatBytes(b) {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export default function ManageClient({ initialProducts, initialCategories }) {
   const [products, setProducts] = useState(initialProducts);
@@ -163,6 +185,9 @@ function ProductRow({ product, onChange, onDelete }) {
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      {/* Photos sit above the editor body so add/remove works regardless of
+          whether the row is in read or edit mode. */}
+      <ProductPhotos product={product} onChange={onChange} />
       {editing ? (
         <EditForm
           draft={draft}
@@ -181,6 +206,131 @@ function ProductRow({ product, onChange, onDelete }) {
           savedFlash={savedFlash}
           error={error}
         />
+      )}
+    </div>
+  );
+}
+
+// Add / remove product images. Same API shape as the clearance photos column —
+// JSON body with base64 payload, 5 MB cap, image/* only. Returns the refreshed
+// product so the row state updates in place.
+function ProductPhotos({ product, onChange }) {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+  const photos = product.images || [];
+
+  async function handleFiles(files) {
+    if (!files?.length) return;
+    setUploading(true);
+    setError(null);
+    try {
+      // Sequential — Airtable's content API is per-record rate-limited.
+      let latest = product;
+      for (const file of files) {
+        if (file.size > MAX_UPLOAD_BYTES) {
+          throw new Error(`"${file.name}" is ${formatBytes(file.size)}. Max 5 MB per file.`);
+        }
+        const base64 = await fileToBase64(file);
+        const res = await fetch(`/api/catalog/products/${product.id}/photos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type || "application/octet-stream",
+            fileBase64: base64,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || `Upload failed (${res.status})`);
+        }
+        const { product: updated } = await res.json();
+        latest = updated;
+      }
+      onChange(latest);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function deletePhoto(attachmentId) {
+    if (!confirm("Remove this image?")) return;
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/catalog/products/${product.id}/photos?attachmentId=${attachmentId}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Delete failed (${res.status})`);
+      }
+      const { product: updated } = await res.json();
+      onChange(updated);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  return (
+    <div className="mb-4">
+      <div className="flex flex-wrap items-start gap-2">
+        {photos.map((p) => (
+          <div
+            key={p.id}
+            className="group relative h-20 w-20 overflow-hidden rounded-md border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-800"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={p.thumbnailUrl}
+              alt={p.filename || "Product image"}
+              className="h-full w-full object-contain"
+              loading="lazy"
+            />
+            <button
+              type="button"
+              onClick={() => deletePhoto(p.id)}
+              aria-label={`Remove ${p.filename || "image"}`}
+              className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-gray-700 opacity-0 shadow-sm transition hover:bg-white hover:text-red-600 group-hover:opacity-100 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:bg-gray-900 dark:hover:text-red-400"
+            >
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="flex h-20 w-20 flex-col items-center justify-center gap-0.5 rounded-md border-2 border-dashed border-gray-300 text-[10px] font-medium text-gray-500 transition hover:border-blue-400 hover:text-blue-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-400 dark:hover:text-blue-400"
+        >
+          {uploading ? (
+            <span>Uploading…</span>
+          ) : (
+            <>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span>{photos.length === 0 ? "Add image" : "Add more"}</span>
+            </>
+          )}
+        </button>
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => handleFiles(Array.from(e.target.files || []))}
+      />
+      {error && (
+        <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
       )}
     </div>
   );
