@@ -226,6 +226,145 @@ function openAdminPrintView({ cupVariant, size, sku, qty, casePack, td, bd, h, b
   setTimeout(() => { try { w.focus(); w.print(); } catch {} }, 300);
 }
 
+// Client-facing PDF — no mfg / margin / cost-component breakdown. Just the
+// quote: hero rate, cup specs, box dims, and a qty-tier cost ladder so the
+// client can see the volume discount.
+function openClientCupPrintView({ cupVariant, size, sku, qty, casePack, td, bd, h, boxL, boxW, boxH, swGSM, ofGSM, swCoating, swPrint, swColors, isDW, result, quoteRef }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const refLabel = (quoteRef || "").trim() || `${size || ""} ${cupVariant || "Cup"}`.trim();
+  const title = `Aeros Cup Quote — ${refLabel}`;
+  const cpNum = parseInt(casePack) || 0;
+  const qtyNum = qty ? parseInt(qty) : 0;
+  const totalCases = cpNum && qtyNum ? Math.ceil(qtyNum / cpNum) : 0;
+  const m = cartonMetrics(boxL, boxW, boxH, totalCases);
+  const isPrinted = swPrint && swPrint !== "No printing";
+
+  // Build qty-tier cost ladder. Setup + plate/die amortise across qty so the
+  // ladder slopes down naturally.
+  const QTY_TIERS = [25000, 50000, 100000, 250000, 500000];
+  const plateDie = (result.swPlate || 0) + (result.swDie || 0) + (result.ofPlate || 0) + (result.ofDie || 0);
+  const oneTime = plateDie + ORDER_RUN_SETUP_DEFAULT;
+  const mp = result.mp || 0;
+  const tiers = QTY_TIERS.map((q) => {
+    const oneTimePerCup = q > 0 ? oneTime / q : 0;
+    const mfgPerCup = result.mfg + oneTimePerCup;
+    const marginAmt = mp >= 100 ? 0 : (mfgPerCup * mp) / (100 - mp);
+    const ratePerCup = mfgPerCup + marginAmt;
+    return {
+      qty: q,
+      ratePerCup,
+      ratePerCase: ratePerCup * Math.max(cpNum, 1),
+      orderTotal: ratePerCup * q,
+    };
+  });
+  const selectedTier = tiers.reduce((closest, t) => Math.abs(t.qty - qtyNum) < Math.abs((closest?.qty || 0) - qtyNum) ? t : closest, tiers[0]);
+
+  const specRow = (label, value) => `<tr><td>${escapeHtml(label)}</td><td>${escapeHtml(value)}</td></tr>`;
+  const curveRow = (c) => `
+    <tr class="${c.qty === selectedTier?.qty ? "selected" : ""}">
+      <td>${c.qty.toLocaleString()}</td>
+      <td>₹${c.ratePerCup.toFixed(2)}</td>
+      <td>₹${c.ratePerCase.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+      <td>₹${c.orderTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+    </tr>`;
+
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111827; max-width: 820px; margin: 2rem auto; padding: 0 2rem; line-height: 1.4; }
+  h1 { font-size: 22px; font-weight: 700; margin: 0 0 0.25rem; }
+  .ref { font-size: 13px; color: #6b7280; margin: 0 0 2rem; }
+  .ref strong { color: #111827; }
+  h2 { font-size: 16px; font-weight: 600; color: #1d4ed8; margin: 2rem 0 0.75rem; }
+  .hero-label { font-size: 13px; color: #6b7280; margin: 1.5rem 0 0.25rem; }
+  .hero-price { font-size: 48px; font-weight: 700; color: #111827; letter-spacing: -0.5px; line-height: 1; }
+  table.spec { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
+  table.spec td { padding: 12px 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+  table.spec td:first-child { color: #4b5563; }
+  table.spec td:last-child { text-align: right; color: #111827; font-weight: 500; }
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin: 0.75rem 0; }
+  .stat-lbl { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .stat-val { font-size: 18px; font-weight: 600; color: #111827; }
+  .note { font-size: 13px; color: #6b7280; margin: 0.75rem 0 1rem; }
+  table.curve { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+  table.curve th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; padding: 12px 0; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 500; }
+  table.curve th:first-child { text-align: left; }
+  table.curve td { padding: 12px 0; border-bottom: 1px solid #f3f4f6; font-size: 14px; text-align: right; }
+  table.curve td:first-child { text-align: left; }
+  table.curve tr.selected td { font-weight: 700; background: #eff6ff; }
+  table.curve tr.selected td:last-child { color: #1d4ed8; }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
+  @media print { body { margin: 0.5in; padding: 0; } @page { margin: 0.5in; } }
+</style>
+</head>
+<body>
+  <h1>Aeros Paper Cup Rate Calculator</h1>
+  <div class="ref">Ref <strong>${escapeHtml(refLabel)}</strong> · ${today}</div>
+
+  <div class="hero-label">Rate per cup @ ${qtyNum ? qtyNum.toLocaleString() : "—"}</div>
+  <div class="hero-price">${selectedTier ? `₹${selectedTier.ratePerCup.toFixed(2)}` : "—"}</div>
+
+  <h2>Cup specifications</h2>
+  <table class="spec">
+    ${specRow("Type", cupVariant || "—")}
+    ${specRow("Volume", size || "—")}
+    ${sku ? specRow("SKU", sku) : ""}
+    ${td && bd && h ? specRow("Cup dimensions", `${td} × ${bd} × ${h} mm`) : ""}
+    ${specRow("Inner wall", `${swGSM || "—"} GSM${swCoating && swCoating !== "None" ? `, ${swCoating}` : ""}`)}
+    ${isDW ? specRow("Outer wall", `${ofGSM || "—"} GSM`) : ""}
+    ${specRow("Printing", isPrinted ? `${swColors || 1} colour ${swPrint}` : "Plain")}
+    ${specRow("Case pack", `${cpNum || "—"} cups`)}
+  </table>
+
+  ${boxL && boxW && boxH ? `
+    <h2>Approx box dimensions</h2>
+    <div class="stat-row">
+      <div><div class="stat-lbl">Length</div><div class="stat-val">${boxL} mm</div></div>
+      <div><div class="stat-lbl">Width</div><div class="stat-val">${boxW} mm</div></div>
+      <div><div class="stat-lbl">Depth</div><div class="stat-val">${boxH} mm</div></div>
+    </div>
+    <div class="note">${cpNum || "—"} cups per case · ${totalCases ? totalCases.toLocaleString() : "—"} cases for this order</div>
+    ${m && m.boxesPerPallet > 0 ? `
+      <div class="stat-row">
+        <div><div class="stat-lbl">CBM per box</div><div class="stat-val">${m.cbm.toFixed(3)} m³</div></div>
+        <div><div class="stat-lbl">Boxes per pallet</div><div class="stat-val">${m.boxesPerPallet}</div></div>
+        <div><div class="stat-lbl">Pallets for order</div><div class="stat-val">${m.palletCount}</div></div>
+      </div>
+    ` : ""}
+  ` : ""}
+
+  <h2>Cost ladder (INR)</h2>
+  <table class="curve">
+    <thead>
+      <tr>
+        <th>Order Qty</th>
+        <th>Rate / Cup</th>
+        <th>Cost / Case</th>
+        <th>Order Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tiers.map(curveRow).join("")}
+    </tbody>
+  </table>
+
+  ${plateDie > 0 ? `<div class="note" style="margin-top:1rem">One-time plate/die setup: ₹${plateDie.toLocaleString("en-IN")} (billed separately, once per artwork)</div>` : ""}
+
+  <div class="footer">Generated ${today} · All prices are indicative estimates and subject to confirmation.</div>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) { alert("Please allow pop-ups to export the PDF."); return; }
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => { try { w.focus(); w.print(); } catch {} }, 300);
+}
+
 // Self-contained styles scoped to `.cup-app`. Dark-mode variants track the
 // `html.dark` flag set by the catalog's ThemeToggle.
 const css = `
@@ -1700,9 +1839,19 @@ export default function CupCalculator({ scope = "default" }) {
               type="button"
               className="ghost-btn"
               style={{ flex: "1 1 120px", padding: "9px 12px", fontSize: 13 }}
+              title="Internal review — full cost breakdown, weights, mfg cost, margin"
               onClick={() => openAdminPrintView({ cupVariant, size, sku, qty, casePack, td, bd, h, boxL, boxW, boxH, swGSM, ofGSM, isDW, result, quoteRef })}
             >
-              Download PDF
+              Admin PDF
+            </button>
+            <button
+              type="button"
+              className="ghost-btn"
+              style={{ flex: "1 1 120px", padding: "9px 12px", fontSize: 13 }}
+              title="Customer-facing — only the rate, specs, and cost ladder; no internal cost breakdown"
+              onClick={() => openClientCupPrintView({ cupVariant, size, sku, qty, casePack, td, bd, h, boxL, boxW, boxH, swGSM, ofGSM, swCoating, swPrint, swColors, isDW, result, quoteRef })}
+            >
+              Client PDF
             </button>
             <button
               type="button"
