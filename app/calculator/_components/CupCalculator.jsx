@@ -175,8 +175,8 @@ function openAdminPrintView({ cupVariant, size, sku, qty, casePack, td, bd, h, b
   .note { font-size: 13px; color: #6b7280; margin: 0.75rem 0 1rem; }
   .memo { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 12px; font-size: 13px; color: #92400e; margin-top: 1rem; }
   .memo-title { font-weight: 600; margin-bottom: 4px; }
-  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
-  @media print { body { margin: 0.5in; padding: 0; } @page { margin: 0.5in; } }
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; font-size: 12px; color: #4b5563; }
+  @media print { body { margin: 0.5in; padding: 0; } @page { margin: 0.5in; @top-left { content: ""; } @top-center { content: ""; } @top-right { content: ""; } @bottom-left { content: ""; } @bottom-center { content: ""; } @bottom-right { content: ""; } } }
 </style>
 </head>
 <body>
@@ -313,8 +313,8 @@ function openClientCupPrintView({ cupVariant, size, sku, qty, casePack, td, bd, 
   table.curve td:first-child { text-align: left; }
   table.curve tr.selected td { font-weight: 700; background: #eff6ff; }
   table.curve tr.selected td:last-child { color: #1d4ed8; }
-  .footer { margin-top: 1.25rem; padding-top: 0.5rem; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; }
-  @media print { body { margin: 0; padding: 0 0.4in; } @page { margin: 0.4in; size: A4; } }
+  .footer { margin-top: 1.25rem; padding-top: 0.5rem; border-top: 1px solid #e5e7eb; font-size: 11px; color: #4b5563; }
+  @media print { body { margin: 0; padding: 0 0.4in; } @page { margin: 0.4in; size: A4; @top-left { content: ""; } @top-center { content: ""; } @top-right { content: ""; } @bottom-left { content: ""; } @bottom-center { content: ""; } @bottom-right { content: ""; } } }
 </style>
 </head>
 <body>

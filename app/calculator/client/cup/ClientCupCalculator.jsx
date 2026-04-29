@@ -138,10 +138,11 @@ function openPrintView(form, result, quoteRef) {
   table.curve td:first-child { text-align: left; }
   table.curve tr.selected td { font-weight: 700; }
   table.curve tr.selected td:last-child { color: #1d4ed8; }
-  .footer { margin-top: 1.25rem; padding-top: 0.5rem; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; }
+  .footer { margin-top: 1.25rem; padding-top: 0.5rem; border-top: 1px solid #e5e7eb; font-size: 11px; color: #4b5563; }
   @media print {
     body { margin: 0; padding: 0 0.4in; }
-    @page { margin: 0.4in; size: A4; }
+    /* Suppress browser-injected page URL/date in supporting browsers. */
+    @page { margin: 0.4in; size: A4; @top-left { content: ""; } @top-center { content: ""; } @top-right { content: ""; } @bottom-left { content: ""; } @bottom-center { content: ""; } @bottom-right { content: ""; } }
   }
 </style>
 </head>
