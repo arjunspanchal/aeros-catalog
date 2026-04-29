@@ -612,6 +612,7 @@ export default function CupCalculator({ scope = "default" }) {
   const [masterPapers, setMasterPapers] = useState([]);
   const [swPaperId, setSwPaperId] = useState("");
   const [btPaperId, setBtPaperId] = useState("");
+  const [ofPaperId, setOfPaperId] = useState("");
 
   useEffect(() => {
     setSavedOrders(loadSavedOrders(scope));
@@ -845,6 +846,13 @@ export default function CupCalculator({ scope = "default" }) {
       .sort((a, b) => (a.materialName || "").localeCompare(b.materialName || "")),
     [masterPapers]
   );
+  const ofPaperOpts = useMemo(() => {
+    const target = parseInt(ofGSM);
+    if (!target) return [];
+    return masterPapers
+      .filter((p) => p.gsm === target)
+      .sort((a, b) => (a.materialName || "").localeCompare(b.materialName || ""));
+  }, [masterPapers, ofGSM]);
 
   function applySwPaper(id) {
     setSwPaperId(id);
@@ -856,6 +864,11 @@ export default function CupCalculator({ scope = "default" }) {
     const p = masterPapers.find((x) => x.id === id);
     if (p && p.effectiveRate != null) setBtRate(String(p.effectiveRate));
   }
+  function applyOfPaper(id) {
+    setOfPaperId(id);
+    const p = masterPapers.find((x) => x.id === id);
+    if (p && p.effectiveRate != null) setOfRate(String(p.effectiveRate));
+  }
 
   // Clear the selected brand if the GSM pill changes and no longer matches.
   useEffect(() => {
@@ -863,6 +876,11 @@ export default function CupCalculator({ scope = "default" }) {
     const p = masterPapers.find((x) => x.id === swPaperId);
     if (!p || String(p.gsm) !== String(swGSM)) setSwPaperId("");
   }, [swGSM, masterPapers, swPaperId]);
+  useEffect(() => {
+    if (!ofPaperId) return;
+    const p = masterPapers.find((x) => x.id === ofPaperId);
+    if (!p || String(p.gsm) !== String(ofGSM)) setOfPaperId("");
+  }, [ofGSM, masterPapers, ofPaperId]);
 
   function runCalculate() {
     const r = calculate({
@@ -1209,6 +1227,27 @@ export default function CupCalculator({ scope = "default" }) {
                   <Chip key={g} label={String(g)} selected={String(ofGSM) === String(g)} onClick={() => setOfGSM(String(g))} />
                 ))}
               </div>
+            </Field>
+          </div>
+          <div className="field-row">
+            <Field
+              label="Paper brand (from RM Master)"
+              note={
+                ofGSM && ofPaperOpts.length === 0
+                  ? `No paper at ${ofGSM} GSM in RM Master — enter rate manually`
+                  : ofPaperId && masterPapers.find((x) => x.id === ofPaperId)?.effectiveRate == null
+                  ? "Rate not set in RM Master — enter manually or update Airtable"
+                  : ""
+              }
+            >
+              <select value={ofPaperId} onChange={(e) => applyOfPaper(e.target.value)} disabled={!ofGSM || ofPaperOpts.length === 0}>
+                <option value="">{ofPaperOpts.length ? "Select brand…" : "Pick GSM first"}</option>
+                {ofPaperOpts.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.materialName}{p.effectiveRate != null ? ` · ₹${p.effectiveRate}/kg` : " · rate TBD"}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field
               label="Outer fan paper rate (₹/kg)"
