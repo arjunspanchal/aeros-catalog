@@ -116,32 +116,32 @@ function openPrintView(form, result, quoteRef) {
 <title>${escapeHtml(title)}</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111827; max-width: 820px; margin: 2rem auto; padding: 0 2rem; line-height: 1.4; }
-  h1 { font-size: 22px; font-weight: 700; margin: 0 0 0.25rem; }
-  .ref { font-size: 13px; color: #6b7280; margin: 0 0 2rem; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111827; max-width: 820px; margin: 1rem auto; padding: 0 1.5rem; line-height: 1.35; font-size: 13px; }
+  h1 { font-size: 20px; font-weight: 700; margin: 0 0 0.15rem; }
+  .ref { font-size: 12px; color: #6b7280; margin: 0 0 1rem; }
   .ref strong { color: #111827; }
-  h2 { font-size: 16px; font-weight: 600; color: #1d4ed8; margin: 2rem 0 0.75rem; }
-  .hero-label { font-size: 13px; color: #6b7280; margin: 1.5rem 0 0.25rem; }
-  .hero-price { font-size: 48px; font-weight: 700; color: #111827; letter-spacing: -0.5px; line-height: 1; }
-  table.spec { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
-  table.spec td { padding: 12px 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+  h2 { font-size: 14px; font-weight: 600; color: #1d4ed8; margin: 1rem 0 0.4rem; page-break-after: avoid; }
+  .hero-label { font-size: 12px; color: #6b7280; margin: 0.75rem 0 0.15rem; }
+  .hero-price { font-size: 32px; font-weight: 700; color: #111827; letter-spacing: -0.5px; line-height: 1; }
+  table.spec { width: 100%; border-collapse: collapse; margin: 0.25rem 0; page-break-inside: avoid; }
+  table.spec td { padding: 6px 0; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
   table.spec td:first-child { color: #4b5563; }
   table.spec td:last-child { text-align: right; color: #111827; font-weight: 500; }
-  .stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin: 0.75rem 0; }
-  .stat-lbl { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-  .stat-val { font-size: 18px; font-weight: 600; color: #111827; }
-  .note { font-size: 13px; color: #6b7280; margin: 0.75rem 0 1rem; }
-  table.curve { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
-  table.curve th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; padding: 12px 0; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 500; }
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin: 0.4rem 0; page-break-inside: avoid; }
+  .stat-lbl { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+  .stat-val { font-size: 15px; font-weight: 600; color: #111827; }
+  .note { font-size: 12px; color: #6b7280; margin: 0.4rem 0 0.6rem; }
+  table.curve { width: 100%; border-collapse: collapse; margin-top: 0.25rem; page-break-inside: avoid; }
+  table.curve th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; padding: 6px 0; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 500; }
   table.curve th:first-child { text-align: left; }
-  table.curve td { padding: 12px 0; border-bottom: 1px solid #f3f4f6; font-size: 14px; text-align: right; }
+  table.curve td { padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; text-align: right; }
   table.curve td:first-child { text-align: left; }
   table.curve tr.selected td { font-weight: 700; }
   table.curve tr.selected td:last-child { color: #1d4ed8; }
-  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
+  .footer { margin-top: 1.25rem; padding-top: 0.5rem; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; }
   @media print {
-    body { margin: 0.5in; padding: 0; }
-    @page { margin: 0.5in; }
+    body { margin: 0; padding: 0 0.4in; }
+    @page { margin: 0.4in; size: A4; }
   }
 </style>
 </head>
