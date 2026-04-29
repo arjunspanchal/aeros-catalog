@@ -20,6 +20,13 @@ export const runtime = "nodejs";
 
 const OTP_TTL_MINUTES = 10;
 
+// Margin to seed on a brand-new self-service client. The runtime calc fallback
+// already returns 15 when Margin % is null, but writing it onto the row makes
+// the value visible to admins in /calculator/admin/clients (and survives any
+// future change to the env-default). Same value covers bags / boxes / cups so
+// the new client is consistent across calculators on day one.
+const DEFAULT_SIGNUP_MARGIN_PCT = Number(process.env.DEFAULT_CLIENT_MARGIN || 15);
+
 function validPhone(s) {
   if (!s) return true; // phone optional
   const digits = String(s).replace(/\D/g, "");
@@ -91,7 +98,9 @@ export async function POST(req) {
     const mergedClientIds = existingClientIds.includes(clientId)
       ? existingClientIds
       : [...existingClientIds, clientId];
-    await airtableUpdate(TABLES.users(), row.id, {
+    // Only seed the default margin if the row doesn't already have one — a
+    // re-activated client that an admin already priced shouldn't get reset.
+    const reviveFields = {
       Name: f.Name || name,
       Company: company,
       Country: location || undefined,
@@ -99,7 +108,10 @@ export async function POST(req) {
       Active: true,
       "Calculator Role": "Client",
       Client: mergedClientIds,
-    });
+    };
+    if (typeof f["Margin %"] !== "number") reviveFields["Margin %"] = DEFAULT_SIGNUP_MARGIN_PCT;
+    if (typeof f["Margin % Cups"] !== "number") reviveFields["Margin % Cups"] = DEFAULT_SIGNUP_MARGIN_PCT;
+    await airtableUpdate(TABLES.users(), row.id, reviveFields);
   } else {
     await airtableCreate(TABLES.users(), {
       Email: email,
@@ -110,6 +122,10 @@ export async function POST(req) {
       Active: true,
       "Calculator Role": "Client",
       Client: [clientId],
+      // Default margin so bag / box / cup quotes all use the same starting point
+      // for a brand-new client. Admin can override per-row in /calculator/admin/clients.
+      "Margin %": DEFAULT_SIGNUP_MARGIN_PCT,
+      "Margin % Cups": DEFAULT_SIGNUP_MARGIN_PCT,
       Created: new Date().toISOString(),
     });
   }
