@@ -28,7 +28,7 @@ export default async function CatalogManagePage() {
             <p className="font-semibold text-lg">Access denied</p>
             <p className="mt-2 text-sm">
               The Product Catalogue backend is restricted to Admin, Factory
-              Manager, and Factory Executive roles.
+              Manager, Factory Executive, and Account Manager roles.
             </p>
           </div>
         </main>
