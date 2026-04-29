@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { Card, Field, Toggle, PillBtn, inputCls } from "@/app/calculator/_components/ui";
-import { CUP_QTY_TIERS, SIZE_OPTS } from "@/lib/calc/cup-calculator";
+import { CUP_QTY_TIERS, SIZE_OPTS, STANDARD_CUP_DIMS } from "@/lib/calc/cup-calculator";
 
 const WALL_OPTS = [
   { val: "Single Wall", lbl: "Single Wall" },
@@ -152,17 +152,29 @@ function openPrintView(form, result, quoteRef) {
   <div class="hero-label">Rate per cup @ ${form.orderQty.toLocaleString()}</div>
   <div class="hero-price">₹${selectedTier.ratePerCup.toFixed(2)}</div>
 
+  ${(() => {
+    // Cup dimensions: prefer the SKU's dims, fall back to the size's
+    // standard dims so the PDF always shows TD × BD × H even when no SKU
+    // is mapped.
+    const std = (STANDARD_CUP_DIMS[form.size] || [])[0];
+    const td = product.td || std?.td;
+    const bd = product.bd || std?.bd;
+    const h = product.h || std?.h;
+    const dimsText = td && bd && h ? `${td} × ${bd} × ${h} mm` : "—";
+    const isStandard = !product.td && std;
+    return `
   <h2>Cup specifications</h2>
   <table class="spec">
     ${specRow("Type", form.wallType)}
     ${specRow("Volume", form.size)}
     ${form.sku ? specRow("SKU", form.sku) : ""}
-    ${product.td && product.bd && product.h ? specRow("Cup dimensions", `${product.td} × ${product.bd} × ${product.h} mm`) : ""}
+    ${specRow("Cup dimensions" + (isStandard ? " (standard)" : ""), dimsText)}
     ${specRow("Inner wall", `${form.innerGsm} GSM, ${form.coating}`)}
     ${form.wallType !== "Single Wall" ? specRow("Outer wall", `${form.outerGsm} GSM`) : ""}
     ${specRow("Printing", form.print ? `${form.colours} colour, ${form.coverage}% coverage` : "Plain")}
     ${specRow("Case pack", `${result.casePack} cups`)}
-  </table>
+  </table>`;
+  })()}
 
   ${result.product?.cartonDimensions && dims ? `
     <h2>Approx box dimensions</h2>

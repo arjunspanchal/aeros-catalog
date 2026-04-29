@@ -11,6 +11,7 @@ import {
   PACKING_DEFAULT_MATERIALS, PACKING_DEFAULT_LABOUR_MONTHLY, computePackingCostPerCup,
   GLUE_GRAMS_PER_CUP_BY_SIZE, GLUE_DEFAULT_RATE, GLUE_DW_FACTOR, computeGlueCostPerCup,
   ORDER_RUN_SETUP_DEFAULT,
+  STANDARD_CUP_DIMS,
   getOuterFanCount, getSidewallDims,
 } from "@/lib/calc/cup-calculator";
 
@@ -54,7 +55,14 @@ function downloadAdminCsv({ cupVariant, size, sku, qty, casePack, td, bd, h, box
     ["Cup type", cupVariant || "—"],
     ["Size", size || "—"],
     ["SKU", sku || "—"],
-    ["Cup dimensions (mm)", td && bd && h ? `${td} × ${bd} × ${h}` : "—"],
+    (() => {
+      const std = (STANDARD_CUP_DIMS[size] || [])[0];
+      const dTd = td || std?.td;
+      const dBd = bd || std?.bd;
+      const dH = h || std?.h;
+      const isStd = !td && std;
+      return ["Cup dimensions (mm)" + (isStd ? " (standard)" : ""), dTd && dBd && dH ? `${dTd} × ${dBd} × ${dH}` : "—"];
+    })(),
     ["Box dimensions (mm)", boxL && boxW && boxH ? `${boxL} × ${boxW} × ${boxH}` : "—"],
     ["Sidewall GSM", swGSM || "—"],
     ["Outer fan GSM", isDW ? (ofGSM || "—") : "—"],
@@ -183,7 +191,15 @@ function openAdminPrintView({ cupVariant, size, sku, qty, casePack, td, bd, h, b
     ${specRow("Type", cupVariant)}
     ${specRow("Volume", size)}
     ${sku ? specRow("SKU", sku) : ""}
-    ${td && bd && h ? specRow("Cup dimensions", `${td} × ${bd} × ${h} mm`) : ""}
+    ${(() => {
+      const std = (STANDARD_CUP_DIMS[size] || [])[0];
+      const dTd = td || std?.td;
+      const dBd = bd || std?.bd;
+      const dH = h || std?.h;
+      if (!dTd || !dBd || !dH) return "";
+      const isStd = !td && std;
+      return specRow("Cup dimensions" + (isStd ? " (standard)" : ""), `${dTd} × ${dBd} × ${dH} mm`);
+    })()}
     ${specRow("Sidewall GSM", swGSM || "—")}
     ${isDW ? specRow("Outer fan GSM", ofGSM || "—") : ""}
     ${specRow("Bottom disc", "230 GSM + 2PE (standard)")}
@@ -313,7 +329,15 @@ function openClientCupPrintView({ cupVariant, size, sku, qty, casePack, td, bd, 
     ${specRow("Type", cupVariant || "—")}
     ${specRow("Volume", size || "—")}
     ${sku ? specRow("SKU", sku) : ""}
-    ${td && bd && h ? specRow("Cup dimensions", `${td} × ${bd} × ${h} mm`) : ""}
+    ${(() => {
+      const std = (STANDARD_CUP_DIMS[size] || [])[0];
+      const dTd = td || std?.td;
+      const dBd = bd || std?.bd;
+      const dH = h || std?.h;
+      if (!dTd || !dBd || !dH) return "";
+      const isStd = !td && std;
+      return specRow("Cup dimensions" + (isStd ? " (standard)" : ""), `${dTd} × ${dBd} × ${dH} mm`);
+    })()}
     ${specRow("Inner wall", `${swGSM || "—"} GSM${swCoating && swCoating !== "None" ? `, ${swCoating}` : ""}`)}
     ${isDW ? specRow("Outer wall", `${ofGSM || "—"} GSM`) : ""}
     ${specRow("Printing", isPrinted ? `${swColors || 1} colour ${swPrint}` : "Plain")}
