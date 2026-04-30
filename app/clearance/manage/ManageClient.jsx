@@ -4,29 +4,103 @@ import { useMemo, useRef, useState } from "react";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
 
+const SORT_OPTIONS = [
+  { value: "name-asc",   label: "Name (A → Z)" },
+  { value: "name-desc",  label: "Name (Z → A)" },
+  { value: "stock-desc", label: "Stock (high → low)" },
+  { value: "stock-asc",  label: "Stock (low → high)" },
+  { value: "rate-desc",  label: "Rate (high → low)" },
+  { value: "rate-asc",   label: "Rate (low → high)" },
+];
+
+const STOCK_STATES = [
+  { value: "in",      label: "In stock" },
+  { value: "low",     label: "Low (≤ 10)" },
+  { value: "out",     label: "Out of stock" },
+  { value: "unknown", label: "Stock unknown" },
+];
+
+// Drop empties so they don't pollute the dropdowns.
+function uniq(arr) {
+  return Array.from(new Set(arr.filter(Boolean))).sort((a, b) => a.localeCompare(b));
+}
+
+const filterSelectCls =
+  "rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100";
+
 export default function ManageClient({ initialItems }) {
   const [items, setItems] = useState(initialItems);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [brandFilter, setBrandFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+  const [stockFilter, setStockFilter] = useState("");
+  const [photoFilter, setPhotoFilter] = useState("");
+  const [sort, setSort] = useState("name-asc");
 
-  const categories = useMemo(() => {
-    const set = new Set();
-    items.forEach((i) => i.category && set.add(i.category));
-    return Array.from(set).sort();
-  }, [items]);
+  const categories = useMemo(() => uniq(items.map((i) => i.category)), [items]);
+  const brands     = useMemo(() => uniq(items.map((i) => i.brand)),    [items]);
+  const statuses   = useMemo(() => uniq(items.map((i) => i.status)),   [items]);
+  const locations  = useMemo(() => uniq(items.map((i) => i.location || "")), [items]);
+
+  const anyFilterActive =
+    !!search || !!categoryFilter || !!brandFilter || !!statusFilter ||
+    !!locationFilter || !!stockFilter || !!photoFilter;
+
+  function clearFilters() {
+    setSearch("");
+    setCategoryFilter("");
+    setBrandFilter("");
+    setStatusFilter("");
+    setLocationFilter("");
+    setStockFilter("");
+    setPhotoFilter("");
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return items.filter((it) => {
+    const list = items.filter((it) => {
       if (categoryFilter && it.category !== categoryFilter) return false;
+      if (brandFilter && it.brand !== brandFilter) return false;
+      if (statusFilter && it.status !== statusFilter) return false;
+      if (locationFilter && (it.location || "") !== locationFilter) return false;
+
+      if (stockFilter) {
+        const qty = it.stockQuantity;
+        if (stockFilter === "in"      && !(typeof qty === "number" && qty > 0))   return false;
+        if (stockFilter === "low"     && !(typeof qty === "number" && qty > 0 && qty <= 10)) return false;
+        if (stockFilter === "out"     && !(typeof qty === "number" && qty <= 0))  return false;
+        if (stockFilter === "unknown" && typeof qty === "number")                  return false;
+      }
+
+      if (photoFilter === "missing" && (it.photos?.length || 0) > 0) return false;
+      if (photoFilter === "has"     && (it.photos?.length || 0) === 0) return false;
+
       if (!q) return true;
-      return (
-        it.itemName.toLowerCase().includes(q) ||
-        it.brand.toLowerCase().includes(q) ||
-        it.category.toLowerCase().includes(q)
-      );
+      // Broaden search across the fields admins commonly cite.
+      const hay = [
+        it.itemName, it.brand, it.category, it.status,
+        it.specifications, it.description, it.location,
+        // SKU isn't normalised today, but defensive: pick it up if it appears later.
+        it.sku,
+      ].filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(q);
     });
-  }, [items, search, categoryFilter]);
+
+    const cmp = (a, b) => {
+      switch (sort) {
+        case "name-desc":  return (b.itemName || "").localeCompare(a.itemName || "");
+        case "stock-asc":  return (a.stockQuantity ?? Infinity) - (b.stockQuantity ?? Infinity);
+        case "stock-desc": return (b.stockQuantity ?? -Infinity) - (a.stockQuantity ?? -Infinity);
+        case "rate-asc":   return (a.price ?? Infinity) - (b.price ?? Infinity);
+        case "rate-desc":  return (b.price ?? -Infinity) - (a.price ?? -Infinity);
+        case "name-asc":
+        default:           return (a.itemName || "").localeCompare(b.itemName || "");
+      }
+    };
+    return [...list].sort(cmp);
+  }, [items, search, categoryFilter, brandFilter, statusFilter, locationFilter, stockFilter, photoFilter, sort]);
 
   function updateItemLocally(id, patch) {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -34,29 +108,62 @@ export default function ManageClient({ initialItems }) {
 
   return (
     <div>
-      {/* Filters */}
-      <div className="mb-6 flex flex-wrap gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <input
-          type="search"
-          placeholder="Search item, brand, category…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[200px] rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500"
-        />
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-        >
-          <option value="">All categories</option>
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-          {filtered.length} of {items.length} shown
+      {/* Filters — search + sort on top, dimension dropdowns below, count + Clear on the right. */}
+      <div className="mb-6 space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex flex-wrap gap-3">
+          <input
+            type="search"
+            placeholder="Search name, brand, SKU, specs, location…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 min-w-[200px] rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500"
+          />
+          <select className={filterSelectCls} value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort">
+            {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <select className={filterSelectCls} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} aria-label="Category">
+            <option value="">All categories</option>
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select className={filterSelectCls} value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)} aria-label="Brand">
+            <option value="">All brands</option>
+            {brands.map((b) => <option key={b} value={b}>{b}</option>)}
+          </select>
+          <select className={filterSelectCls} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Status">
+            <option value="">All statuses</option>
+            {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select className={filterSelectCls} value={stockFilter} onChange={(e) => setStockFilter(e.target.value)} aria-label="Stock state">
+            <option value="">Any stock</option>
+            {STOCK_STATES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+          {locations.length > 0 && (
+            <select className={filterSelectCls} value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} aria-label="Warehouse location">
+              <option value="">All locations</option>
+              {locations.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          )}
+          <select className={filterSelectCls} value={photoFilter} onChange={(e) => setPhotoFilter(e.target.value)} aria-label="Photo state">
+            <option value="">Any photos</option>
+            <option value="has">Has photo</option>
+            <option value="missing">Missing photo</option>
+          </select>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+          <span>{filtered.length} of {items.length} shown</span>
+          {anyFilterActive && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       </div>
 
