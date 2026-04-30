@@ -163,6 +163,7 @@ function toDraft(item) {
     casePack: item.casePack == null ? "" : String(item.casePack),
     price: item.price == null ? "" : String(item.price),
     status: item.status || "",
+    location: item.location || "",
     description: item.description || "",
     specifications: item.specifications || "",
   };
@@ -231,6 +232,18 @@ function ReadView({ item, onEdit, savedFlash }) {
         <KV label="Unit">{item.unit || <span className="text-gray-400 dark:text-gray-500">—</span>}</KV>
         <KV label="Status">{item.status || <span className="text-gray-400 dark:text-gray-500">—</span>}</KV>
       </dl>
+
+      {item.location && (
+        <p className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span className="font-medium">Warehouse:</span>
+          <span>{item.location}</span>
+          <span className="text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">internal</span>
+        </p>
+      )}
 
       {(item.description || item.specifications) && (
         <div className="mt-3 space-y-1.5 text-xs text-gray-600 dark:text-gray-300">
@@ -336,7 +349,18 @@ function EditForm({ draft, setDraft, saving, onCancel, onSave, error }) {
             className={inputCls}
           />
         </Field>
+        <Field label="Warehouse location (internal)">
+          <input
+            value={draft.location}
+            onChange={(e) => set("location", e.target.value)}
+            placeholder="e.g. Rack A-3, Warehouse 2"
+            className={inputCls}
+          />
+        </Field>
       </div>
+      <p className="-mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+        Warehouse location is staff-only — never shown on the public /clearance page.
+      </p>
       <Field label="Description">
         <textarea
           rows={2}
