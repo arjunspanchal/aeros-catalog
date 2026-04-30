@@ -18,8 +18,15 @@ export async function GET() {
 export async function POST(req) {
   try {
     const s = requireInternal();
-    if (s.role !== ROLES.ADMIN && s.role !== ROLES.ACCOUNT_MANAGER) {
-      return Response.json({ error: "Only admin or account manager can create jobs" }, { status: 403 });
+    // Allow admin / factory manager / account manager to create jobs.
+    // FE is shop-floor and shouldn't open new jobs; CUSTOMER is already
+    // blocked by requireInternal().
+    if (
+      s.role !== ROLES.ADMIN &&
+      s.role !== ROLES.FACTORY_MANAGER &&
+      s.role !== ROLES.ACCOUNT_MANAGER
+    ) {
+      return Response.json({ error: "Only admin, factory manager or account manager can create jobs" }, { status: 403 });
     }
     const body = await req.json();
     if (!body.jNumber || !body.clientId || !body.item) {

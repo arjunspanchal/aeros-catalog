@@ -12,7 +12,16 @@ export const dynamic = "force-dynamic";
 export default async function NewJobPage() {
   const s = getSession();
   if (!s) redirect("/login");
-  if (s.role !== ROLES.ADMIN && s.role !== ROLES.FACTORY_MANAGER) redirect("/factoryos");
+  // Mirror the API's create-job allow-list: admin / factory manager / account
+  // manager. AMs in particular need this — they're the ones taking the brief
+  // from the customer and turning it into a job.
+  if (
+    s.role !== ROLES.ADMIN &&
+    s.role !== ROLES.FACTORY_MANAGER &&
+    s.role !== ROLES.ACCOUNT_MANAGER
+  ) {
+    redirect("/factoryos");
+  }
   const [clients, users, catalogResult, masterPapers, printingVendors] = await Promise.all([
     listClients(),
     listUsers(),
