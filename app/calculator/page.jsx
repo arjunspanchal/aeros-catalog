@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/calc/session";
+import { getSession as getFactoryosSession } from "@/lib/factoryos/session";
+import { isInternalRole } from "@/lib/factoryos/constants";
 
 export default function CalculatorPickerPage() {
   const session = getSession();
@@ -8,6 +10,10 @@ export default function CalculatorPickerPage() {
 
   const isAdmin = session.role === "admin";
   const rolePath = isAdmin ? "admin" : "client";
+
+  const fos = getFactoryosSession();
+  const isInternal = !!(fos && isInternalRole(fos.role));
+
   const products = [
     {
       href: `/calculator/${rolePath}`,
@@ -27,6 +33,12 @@ export default function CalculatorPickerPage() {
       desc: "Single-wall, double-wall and ripple cups with coating, printing and margin breakdown.",
       accent: "from-amber-600 to-orange-700",
     },
+    {
+      href: "/calculator/container-stuffing",
+      title: "Container Stuffing Calculator",
+      desc: "Plan exports — FCL floor, FCL pallet or LCL. Multi-item loads with a top-down stuffing diagram.",
+      accent: "from-fuchsia-600 to-purple-700",
+    },
     // Admin-only: AppHeader carries a PP sub-tab for admins; keep the picker
     // in sync so admins land on the same set of products from either nav.
     ...(isAdmin
@@ -36,6 +48,16 @@ export default function CalculatorPickerPage() {
             title: "PP Item Rate Calculator",
             desc: "Thermoformed PP cups and lids — RM, forming labour and packing breakdown.",
             accent: "from-cyan-600 to-sky-700",
+          },
+        ]
+      : []),
+    ...(isInternal
+      ? [
+          {
+            href: "/calculator/import-calculator",
+            title: "Import Calculator (China → India)",
+            desc: "Landed cost from FOB through duty, freight, clearance, handling and margin. Multi-item LCL or FCL.",
+            accent: "from-rose-600 to-red-700",
           },
         ]
       : []),
