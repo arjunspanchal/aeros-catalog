@@ -37,6 +37,13 @@ export default function ImportCalc() {
 
   const vendor = vendors.find((v) => v.id === vendorId) || null;
 
+  // Saved quotes — same UX as PP / Box / Cup calculators.
+  const [pastQuotes, setPastQuotes] = useState([]);
+  const [loadedQuoteId, setLoadedQuoteId] = useState("");
+  const [quoteRef, setQuoteRef] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null); // null | "success" | "success_new" | "success_update" | "error"
+
   const [shipmentType, setShipmentType] = useState("40ft_hc");
   const [currency, setCurrency] = useState("USD");
   const [fxRate, setFxRate] = useState(String(DEFAULTS.fxRate));
@@ -71,6 +78,62 @@ export default function ImportCalc() {
     }
   }, [shipmentType, lclRate, lclCbm]);
 
+  // ----- Saved-quote load / save helpers -----
+  async function refreshQuotes() {
+    try {
+      const res = await fetch("/api/calc/import-quotes");
+      if (!res.ok) return;
+      const list = await res.json();
+      setPastQuotes(Array.isArray(list) ? list : []);
+    } catch {}
+  }
+
+  function loadQuoteFromList(id, list) {
+    const q = list.find((x) => x.id === id);
+    if (!q) return;
+    setLoadedQuoteId(id);
+    setQuoteRef(q.quoteRef || "");
+    if (q.vendorId) setVendorId(q.vendorId);
+    if (q.shipmentType) setShipmentType(q.shipmentType);
+    if (q.fobCurrency) setCurrency(q.fobCurrency);
+    if (q.fxRate != null) setFxRate(String(q.fxRate));
+    if (q.freightCurrency) setFreightCurrency(q.freightCurrency);
+    if (q.dutyPct != null) setDutyPct(String(q.dutyPct));
+    if (q.marginPct != null) setMarginPct(String(q.marginPct));
+    if (q.outputGstPct != null) setOutputGstPct(String(q.outputGstPct));
+    setFreight({ amount: q.freightAmount != null ? String(q.freightAmount) : "", mode: q.freightMode || "total" });
+    setInland({ amount: q.inlandAmount != null ? String(q.inlandAmount) : "", mode: q.inlandMode || "total" });
+    setUnofficial({ amount: q.unofficialAmount != null ? String(q.unofficialAmount) : "", mode: q.unofficialMode || "total" });
+    setHandling({ amount: q.handlingAmount != null ? String(q.handlingAmount) : "", mode: q.handlingMode || "total" });
+    setLclRate(q.lclRate != null ? String(q.lclRate) : "");
+    setLclCbm(q.lclCbm != null ? String(q.lclCbm) : "");
+    if (Array.isArray(q.items) && q.items.length > 0) {
+      setItems(
+        q.items.map((it) => ({
+          name: it.name || "",
+          qty: it.qty != null ? String(it.qty) : "",
+          fobUnit: it.fobUnit != null ? String(it.fobUnit) : "",
+          marginPctOverride: it.marginPctOverride != null ? String(it.marginPctOverride) : "",
+        })),
+      );
+    }
+    setSaveStatus(null);
+  }
+
+  function loadQuote(id) {
+    setLoadedQuoteId(id);
+    setSaveStatus(null);
+    if (!id) {
+      // Cleared — leave existing state alone (don't wipe what the user is mid-typing).
+      return;
+    }
+    loadQuoteFromList(id, pastQuotes);
+  }
+
+  useEffect(() => {
+    refreshQuotes();
+  }, []);
+
   const result = useMemo(
     () =>
       calcImport({
@@ -89,6 +152,69 @@ export default function ImportCalc() {
     [fxRate, currency, dutyPct, marginPct, outputGstPct, freightCurrency, freight, inland, unofficial, handling, items],
   );
 
+  async function saveQuote({ asNew }) {
+    setSaving(true);
+    setSaveStatus(null);
+    const today = new Date().toISOString().split("T")[0];
+    const fallbackRef = `IMP ${today}${vendor?.name ? ` — ${vendor.name}` : ""}`;
+    const payload = {
+      quoteRef: quoteRef || fallbackRef,
+      vendorId: vendorId || "",
+      vendorName: vendor?.name || "",
+      shipmentType,
+      fobCurrency: currency,
+      fxRate: Number(fxRate) || 0,
+      freightCurrency,
+      dutyPct: Number(dutyPct) || 0,
+      marginPct: Number(marginPct) || 0,
+      outputGstPct: Number(outputGstPct) || 0,
+      freightAmount: Number(freight.amount) || 0,
+      freightMode: freight.mode,
+      inlandAmount: Number(inland.amount) || 0,
+      inlandMode: inland.mode,
+      unofficialAmount: Number(unofficial.amount) || 0,
+      unofficialMode: unofficial.mode,
+      handlingAmount: Number(handling.amount) || 0,
+      handlingMode: handling.mode,
+      lclRate: Number(lclRate) || 0,
+      lclCbm: Number(lclCbm) || 0,
+      items: items.map((it) => ({
+        name: it.name || "",
+        qty: Number(it.qty) || 0,
+        fobUnit: Number(it.fobUnit) || 0,
+        marginPctOverride: it.marginPctOverride === "" || it.marginPctOverride == null ? null : Number(it.marginPctOverride),
+      })),
+      itemsCount: items.filter((i) => Number(i.qty) > 0).length,
+      totalLandedINR: result.totals.landed || 0,
+      totalFinalSellingINR: result.totals.finalSelling || 0,
+    };
+    const method = loadedQuoteId && !asNew ? "PATCH" : "POST";
+    if (method === "PATCH") payload.id = loadedQuoteId;
+
+    try {
+      const res = await fetch("/api/calc/import-quotes", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setSaving(false);
+      if (!res.ok) {
+        setSaveStatus("error");
+        return;
+      }
+      const saved = await res.json().catch(() => null);
+      setSaveStatus(asNew ? "success_new" : loadedQuoteId ? "success_update" : "success");
+      if (method === "POST" && saved?.id) {
+        setLoadedQuoteId(saved.id);
+        if (saved.quoteRef) setQuoteRef(saved.quoteRef);
+      }
+      refreshQuotes();
+    } catch {
+      setSaving(false);
+      setSaveStatus("error");
+    }
+  }
+
   const symbol = CURRENCIES.find((c) => c.id === currency)?.symbol || "";
   const hasInput = items.some((it) => Number(it.qty) > 0 && Number(it.fobUnit) > 0);
 
@@ -101,6 +227,56 @@ export default function ImportCalc() {
     <div className="grid gap-4 lg:grid-cols-2">
       {/* ---------------- INPUTS ---------------- */}
       <div className="space-y-4">
+        <Card
+          title="Load a past quote"
+          right={loadedQuoteId && (
+            <button
+              onClick={() => loadQuote("")}
+              className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              Clear
+            </button>
+          )}
+        >
+          <select
+            className={inputCls}
+            value={loadedQuoteId}
+            onChange={(e) => loadQuote(e.target.value)}
+            disabled={pastQuotes.length === 0}
+          >
+            <option value="">— New quote —</option>
+            {pastQuotes.map((q) => (
+              <option key={q.id} value={q.id}>
+                {q.quoteRef || "(no ref)"}
+                {q.vendorName && !((q.quoteRef || "").includes(q.vendorName)) ? ` — ${q.vendorName}` : ""}
+                {q.date ? ` · ${q.date}` : ""}
+              </option>
+            ))}
+          </select>
+          {pastQuotes.length === 0 && (
+            <p className="text-xs text-gray-400 mt-2 dark:text-gray-500">
+              No saved quotes yet — save one below to start your history.
+            </p>
+          )}
+          {loadedQuoteId && (
+            <p className="text-xs text-gray-500 mt-2 dark:text-gray-400">
+              Editing <strong>{pastQuotes.find((q) => q.id === loadedQuoteId)?.quoteRef}</strong>.
+              After recalculating you can update it or save as new.
+            </p>
+          )}
+          <div className="mt-3">
+            <Field label="Quote ref (optional)" hint="Auto-generated if you leave it blank.">
+              <input
+                type="text"
+                className={inputCls}
+                value={quoteRef}
+                onChange={(e) => setQuoteRef(e.target.value)}
+                placeholder="e.g. IMP 2026-05-02 — CCD"
+              />
+            </Field>
+          </div>
+        </Card>
+
         <Card
           title="Vendor"
           right={
@@ -418,6 +594,42 @@ export default function ImportCalc() {
                 <Row label="Total Final Selling Price (Incl. GST)" value={inr(result.totals.finalSelling, 0)} highlight />
               </tbody>
             </table>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {loadedQuoteId ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => saveQuote({ asNew: false })}
+                    disabled={saving}
+                    className="px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {saving ? "Saving…" : "Update quote"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => saveQuote({ asNew: true })}
+                    disabled={saving}
+                    className="px-3 py-2 text-sm font-medium bg-white text-gray-700 border border-gray-200 rounded-lg hover:border-gray-300 dark:bg-gray-900 dark:text-gray-200 dark:border-gray-700 disabled:opacity-50"
+                  >
+                    Save as new
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => saveQuote({ asNew: false })}
+                  disabled={saving}
+                  className="px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : "Save quote"}
+                </button>
+              )}
+              {saveStatus === "success" && <span className="text-xs text-green-600 dark:text-green-400">Saved.</span>}
+              {saveStatus === "success_new" && <span className="text-xs text-green-600 dark:text-green-400">Saved as new.</span>}
+              {saveStatus === "success_update" && <span className="text-xs text-green-600 dark:text-green-400">Updated.</span>}
+              {saveStatus === "error" && <span className="text-xs text-red-600 dark:text-red-400">Save failed — try again.</span>}
+            </div>
           </Card>
         )}
       </div>
