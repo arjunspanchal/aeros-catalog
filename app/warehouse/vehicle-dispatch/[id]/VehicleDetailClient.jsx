@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import ManifestClient from "./ManifestClient";
+import ManifestEditor from "@/app/warehouse/_components/ManifestEditor";
 
 function fmtINR(n, dp = 2) {
   if (n == null) return "—";
@@ -275,9 +275,12 @@ export default function VehicleDetailClient({
           </div>
         </section>
 
-        <ManifestClient
-          dispatchId={d.id}
+        <ManifestEditor
+          saveUrl={`/api/warehouse/vehicle-dispatches/${d.id}/manifest`}
+          printUrl={`/print/vehicle-dispatch/${d.id}`}
           dispatch={d}
+          currentVehicleSize={d.vehicle_size}
+          showSyncToggle
           boxTypes={boxTypes}
           initialLines={manifestLines}
           initialInvoices={invoices}
