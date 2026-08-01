@@ -27,6 +27,7 @@ const STATIC_ITEMS = [
   { kind: "action", label: "Sample dispatch",    hint: "Send a sample to a prospect",href: "/warehouse/sample-dispatch", module: "clearance" },
   { kind: "action", label: "New rate card",      hint: "Build a fresh rate card",    href: "/rate-cards/admin/new",      module: "rate_cards" },
   { kind: "action", label: "Add a payout",       hint: "Log a vendor payment due",   href: "/payouts",                   module: "payouts" },
+  { kind: "action", label: "Dieline generator",  hint: "Parametric cake-box KLD",    href: "/design/dieline",            always: true },
 
   { kind: "public", label: "Paper cups",         hint: "Public rate sheet",          href: "/paper-cups" },
   { kind: "public", label: "Paper bags",         hint: "Public rate sheet",          href: "/paper-bags" },
