@@ -48,18 +48,23 @@ export default function LogisticsCalc({ initialData }) {
   const destPincode = address?.pincode || "";
   const isOda = odaOverride ?? !!address?.is_oda;
 
+  // Master data first; manual overrides fill the gaps (several categories have
+  // no case-pack or weight data yet — they must still be quotable).
   const engineLines = useMemo(
     () =>
       lines
         .map((l) => {
           const p = products.find((x) => x.id === l.productId);
           if (!p || !+l.qty) return null;
+          const unitsPerCase = p.units_per_case || +l.ovrUnits || 0;
+          const grossWeightKg = p.gross_weight_kg || +l.ovrCaseKg || 0;
+          if (!unitsPerCase || (!grossWeightKg && !p.volumetric_weight_kg && !p.carton_dimensions)) return null;
           return {
             sku: p.sku,
             name: p.product_name,
             qty: +l.qty,
-            unitsPerCase: p.units_per_case,
-            grossWeightKg: p.gross_weight_kg,
+            unitsPerCase,
+            grossWeightKg,
             volumetricWeightKg: p.volumetric_weight_kg,
             cartonDimensions: p.carton_dimensions,
           };
@@ -274,19 +279,38 @@ export default function LogisticsCalc({ initialData }) {
               const q = line.search.trim().toLowerCase();
               const matches =
                 !picked && q.length >= 2
-                  ? products.filter((p) => `${p.sku} ${p.product_name}`.toLowerCase().includes(q)).slice(0, 8)
+                  ? products.filter((p) => `${p.sku} ${p.product_name} ${p.category || ""}`.toLowerCase().includes(q)).slice(0, 8)
                   : [];
               return (
                 <div key={i} className="rounded-md border border-gray-200 p-2 dark:border-gray-700">
                   {picked ? (
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 text-xs">
-                        <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{picked.sku} — {picked.product_name}</p>
-                        <p className="text-gray-500">
-                          {picked.units_per_case}/case · {picked.gross_weight_kg || "?"} kg · vol {picked.volumetric_weight_kg || "?"} kg
-                        </p>
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 text-xs">
+                          <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{picked.sku} — {picked.product_name}</p>
+                          <p className="text-gray-500">
+                            {picked.category} · {picked.units_per_case ? `${picked.units_per_case}/case` : "case pack ?"} ·{" "}
+                            {picked.gross_weight_kg ? `${picked.gross_weight_kg} kg` : "wt ?"}
+                            {picked.volumetric_weight_kg ? ` · vol ${picked.volumetric_weight_kg} kg` : ""}
+                          </p>
+                        </div>
+                        <button onClick={() => setLine(i, { productId: "", search: "", ovrUnits: "", ovrCaseKg: "" })} className="text-xs text-gray-400 hover:text-red-600">✕</button>
                       </div>
-                      <button onClick={() => setLine(i, { productId: "", search: "" })} className="text-xs text-gray-400 hover:text-red-600">✕</button>
+                      {(!picked.units_per_case || (!picked.gross_weight_kg && !picked.volumetric_weight_kg && !picked.carton_dimensions)) && (
+                        <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-800 dark:bg-amber-950/30">
+                          <p className="mb-1.5 text-[10px] font-medium text-amber-800 dark:text-amber-300">
+                            Master is missing packing data for this SKU — enter it to quote:
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {!picked.units_per_case && (
+                              <input type="number" min="1" placeholder="Units per case" value={line.ovrUnits || ""} onChange={(e) => setLine(i, { ovrUnits: e.target.value })} className={inputCls} />
+                            )}
+                            {!picked.gross_weight_kg && !picked.volumetric_weight_kg && !picked.carton_dimensions && (
+                              <input type="number" min="0" step="0.1" placeholder="Case weight (kg)" value={line.ovrCaseKg || ""} onChange={(e) => setLine(i, { ovrCaseKg: e.target.value })} className={inputCls} />
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="relative">
@@ -305,6 +329,7 @@ export default function LogisticsCalc({ initialData }) {
                               className="block w-full px-3 py-1.5 text-left text-xs text-gray-800 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
                             >
                               {p.sku} — {p.product_name}
+                              <span className="ml-1 text-[10px] text-gray-400">{p.category}</span>
                             </button>
                           ))}
                         </div>
