@@ -71,6 +71,12 @@ export default function CalculatorPickerPage() {
             accent: "from-rose-600 to-red-700",
           },
           {
+            href: "/calculator/logistics",
+            title: "Logistics Calculator (Domestic)",
+            desc: "Delhivery B2B shipment cost — items from the catalogue, vendor or warehouse origin, saved delivery addresses, contract-exact breakdown.",
+            accent: "from-indigo-700 to-blue-900",
+          },
+          {
             href: "/calculator/express-ship",
             title: "Express Ship Calculator (India / China → USA)",
             desc: "DHL Express air landed price — product, freight on chargeable kg, US duty, MPF and margin. Single SKU per quote.",
