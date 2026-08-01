@@ -21,7 +21,7 @@ const inr = (v) =>
   "₹" + (+v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function LogisticsCalc({ initialData }) {
-  const { config, zoneMatrix, laneRates, zoneMap, products } = initialData;
+  const { config, zoneMatrix, laneRates, zoneMap, products, clients = [] } = initialData;
   const [vendors, setVendors] = useState(initialData.vendors || []);
   const [addresses, setAddresses] = useState(initialData.addresses || []);
 
@@ -33,7 +33,7 @@ export default function LogisticsCalc({ initialData }) {
   // destination
   const [addressId, setAddressId] = useState("");
   const [showNewAddress, setShowNewAddress] = useState(false);
-  const [newAddr, setNewAddr] = useState({ label: "", pincode: "", address_line: "", city: "", is_oda: false });
+  const [newAddr, setNewAddr] = useState({ client_id: "", label: "", pincode: "", address_line: "", city: "", is_oda: false });
   const [addrBusy, setAddrBusy] = useState(false);
 
   // shipment
@@ -115,10 +115,11 @@ export default function LogisticsCalc({ initialData }) {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Save failed");
-      setAddresses((prev) => [body.address, ...prev]);
+      const clientName = clients.find((c) => c.id === newAddr.client_id)?.name || "";
+      setAddresses((prev) => [{ ...body.address, client_name: clientName }, ...prev]);
       setAddressId(body.address.id);
       setShowNewAddress(false);
-      setNewAddr({ label: "", pincode: "", address_line: "", city: "", is_oda: false });
+      setNewAddr({ client_id: "", label: "", pincode: "", address_line: "", city: "", is_oda: false });
     } catch (e) {
       alert(e.message);
     } finally {
@@ -234,6 +235,12 @@ export default function LogisticsCalc({ initialData }) {
           </div>
           {showNewAddress ? (
             <div className="space-y-2">
+              <select value={newAddr.client_id} onChange={(e) => setNewAddr({ ...newAddr, client_id: e.target.value })} className={inputCls}>
+                <option value="">Customer (from clients master)…</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
               <input placeholder="Label (e.g. Zepto Hoskote WH)" value={newAddr.label} onChange={(e) => setNewAddr({ ...newAddr, label: e.target.value })} className={inputCls} />
               <div className="grid grid-cols-2 gap-2">
                 <input placeholder="Pincode" maxLength={6} value={newAddr.pincode} onChange={(e) => setNewAddr({ ...newAddr, pincode: e.target.value })} className={inputCls} />
@@ -247,18 +254,24 @@ export default function LogisticsCalc({ initialData }) {
                 <input type="checkbox" checked={newAddr.is_oda} onChange={(e) => setNewAddr({ ...newAddr, is_oda: e.target.checked })} />
                 ODA pincode (₹{+(config?.oda_flat_inr ?? 1500)} flat surcharge)
               </label>
-              <button onClick={createAddress} disabled={addrBusy || !newAddr.label || !/^\d{6}$/.test(newAddr.pincode)} className={btnCls}>
-                {addrBusy ? "Saving…" : "Save address"}
+              <button onClick={createAddress} disabled={addrBusy || !newAddr.client_id || !newAddr.label || !/^\d{6}$/.test(newAddr.pincode)} className={btnCls}>
+                {addrBusy ? "Saving…" : "Save to customer master"}
               </button>
             </div>
           ) : (
             <select value={addressId} onChange={(e) => { setAddressId(e.target.value); setOdaOverride(null); }} className={inputCls}>
-              <option value="">Select saved address…</option>
-              {addresses.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.label} — {a.pincode}
-                  {a.is_oda ? " (ODA)" : ""}
-                </option>
+              <option value="">Select customer address…</option>
+              {[...new Set(addresses.map((a) => a.client_name))].map((cn) => (
+                <optgroup key={cn || "other"} label={cn || "Other"}>
+                  {addresses
+                    .filter((a) => a.client_name === cn)
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.label} — {a.pincode}
+                        {a.is_oda ? " (ODA)" : ""}
+                      </option>
+                    ))}
+                </optgroup>
               ))}
             </select>
           )}
