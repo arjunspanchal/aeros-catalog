@@ -290,10 +290,17 @@ export default function LogisticsCalc({ initialData }) {
           <div className="space-y-3">
             {lines.map((line, i) => {
               const picked = products.find((p) => p.id === line.productId);
-              const q = line.search.trim().toLowerCase();
+              // Token search: every word must appear somewhere in sku/name/category,
+              // so "20oz frosted" finds "20oz Flat Bottom PP Cup (Frosted, ...)".
+              const tokens = line.search.trim().toLowerCase().split(/\s+/).filter(Boolean);
               const matches =
-                !picked && q.length >= 2
-                  ? products.filter((p) => `${p.sku} ${p.product_name} ${p.category || ""}`.toLowerCase().includes(q)).slice(0, 8)
+                !picked && line.search.trim().length >= 2
+                  ? products
+                      .filter((p) => {
+                        const hay = `${p.sku} ${p.product_name} ${p.category || ""}`.toLowerCase();
+                        return tokens.every((t) => hay.includes(t));
+                      })
+                      .slice(0, 8)
                   : [];
               return (
                 <div key={i} className="rounded-md border border-gray-200 p-2 dark:border-gray-700">
