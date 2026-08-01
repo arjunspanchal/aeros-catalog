@@ -58,7 +58,8 @@ export default function LogisticsCalc({ initialData }) {
           if (!p || !+l.qty) return null;
           const unitsPerCase = p.units_per_case || +l.ovrUnits || 0;
           const grossWeightKg = p.gross_weight_kg || +l.ovrCaseKg || 0;
-          if (!unitsPerCase || (!grossWeightKg && !p.volumetric_weight_kg && !p.carton_dimensions)) return null;
+          const cartonDimensions = p.carton_dimensions || l.ovrDims || null;
+          if (!unitsPerCase || (!grossWeightKg && !p.volumetric_weight_kg && !cartonDimensions)) return null;
           return {
             sku: p.sku,
             name: p.product_name,
@@ -66,7 +67,7 @@ export default function LogisticsCalc({ initialData }) {
             unitsPerCase,
             grossWeightKg,
             volumetricWeightKg: p.volumetric_weight_kg,
-            cartonDimensions: p.carton_dimensions,
+            cartonDimensions,
           };
         })
         .filter(Boolean),
@@ -307,19 +308,25 @@ export default function LogisticsCalc({ initialData }) {
                             {picked.volumetric_weight_kg ? ` · vol ${picked.volumetric_weight_kg} kg` : ""}
                           </p>
                         </div>
-                        <button onClick={() => setLine(i, { productId: "", search: "", ovrUnits: "", ovrCaseKg: "" })} className="text-xs text-gray-400 hover:text-red-600">✕</button>
+                        <button onClick={() => setLine(i, { productId: "", search: "", ovrUnits: "", ovrCaseKg: "", ovrDims: "" })} className="text-xs text-gray-400 hover:text-red-600">✕</button>
                       </div>
-                      {(!picked.units_per_case || (!picked.gross_weight_kg && !picked.volumetric_weight_kg && !picked.carton_dimensions)) && (
+                      {(!picked.units_per_case ||
+                        !picked.gross_weight_kg ||
+                        (!picked.volumetric_weight_kg && !picked.carton_dimensions)) && (
                         <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-800 dark:bg-amber-950/30">
                           <p className="mb-1.5 text-[10px] font-medium text-amber-800 dark:text-amber-300">
-                            Master is missing packing data for this SKU — enter it to quote:
+                            Master is missing packing data for this SKU — enter it to quote correctly
+                            (Delhivery bills max of dead vs volumetric weight):
                           </p>
                           <div className="grid grid-cols-2 gap-2">
                             {!picked.units_per_case && (
                               <input type="number" min="1" placeholder="Units per case" value={line.ovrUnits || ""} onChange={(e) => setLine(i, { ovrUnits: e.target.value })} className={inputCls} />
                             )}
-                            {!picked.gross_weight_kg && !picked.volumetric_weight_kg && !picked.carton_dimensions && (
+                            {!picked.gross_weight_kg && (
                               <input type="number" min="0" step="0.1" placeholder="Case weight (kg)" value={line.ovrCaseKg || ""} onChange={(e) => setLine(i, { ovrCaseKg: e.target.value })} className={inputCls} />
+                            )}
+                            {!picked.volumetric_weight_kg && !picked.carton_dimensions && (
+                              <input placeholder="Carton L x W x H (mm)" value={line.ovrDims || ""} onChange={(e) => setLine(i, { ovrDims: e.target.value })} className={inputCls} />
                             )}
                           </div>
                         </div>
@@ -402,6 +409,12 @@ export default function LogisticsCalc({ initialData }) {
                   <p className="font-mono font-semibold">{quote.chargeableKg} kg</p>
                 </div>
               </div>
+              {quote.volKg === 0 && (
+                <p className="mt-2 rounded bg-amber-100 px-2 py-1 text-[11px] text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+                  Volumetric weight unknown (no carton dimensions on the master) — Delhivery bills
+                  machine-captured weight, so this quote may be understated. Enter carton dims on the item.
+                </p>
+              )}
               <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
                 {quote.rate.originState} → {quote.rate.destState} · {quote.rate.basis} @ ₹{quote.rate.ratePerKg}/kg
                 {quote.rate.assumed && (
