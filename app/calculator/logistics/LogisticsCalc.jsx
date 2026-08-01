@@ -24,6 +24,8 @@ export default function LogisticsCalc({ initialData }) {
   const { config, zoneMatrix, laneRates, zoneMap, products, clients = [] } = initialData;
   const [vendors, setVendors] = useState(initialData.vendors || []);
   const [addresses, setAddresses] = useState(initialData.addresses || []);
+  const [quoteLog, setQuoteLog] = useState(initialData.quotes || []);
+  const [showLog, setShowLog] = useState(false);
 
   // origin
   const [originKind, setOriginKind] = useState("warehouse"); // 'warehouse' | 'vendor'
@@ -160,8 +162,10 @@ export default function LogisticsCalc({ initialData }) {
           total_inr: quote.total,
         }),
       });
-      if (!res.ok) throw new Error((await res.json()).error || "Save failed");
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Save failed");
       await rememberVendorPin();
+      if (body.quote) setQuoteLog((prev) => [body.quote, ...prev]);
       setSaveState("saved");
       setTimeout(() => setSaveState(""), 2500);
     } catch (e) {
@@ -499,6 +503,54 @@ export default function LogisticsCalc({ initialData }) {
           ₹150/LR · GST shown separately (recoverable ITC — never load it into customer prices). Demurrage, COD/ToPay
           and appointment-delivery charges are excluded — add from the contract if the shipment needs them.
         </p>
+
+        {/* Saved quote log */}
+        <section className={cardCls}>
+          <button
+            onClick={() => setShowLog((s) => !s)}
+            className="flex w-full items-center justify-between text-sm font-semibold text-gray-900 dark:text-gray-100"
+          >
+            <span>Quote log ({quoteLog.length})</span>
+            <span className="text-gray-400">{showLog ? "▾ hide" : "▸ show"}</span>
+          </button>
+          {showLog &&
+            (quoteLog.length === 0 ? (
+              <p className="mt-3 text-xs text-gray-400">No quotes saved yet — price a shipment and hit “Save quote to log”.</p>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="text-gray-400">
+                    <tr>
+                      <th className="py-1 pr-3 font-medium">Date</th>
+                      <th className="py-1 pr-3 font-medium">Lane</th>
+                      <th className="py-1 pr-3 font-medium">Items</th>
+                      <th className="py-1 pr-3 text-right font-medium">Kg</th>
+                      <th className="py-1 pr-3 text-right font-medium">Total (incl. GST)</th>
+                      <th className="py-1 text-right font-medium">₹/pc ex-GST</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-700 dark:text-gray-300">
+                    {quoteLog.map((q) => (
+                      <tr key={q.id} className="border-t border-gray-100 dark:border-gray-800">
+                        <td className="py-1.5 pr-3 whitespace-nowrap">{String(q.created_at).slice(0, 10)}</td>
+                        <td className="py-1.5 pr-3">
+                          {q.origin_label || q.origin_pincode} → {q.dest_label || q.dest_pincode}
+                        </td>
+                        <td className="py-1.5 pr-3">
+                          {(q.lines || []).map((l) => `${l.sku} ×${l.qty}`).join(", ")}
+                        </td>
+                        <td className="py-1.5 pr-3 text-right font-mono">{q.chargeable_kg}</td>
+                        <td className="py-1.5 pr-3 text-right font-mono">{inr(q.total_inr)}</td>
+                        <td className="py-1.5 text-right font-mono">
+                          {q.breakdown?.per_unit_ex_gst != null ? `₹${(+q.breakdown.per_unit_ex_gst).toFixed(4)}` : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+        </section>
       </div>
     </div>
   );
