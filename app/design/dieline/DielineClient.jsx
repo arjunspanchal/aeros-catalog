@@ -38,9 +38,11 @@ const STYLES = {
     defaults: { L: "144", W: "104", H: "40" },
     hints: { L: "top opening length", W: "top opening width", H: "wall height" },
     presets: [
-      { label: "500 mL (144×104×40)", dims: [144, 104, 40], unit: "mm" },
-      { label: "750 mL (164×114×45)", dims: [164, 114, 45], unit: "mm" },
+      { label: "500 mL (144×104×40)", dims: [144, 104, 40], unit: "mm", taper: 7 },
+      { label: "750 mL (164×114×45)", dims: [164, 114, 45], unit: "mm", taper: 7 },
+      { label: "1000 mL (200×139×50, taper 10)", dims: [200, 139, 50], unit: "mm", taper: 10 },
     ],
+    hasTaper: true,
     depthLabel: "Wall height",
     note:
       "Tapered leakproof tray (7 mm flare per side — base comes out 14 mm smaller each way) with corner gussets, hinged lid with V-notches, and an 18 mm lip whose slots catch the wall teeth. Dims are the internal top opening.",
@@ -54,14 +56,16 @@ export default function DielineClient() {
   const [L, setL] = useState(style.defaults.L);
   const [W, setW] = useState(style.defaults.W);
   const [H, setH] = useState(style.defaults.H);
+  const [taper, setTaper] = useState("7");
   const [showDims, setShowDims] = useState(true);
 
   const dims = { L: parseFloat(L), W: parseFloat(W), H: parseFloat(H) };
   const ready = [dims.L, dims.W, dims.H].every((v) => Number.isFinite(v) && v > 0);
 
+  const taperMm = style.hasTaper ? parseFloat(taper) || 7 : undefined;
   const result = useMemo(
-    () => (ready ? style.build({ ...dims, units }) : null),
-    [styleId, dims.L, dims.W, dims.H, units, ready],
+    () => (ready ? style.build({ ...dims, taper: taperMm, units }) : null),
+    [styleId, dims.L, dims.W, dims.H, taperMm, units, ready],
   );
 
   const title = `${style.label} KLD ${L} x ${W} x ${H} ${units}`;
@@ -78,6 +82,7 @@ export default function DielineClient() {
     setL(s.defaults.L);
     setW(s.defaults.W);
     setH(s.defaults.H);
+    setTaper("7");
   }
 
   function switchUnits(next) {
@@ -101,6 +106,7 @@ export default function DielineClient() {
     setL(conv(p.dims[0]));
     setW(conv(p.dims[1]));
     setH(conv(p.dims[2]));
+    if (p.taper != null) setTaper(String(p.taper));
   }
 
   function download(ext) {
@@ -190,6 +196,22 @@ export default function DielineClient() {
             ))}
           </div>
 
+          {style.hasTaper && (
+            <label className="mt-3 block">
+              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Wall taper (mm per side)</span>
+              <input
+                type="number"
+                min="3"
+                step="0.5"
+                value={taper}
+                onChange={(e) => setTaper(e.target.value)}
+                className={inputCls + " max-w-[120px]"}
+              />
+              <span className="mt-0.5 block text-[10px] leading-tight text-gray-400">
+                base = top − 2×taper each way · 7 on the 500/750 mL dies, 10 on the 1000 mL
+              </span>
+            </label>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
             {style.presets.map((p) => (
               <button
