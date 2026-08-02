@@ -15,6 +15,7 @@ import { buildSleeveDieline, buildCupSleeveDieline } from "@/lib/dieline/sleeves
 import { buildPillowboxDieline } from "@/lib/dieline/pillowbox";
 import { buildGableboxDieline } from "@/lib/dieline/gablebox";
 import { buildPizzaboxDieline } from "@/lib/dieline/pizzabox";
+import { buildSnackboxDieline } from "@/lib/dieline/snackbox";
 import { buildTrayDieline } from "@/lib/dieline/tray";
 import { buildEnvelopeDieline } from "@/lib/dieline/envelope";
 import { toSvg, toPdf, toDxf, fmtBoth } from "@/lib/dieline/exports";
@@ -91,20 +92,35 @@ const STYLES = {
       "Carry-out gable box: roof creases to a carry handle with hand hole, fold-in gussets, crash-lock style bottom. Standard construction — prototype the first cut.",
   },
   pizzabox: {
-    label: "Pizza Box (0426)",
+    label: "Pizza Box (production)",
     build: buildPizzaboxDieline,
     defaultUnits: "mm",
-    defaults: { L: "320", W: "320", H: "45" },
-    hints: { L: "internal width", W: "internal depth", H: "internal height" },
+    defaults: { L: "308", W: "311", H: "43" },
+    hints: { L: "internal depth", W: "internal width", H: "wall height" },
     presets: [
-      { label: '10" (260×260×40)', dims: [260, 260, 40], unit: "mm" },
-      { label: '12" (320×320×45)', dims: [320, 320, 45], unit: "mm" },
-      { label: '14" (360×360×45)', dims: [360, 360, 45], unit: "mm" },
+      { label: '7" (181×181×40)', dims: [181, 181, 40], unit: "mm" },
+      { label: '8" (206×206×40)', dims: [206, 206, 40], unit: "mm" },
+      { label: '9" (232×232×40)', dims: [232, 232, 40], unit: "mm" },
+      { label: '10" (257×257×43)', dims: [257, 257, 43], unit: "mm" },
+      { label: '12" (308×311×43)', dims: [308, 311, 43], unit: "mm" },
     ],
-    usesThickness: true,
     depthLabel: "Wall height",
     note:
-      "One-piece corrugated pizza box: hinged lid with front + side lips, side walls with front ears, front fold-over. Standard construction — prototype the first cut.",
+      "Calibrated to the production one-piece corrugated pizza die family (12-inch reference, die-exact; 7-inch cross-checks within ~1 mm): rolled back wall with lock tabs, slotted side walls, lid side wings with snap bumps, rounded corners, thumb-notch lip.",
+  },
+  snackbox: {
+    label: "Snack Box (hinged lid)",
+    build: buildSnackboxDieline,
+    defaultUnits: "mm",
+    defaults: { L: "105", W: "200", H: "35" },
+    hints: { L: "internal depth", W: "internal width", H: "wall height" },
+    presets: [
+      { label: "200×105×35 (production)", dims: [105, 200, 35], unit: "mm" },
+      { label: "230×130×40", dims: [130, 230, 40], unit: "mm" },
+    ],
+    depthLabel: "Wall height",
+    note:
+      "Production hinged corrugated snack box (sides / garlic-knots family, die-exact at 200×105×35): rolled back wall with lock tabs, snap-bump side walls, lid wings, lip with finger notch.",
   },
   sleeve: {
     label: "Sleeve (straight)",
