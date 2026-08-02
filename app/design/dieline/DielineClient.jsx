@@ -7,6 +7,7 @@
 import { useMemo, useState } from "react";
 import { buildCakeboxDieline } from "@/lib/dieline/cakebox";
 import { buildFoodboxDieline } from "@/lib/dieline/foodbox";
+import { buildBurgerboxDieline } from "@/lib/dieline/burgerbox";
 import { toSvg, toPdf, toDxf, fmtBoth } from "@/lib/dieline/exports";
 
 const inputCls =
@@ -46,6 +47,17 @@ const STYLES = {
     depthLabel: "Wall height",
     note:
       "Tapered leakproof tray (7 mm flare per side — base comes out 14 mm smaller each way) with corner gussets, hinged lid with V-notches, and an 18 mm lip whose slots catch the wall teeth. Dims are the internal top opening.",
+  },
+  burgerbox: {
+    label: "Burger Box (clamshell)",
+    build: buildBurgerboxDieline,
+    defaultUnits: "mm",
+    defaults: { L: "102", W: "102", H: "39" },
+    hints: { L: "base depth (front-back)", W: "base width (hinge side)", H: "wall height" },
+    presets: [{ label: "Standard 102×102×39", dims: [102, 102, 39], unit: "mm" }],
+    depthLabel: "Wall height",
+    note:
+      "Hinged clamshell — base tray with flared walls and rounded side wings, double-crease spine, lid with front tuck lock. Organic curves are band-scaled from the production 204 × 381 mm blank, so the standard size is die-exact and other sizes are drafts for the die maker.",
   },
 };
 
