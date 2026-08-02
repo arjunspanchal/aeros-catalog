@@ -104,9 +104,10 @@ const STYLES = {
       { label: '10" (257×257×43)', dims: [257, 257, 43], unit: "mm" },
       { label: '12" (308×311×43)', dims: [308, 311, 43], unit: "mm" },
     ],
+    defaultMaterial: { family: "corrugated", idx: 2 }, // E-flute
     depthLabel: "Wall height",
     note:
-      "Calibrated to the production one-piece corrugated pizza die family (12-inch reference, die-exact; 7-inch cross-checks within ~1 mm): rolled back wall with lock tabs, slotted side walls, lid side wings with snap bumps, rounded corners, thumb-notch lip.",
+      "Calibrated to the production one-piece corrugated pizza die family (12-inch reference, die-exact; 7-inch cross-checks within ~1 mm) — drawn for E-FLUTE (1.5 mm); other flutes change fold allowances, re-check with the die maker. Rolled back wall with lock tabs, slotted side walls, lid side wings with snap bumps, rounded corners, thumb-notch lip.",
   },
   snackbox: {
     label: "Snack Box (hinged lid)",
@@ -118,9 +119,10 @@ const STYLES = {
       { label: "200×105×35 (production)", dims: [105, 200, 35], unit: "mm" },
       { label: "230×130×40", dims: [130, 230, 40], unit: "mm" },
     ],
+    defaultMaterial: { family: "corrugated", idx: 2 }, // E-flute
     depthLabel: "Wall height",
     note:
-      "Production hinged corrugated snack box (sides / garlic-knots family, die-exact at 200×105×35): rolled back wall with lock tabs, snap-bump side walls, lid wings, lip with finger notch.",
+      "Production hinged corrugated snack box (sides / garlic-knots family, die-exact at 200×105×35) — drawn for E-FLUTE (1.5 mm) like the pizza dies. Rolled back wall with lock tabs, snap-bump side walls, lid wings, lip with finger notch.",
   },
   sleeve: {
     label: "Sleeve (straight)",
@@ -297,6 +299,11 @@ export default function DielineClient() {
     setCartonType("rte");
     setWinW("");
     setWinH("");
+    if (s.defaultMaterial) {
+      setMatFamily(s.defaultMaterial.family);
+      setMatIdx(s.defaultMaterial.idx);
+      setMatCustomMm("");
+    }
   }
 
   function switchUnits(next) {
