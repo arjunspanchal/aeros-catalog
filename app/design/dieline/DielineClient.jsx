@@ -15,6 +15,8 @@ import { buildSleeveDieline, buildCupSleeveDieline } from "@/lib/dieline/sleeves
 import { buildPillowboxDieline } from "@/lib/dieline/pillowbox";
 import { buildGableboxDieline } from "@/lib/dieline/gablebox";
 import { buildPizzaboxDieline } from "@/lib/dieline/pizzabox";
+import { buildTrayDieline } from "@/lib/dieline/tray";
+import { buildEnvelopeDieline } from "@/lib/dieline/envelope";
 import { toSvg, toPdf, toDxf, fmtBoth } from "@/lib/dieline/exports";
 import { MATERIALS, materialStamp, materialThicknessMm } from "@/lib/dieline/materials";
 
@@ -36,6 +38,7 @@ const STYLES = {
       { label: 'Cake 10 x 10 x 5"', dims: [10, 10, 5], unit: "in" },
       { label: 'Cake 12 x 12 x 5"', dims: [12, 12, 5], unit: "in" },
     ],
+    hasWindow: true,
     depthLabel: "End-flap depth",
     note:
       "One-piece lock-corner die, no glue — tuck flap closes the wrap, base-flap slit locks the lid tab on both ends. Feed the blank size straight into the box calculator for sheet nesting.",
@@ -148,6 +151,37 @@ const STYLES = {
     note:
       "Two curved faces with curved tuck-in ends and a glued side seam; pillow depth emerges from the 0.18×W end curve. Standard construction — prototype the first cut.",
   },
+  tray: {
+    label: "Tray (ear-lock, 0421)",
+    build: buildTrayDieline,
+    defaultUnits: "mm",
+    defaults: { L: "220", W: "150", H: "45" },
+    hints: { L: "internal length", W: "internal width", H: "wall height" },
+    presets: [
+      { label: "220×150×45", dims: [220, 150, 45], unit: "mm" },
+      { label: "300×200×60", dims: [300, 200, 60], unit: "mm" },
+    ],
+    usesThickness: true,
+    depthLabel: "Wall height",
+    note:
+      "Glue-free open tray: side-wall ears wrap the ends, end-wall fold-over lips lock into base slots (same lock as the mailer). For a telescope set, generate a cover at L+3 × W+3 with the cover height. Standard construction — prototype the first cut.",
+  },
+  envelope: {
+    label: "Envelope",
+    build: buildEnvelopeDieline,
+    defaultUnits: "mm",
+    defaults: { L: "229", W: "162", H: "0" },
+    fieldLabels: ["Width", "Height", "—"],
+    hints: { L: "envelope width", W: "envelope height", H: "not used" },
+    presets: [
+      { label: "C5 (229×162)", dims: [229, 162, 0], unit: "mm" },
+      { label: "C4 (324×229)", dims: [324, 229, 0], unit: "mm" },
+      { label: "DL (220×110)", dims: [220, 110, 0], unit: "mm" },
+    ],
+    allowZeroH: true,
+    depthLabel: "Closure flap",
+    note: "Pocket envelope — glued side flaps, bottom flap, curved closure flap. Standard construction.",
+  },
   tuckbox: {
     label: "Mailer / Tuck Box (0427)",
     build: buildTuckboxDieline,
@@ -211,6 +245,8 @@ export default function DielineClient() {
   const [bagType, setBagType] = useState("sos");
   const [hem, setHem] = useState("");
   const [cartonType, setCartonType] = useState("rte");
+  const [winW, setWinW] = useState("");
+  const [winH, setWinH] = useState("");
 
   const dims = { L: parseFloat(L), W: parseFloat(W), H: parseFloat(H) };
   const ready =
@@ -221,8 +257,8 @@ export default function DielineClient() {
   const boardMm = materialThicknessMm(matFamily, matIdx, matCustomMm);
   const taperMm = style.hasTaper ? parseFloat(taper) || 7 : undefined;
   const result = useMemo(
-    () => (ready ? style.build({ ...dims, taper: taperMm, bagType, cartonType, hem: hem === "" ? undefined : +hem, thickness: boardMm, units }) : null),
-    [styleId, dims.L, dims.W, dims.H, taperMm, bagType, cartonType, hem, boardMm, units, ready],
+    () => (ready ? style.build({ ...dims, taper: taperMm, bagType, cartonType, hem: hem === "" ? undefined : +hem, windowW: winW === "" ? undefined : +winW, windowH: winH === "" ? undefined : +winH, thickness: boardMm, units }) : null),
+    [styleId, dims.L, dims.W, dims.H, taperMm, bagType, cartonType, hem, winW, winH, boardMm, units, ready],
   );
 
   const title = `${style.label} KLD ${L} x ${W} x ${H} ${units} - ${matLabel}`;
@@ -243,6 +279,8 @@ export default function DielineClient() {
     setBagType("sos");
     setHem("");
     setCartonType("rte");
+    setWinW("");
+    setWinH("");
   }
 
   function switchUnits(next) {
@@ -386,6 +424,18 @@ export default function DielineClient() {
                   onChange={(e) => setHem(e.target.value)}
                   className={inputCls}
                 />
+              </label>
+            </div>
+          )}
+          {style.hasWindow && (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Window W ({units}, optional)</span>
+                <input type="number" min="0" value={winW} onChange={(e) => setWinW(e.target.value)} className={inputCls} />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Window H ({units}, optional)</span>
+                <input type="number" min="0" value={winH} onChange={(e) => setWinH(e.target.value)} className={inputCls} />
               </label>
             </div>
           )}
