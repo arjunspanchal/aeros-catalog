@@ -9,6 +9,7 @@ import { buildCakeboxDieline } from "@/lib/dieline/cakebox";
 import { buildFoodboxDieline } from "@/lib/dieline/foodbox";
 import { buildBurgerboxDieline } from "@/lib/dieline/burgerbox";
 import { toSvg, toPdf, toDxf, fmtBoth } from "@/lib/dieline/exports";
+import { MATERIALS, materialStamp, materialThicknessMm } from "@/lib/dieline/materials";
 
 const inputCls =
   "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100";
@@ -70,6 +71,9 @@ export default function DielineClient() {
   const [H, setH] = useState(style.defaults.H);
   const [taper, setTaper] = useState("7");
   const [showDims, setShowDims] = useState(true);
+  const [matFamily, setMatFamily] = useState("white");
+  const [matIdx, setMatIdx] = useState(3); // 280 gsm FBB default
+  const [matCustomMm, setMatCustomMm] = useState("");
 
   const dims = { L: parseFloat(L), W: parseFloat(W), H: parseFloat(H) };
   const ready = [dims.L, dims.W, dims.H].every((v) => Number.isFinite(v) && v > 0);
@@ -80,7 +84,9 @@ export default function DielineClient() {
     [styleId, dims.L, dims.W, dims.H, taperMm, units, ready],
   );
 
-  const title = `${style.label} KLD ${L} x ${W} x ${H} ${units}`;
+  const matLabel = materialStamp(matFamily, matIdx, matCustomMm);
+  const boardMm = materialThicknessMm(matFamily, matIdx, matCustomMm);
+  const title = `${style.label} KLD ${L} x ${W} x ${H} ${units} - ${matLabel}`;
   const svg = useMemo(
     () => (result && result.blank ? toSvg(result, { units, showDims, title }) : null),
     [result, units, showDims, title],
@@ -237,6 +243,39 @@ export default function DielineClient() {
           </div>
         </section>
 
+        <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">Material</h2>
+          <div className="grid grid-cols-1 gap-2">
+            <select
+              value={matFamily}
+              onChange={(e) => { setMatFamily(e.target.value); setMatIdx(0); setMatCustomMm(""); }}
+              className={inputCls}
+            >
+              {MATERIALS.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+            <select value={matIdx} onChange={(e) => setMatIdx(+e.target.value)} className={inputCls}>
+              {(MATERIALS.find((m) => m.id === matFamily)?.options || []).map((o, i) => (
+                <option key={o.label} value={i}>{o.label}</option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min="0"
+              step="0.05"
+              placeholder="Custom thickness mm (optional)"
+              value={matCustomMm}
+              onChange={(e) => setMatCustomMm(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+            Stamped on every export and used for the outer-size estimate below. Dims stay INTERNAL —
+            thickness allowances on folds remain the die maker's call.
+          </p>
+        </section>
+
         {blank && (
           <section className="rounded-lg border border-gray-200 bg-white p-4 text-sm shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Blank (sheet) size</h2>
@@ -253,6 +292,14 @@ export default function DielineClient() {
                 <div className="flex justify-between">
                   <dt>{style.depthLabel}</dt>
                   <dd className="font-mono">{fmtBoth(blank.flapDepthPt)}</dd>
+                </div>
+              )}
+              {boardMm > 0 && ready && (
+                <div className="flex justify-between text-gray-500 dark:text-gray-400">
+                  <dt>Outer size (approx, +board)</dt>
+                  <dd className="font-mono">
+                    {outerDim(dims.L, boardMm, units)} × {outerDim(dims.W, boardMm, units)} × {outerDimH(dims.H, boardMm, units)} {units}
+                  </dd>
                 </div>
               )}
             </dl>
@@ -305,4 +352,13 @@ export default function DielineClient() {
       </div>
     </div>
   );
+}
+
+function outerDim(v, boardMm, units) {
+  const t = units === "mm" ? boardMm : boardMm / 25.4;
+  return +(v + 2 * t).toFixed(units === "mm" ? 1 : 3);
+}
+function outerDimH(v, boardMm, units) {
+  const t = units === "mm" ? boardMm : boardMm / 25.4;
+  return +(v + t).toFixed(units === "mm" ? 1 : 3);
 }
