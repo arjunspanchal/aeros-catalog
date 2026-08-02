@@ -1,53 +1,91 @@
 "use client";
 
-// Parametric dieline generator UI for the one-piece lock-corner cake /
-// snack box (SNACC samosa-box pattern). Geometry in lib/dieline/cakebox.js,
-// exporters in lib/dieline/exports.js — everything runs client-side.
+// Parametric dieline generator UI. Each box style is a geometry engine in
+// lib/dieline/ (verified against a real Aeros/reference die); exporters are
+// style-agnostic. Everything runs client-side.
 
 import { useMemo, useState } from "react";
-import { buildCakeboxDieline, PT_PER_IN, PT_PER_MM } from "@/lib/dieline/cakebox";
+import { buildCakeboxDieline } from "@/lib/dieline/cakebox";
+import { buildFoodboxDieline } from "@/lib/dieline/foodbox";
 import { toSvg, toPdf, toDxf, fmtBoth } from "@/lib/dieline/exports";
 
 const inputCls =
   "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100";
 
-// Presets are stored in inches; converted on click if the unit is mm.
-const PRESETS = [
-  { label: 'Samosa 5 x 5 x 3"', dims: [5, 5, 3] },
-  { label: 'Cake 7 x 7 x 4"', dims: [7, 7, 4] },
-  { label: 'Cake 8 x 8 x 5"', dims: [8, 8, 5] },
-  { label: 'Cake 10 x 10 x 5"', dims: [10, 10, 5] },
-  { label: 'Cake 12 x 12 x 5"', dims: [12, 12, 5] },
-];
+const STYLES = {
+  cakebox: {
+    label: "Cake / Snack Box",
+    build: buildCakeboxDieline,
+    defaultUnits: "in",
+    defaults: { L: "5", W: "5", H: "3" },
+    hints: { L: "across the lock ends", W: "wrap-around band", H: "box depth" },
+    // presets are stored in their native unit and converted on click
+    presets: [
+      { label: 'Samosa 5 x 5 x 3"', dims: [5, 5, 3], unit: "in" },
+      { label: 'Cake 7 x 7 x 4"', dims: [7, 7, 4], unit: "in" },
+      { label: 'Cake 8 x 8 x 5"', dims: [8, 8, 5], unit: "in" },
+      { label: 'Cake 10 x 10 x 5"', dims: [10, 10, 5], unit: "in" },
+      { label: 'Cake 12 x 12 x 5"', dims: [12, 12, 5], unit: "in" },
+    ],
+    depthLabel: "End-flap depth",
+    note:
+      "One-piece lock-corner die, no glue — tuck flap closes the wrap, base-flap slit locks the lid tab on both ends. Feed the blank size straight into the box calculator for sheet nesting.",
+  },
+  foodbox: {
+    label: "Food Box (leakproof)",
+    build: buildFoodboxDieline,
+    defaultUnits: "mm",
+    defaults: { L: "144", W: "104", H: "40" },
+    hints: { L: "top opening length", W: "top opening width", H: "wall height" },
+    presets: [
+      { label: "500 mL (144×104×40)", dims: [144, 104, 40], unit: "mm" },
+      { label: "750 mL (164×114×45)", dims: [164, 114, 45], unit: "mm" },
+    ],
+    depthLabel: "Wall height",
+    note:
+      "Tapered leakproof tray (7 mm flare per side — base comes out 14 mm smaller each way) with corner gussets, hinged lid with V-notches, and an 18 mm lip whose slots catch the wall teeth. Dims are the internal top opening.",
+  },
+};
 
 export default function DielineClient() {
-  const [units, setUnits] = useState("in");
-  const [L, setL] = useState("5");
-  const [W, setW] = useState("5");
-  const [H, setH] = useState("3");
+  const [styleId, setStyleId] = useState("cakebox");
+  const style = STYLES[styleId];
+  const [units, setUnits] = useState(style.defaultUnits);
+  const [L, setL] = useState(style.defaults.L);
+  const [W, setW] = useState(style.defaults.W);
+  const [H, setH] = useState(style.defaults.H);
   const [showDims, setShowDims] = useState(true);
 
   const dims = { L: parseFloat(L), W: parseFloat(W), H: parseFloat(H) };
   const ready = [dims.L, dims.W, dims.H].every((v) => Number.isFinite(v) && v > 0);
 
   const result = useMemo(
-    () => (ready ? buildCakeboxDieline({ ...dims, units }) : null),
-    [dims.L, dims.W, dims.H, units, ready],
+    () => (ready ? style.build({ ...dims, units }) : null),
+    [styleId, dims.L, dims.W, dims.H, units, ready],
   );
 
-  const title = `Cake Box KLD ${L} x ${W} x ${H} ${units}`;
+  const title = `${style.label} KLD ${L} x ${W} x ${H} ${units}`;
   const svg = useMemo(
     () => (result && result.blank ? toSvg(result, { units, showDims, title }) : null),
     [result, units, showDims, title],
   );
 
+  function switchStyle(id) {
+    if (id === styleId) return;
+    const s = STYLES[id];
+    setStyleId(id);
+    setUnits(s.defaultUnits);
+    setL(s.defaults.L);
+    setW(s.defaults.W);
+    setH(s.defaults.H);
+  }
+
   function switchUnits(next) {
     if (next === units) return;
-    const f = next === "mm" ? 25.4 : 1 / 25.4;
     const conv = (v) => {
       const n = parseFloat(v);
       if (!Number.isFinite(n)) return v;
-      return next === "mm" ? String(Math.round(n * f)) : String(+(n * f).toFixed(2));
+      return next === "mm" ? String(Math.round(n * 25.4)) : String(+(n / 25.4).toFixed(2));
     };
     setL(conv(L));
     setW(conv(W));
@@ -55,21 +93,19 @@ export default function DielineClient() {
     setUnits(next);
   }
 
-  function applyPreset([pl, pw, ph]) {
-    if (units === "mm") {
-      setL(String(Math.round(pl * 25.4)));
-      setW(String(Math.round(pw * 25.4)));
-      setH(String(Math.round(ph * 25.4)));
-    } else {
-      setL(String(pl));
-      setW(String(pw));
-      setH(String(ph));
-    }
+  function applyPreset(p) {
+    const conv = (v) => {
+      if (p.unit === units) return String(v);
+      return units === "mm" ? String(Math.round(v * 25.4)) : String(+(v / 25.4).toFixed(2));
+    };
+    setL(conv(p.dims[0]));
+    setW(conv(p.dims[1]));
+    setH(conv(p.dims[2]));
   }
 
   function download(ext) {
     if (!result || !result.blank) return;
-    const base = `aeros-cakebox-${L}x${W}x${H}${units}-KLD`;
+    const base = `aeros-${styleId}-${L}x${W}x${H}${units}-KLD`;
     let blob;
     if (ext === "svg") {
       blob = new Blob([toSvg(result, { units, showDims, title })], { type: "image/svg+xml" });
@@ -93,6 +129,25 @@ export default function DielineClient() {
       {/* Controls */}
       <div className="space-y-5">
         <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">Box style</h2>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(STYLES).map(([id, s]) => (
+              <button
+                key={id}
+                onClick={() => switchStyle(id)}
+                className={
+                  id === styleId
+                    ? "rounded-full bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white dark:bg-gray-100 dark:text-gray-900"
+                    : "rounded-full border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:border-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-300"
+                }
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Internal box size</h2>
             <div className="flex overflow-hidden rounded-md border border-gray-300 text-xs dark:border-gray-700">
@@ -114,9 +169,9 @@ export default function DielineClient() {
 
           <div className="grid grid-cols-3 gap-3">
             {[
-              ["Length", L, setL, "across the lock ends"],
-              ["Width", W, setW, "wrap-around band"],
-              ["Height", H, setH, "box depth"],
+              ["Length", L, setL, style.hints.L],
+              ["Width", W, setW, style.hints.W],
+              ["Height", H, setH, style.hints.H],
             ].map(([label, val, set, hint]) => (
               <label key={label} className="block">
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -136,10 +191,10 @@ export default function DielineClient() {
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            {PRESETS.map((p) => (
+            {style.presets.map((p) => (
               <button
                 key={p.label}
-                onClick={() => applyPreset(p.dims)}
+                onClick={() => applyPreset(p)}
                 className="rounded-full border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:border-gray-900 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-300 dark:hover:text-white"
               >
                 {p.label}
@@ -160,16 +215,14 @@ export default function DielineClient() {
                 <dt>Blank height</dt>
                 <dd className="font-mono">{fmtBoth(blank.heightPt)}</dd>
               </div>
-              <div className="flex justify-between">
-                <dt>End-flap depth</dt>
-                <dd className="font-mono">{fmtBoth(blank.flapDepthPt)}</dd>
-              </div>
+              {blank.flapDepthPt != null && (
+                <div className="flex justify-between">
+                  <dt>{style.depthLabel}</dt>
+                  <dd className="font-mono">{fmtBoth(blank.flapDepthPt)}</dd>
+                </div>
+              )}
             </dl>
-            <p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-              One-piece lock-corner die, no glue — tuck flap closes the wrap, base-flap slit
-              locks the lid tab on both ends. Feed the blank size straight into the box
-              calculator for sheet nesting.
-            </p>
+            <p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{style.note}</p>
           </section>
         )}
 
