@@ -20,6 +20,8 @@ import { buildTrayDieline } from "@/lib/dieline/tray";
 import { buildEnvelopeDieline } from "@/lib/dieline/envelope";
 import { toSvg, toPdf, toDxf, fmtBoth } from "@/lib/dieline/exports";
 import { MATERIALS, materialStamp, materialThicknessMm } from "@/lib/dieline/materials";
+import { buildRig, RIGGED_STYLES } from "@/lib/dieline/fold3d";
+import Fold3DViewer from "./Fold3DViewer";
 
 const inputCls =
   "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100";
@@ -265,6 +267,8 @@ export default function DielineClient() {
   const [cartonType, setCartonType] = useState("rte");
   const [winW, setWinW] = useState("");
   const [winH, setWinH] = useState("");
+  const [view, setView] = useState("2d");
+  const [foldT, setFoldT] = useState(1);
 
   const dims = { L: parseFloat(L), W: parseFloat(W), H: parseFloat(H) };
   const ready =
@@ -350,6 +354,12 @@ export default function DielineClient() {
   }
 
   const blank = result?.blank;
+  const has3d = RIGGED_STYLES.includes(styleId);
+  const rig = useMemo(() => {
+    if (!has3d || !ready) return null;
+    const mm = (v) => (units === "in" ? v * 25.4 : v);
+    return buildRig(styleId, { L: mm(dims.L), W: mm(dims.W), H: mm(dims.H), taper: taperMm });
+  }, [styleId, dims.L, dims.W, dims.H, taperMm, units, ready, has3d]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
@@ -582,6 +592,39 @@ export default function DielineClient() {
 
       {/* Preview */}
       <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex overflow-hidden rounded-md border border-gray-300 text-xs dark:border-gray-700">
+            {[["2d", "Dieline"], ["3d", "3D fold"]].map(([v, label]) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                disabled={v === "3d" && !has3d}
+                className={
+                  v === view
+                    ? "bg-gray-900 px-3 py-1.5 font-semibold text-white dark:bg-gray-100 dark:text-gray-900"
+                    : "bg-white px-3 py-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:bg-gray-800 dark:text-gray-300"
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {view === "3d" && has3d && (
+            <div className="flex flex-1 items-center gap-2 pl-4">
+              <span className="text-[10px] uppercase tracking-wide text-gray-400">Flat</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={foldT}
+                onChange={(e) => setFoldT(+e.target.value)}
+                className="w-full max-w-xs accent-gray-900 dark:accent-gray-100"
+              />
+              <span className="text-[10px] uppercase tracking-wide text-gray-400">Closed</span>
+            </div>
+          )}
+        </div>
         {result?.warnings?.length > 0 && (
           <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
             {result.warnings.map((w) => (
@@ -589,7 +632,15 @@ export default function DielineClient() {
             ))}
           </div>
         )}
-        {svg ? (
+        {view === "3d" && rig ? (
+          <>
+            <Fold3DViewer panels={rig} foldT={foldT} />
+            <p className="mt-2 text-[11px] text-gray-400">
+              Drag to orbit · scroll to zoom · slider folds the blank into the box. Simplified panel model —
+              tabs and locks are omitted; the dieline view stays the source of truth.
+            </p>
+          </>
+        ) : svg ? (
           <div
             className="dieline-preview w-full overflow-auto rounded-md bg-white p-2 [&_svg]:h-auto [&_svg]:w-full"
             dangerouslySetInnerHTML={{ __html: svg }}
