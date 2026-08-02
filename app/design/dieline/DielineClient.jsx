@@ -8,6 +8,8 @@ import { useMemo, useState } from "react";
 import { buildCakeboxDieline } from "@/lib/dieline/cakebox";
 import { buildFoodboxDieline } from "@/lib/dieline/foodbox";
 import { buildBurgerboxDieline } from "@/lib/dieline/burgerbox";
+import { buildPaperbagKeyline, BAG_TYPES } from "@/lib/dieline/paperbag";
+import { buildTuckboxDieline } from "@/lib/dieline/tuckbox";
 import { toSvg, toPdf, toDxf, fmtBoth } from "@/lib/dieline/exports";
 import { MATERIALS, materialStamp, materialThicknessMm } from "@/lib/dieline/materials";
 
@@ -49,6 +51,41 @@ const STYLES = {
     note:
       "Tapered leakproof tray (7 mm flare per side — base comes out 14 mm smaller each way) with corner gussets, hinged lid with V-notches, and an 18 mm lip whose slots catch the wall teeth. Dims are the internal top opening.",
   },
+  tuckbox: {
+    label: "Mailer / Tuck Box (0427)",
+    build: buildTuckboxDieline,
+    defaultUnits: "mm",
+    defaults: { L: "315", W: "202", H: "62" },
+    hints: { L: "internal length", W: "internal width", H: "internal height" },
+    presets: [
+      { label: "315×202×62", dims: [315, 202, 62], unit: "mm" },
+      { label: "250×180×80", dims: [250, 180, 80], unit: "mm" },
+      { label: "200×150×50", dims: [200, 150, 50], unit: "mm" },
+    ],
+    usesThickness: true,
+    depthLabel: "Wall height",
+    note:
+      "Roll-end tuck-top mailer (FEFCO 0427): rolled double side walls, lid with dust flaps, rounded tuck. Thickness allowances come from the selected board caliper. Standard construction — prototype the first die.",
+  },
+  paperbag: {
+    label: "Paper Bag (keyline)",
+    build: buildPaperbagKeyline,
+    defaultUnits: "mm",
+    defaults: { L: "230", W: "125", H: "335" },
+    fieldLabels: ["Width (W)", "Gusset (G)", "Height (H)"],
+    hints: { L: "bag face width", W: "side gusset", H: "bag height" },
+    presets: [
+      { label: "105×65×165", dims: [105, 65, 165], unit: "mm" },
+      { label: "127×73×271", dims: [127, 73, 271], unit: "mm" },
+      { label: "230×125×335", dims: [230, 125, 335], unit: "mm" },
+      { label: "254×152×406", dims: [254, 152, 406], unit: "mm" },
+      { label: "305×229×432", dims: [305, 229, 432], unit: "mm" },
+    ],
+    hasBagType: true,
+    depthLabel: "Bottom fold",
+    note:
+      "Flat blank for print/artwork — seam | front | gusset | back | gusset, SOS diamond folds at the gusset centres. Blank maths matches the bag rate calculator exactly (seam 15/20/25 by width, bottom = 0.75×G, V-bottom +15).",
+  },
   burgerbox: {
     label: "Burger Box (clamshell)",
     build: buildBurgerboxDieline,
@@ -74,18 +111,20 @@ export default function DielineClient() {
   const [matFamily, setMatFamily] = useState("white");
   const [matIdx, setMatIdx] = useState(3); // 280 gsm FBB default
   const [matCustomMm, setMatCustomMm] = useState("");
+  const [bagType, setBagType] = useState("sos");
+  const [hem, setHem] = useState("");
 
   const dims = { L: parseFloat(L), W: parseFloat(W), H: parseFloat(H) };
   const ready = [dims.L, dims.W, dims.H].every((v) => Number.isFinite(v) && v > 0);
 
-  const taperMm = style.hasTaper ? parseFloat(taper) || 7 : undefined;
-  const result = useMemo(
-    () => (ready ? style.build({ ...dims, taper: taperMm, units }) : null),
-    [styleId, dims.L, dims.W, dims.H, taperMm, units, ready],
-  );
-
   const matLabel = materialStamp(matFamily, matIdx, matCustomMm);
   const boardMm = materialThicknessMm(matFamily, matIdx, matCustomMm);
+  const taperMm = style.hasTaper ? parseFloat(taper) || 7 : undefined;
+  const result = useMemo(
+    () => (ready ? style.build({ ...dims, taper: taperMm, bagType, hem: hem === "" ? undefined : +hem, thickness: boardMm, units }) : null),
+    [styleId, dims.L, dims.W, dims.H, taperMm, bagType, hem, boardMm, units, ready],
+  );
+
   const title = `${style.label} KLD ${L} x ${W} x ${H} ${units} - ${matLabel}`;
   const svg = useMemo(
     () => (result && result.blank ? toSvg(result, { units, showDims, title }) : null),
@@ -101,6 +140,8 @@ export default function DielineClient() {
     setW(s.defaults.W);
     setH(s.defaults.H);
     setTaper("7");
+    setBagType("sos");
+    setHem("");
   }
 
   function switchUnits(next) {
@@ -193,9 +234,9 @@ export default function DielineClient() {
 
           <div className="grid grid-cols-3 gap-3">
             {[
-              ["Length", L, setL, style.hints.L],
-              ["Width", W, setW, style.hints.W],
-              ["Height", H, setH, style.hints.H],
+              [(style.fieldLabels || ["Length", "Width", "Height"])[0], L, setL, style.hints.L],
+              [(style.fieldLabels || ["Length", "Width", "Height"])[1], W, setW, style.hints.W],
+              [(style.fieldLabels || ["Length", "Width", "Height"])[2], H, setH, style.hints.H],
             ].map(([label, val, set, hint]) => (
               <label key={label} className="block">
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -214,6 +255,29 @@ export default function DielineClient() {
             ))}
           </div>
 
+          {style.hasBagType && (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Bag type</span>
+                <select value={bagType} onChange={(e) => setBagType(e.target.value)} className={inputCls}>
+                  {BAG_TYPES.map((b) => (
+                    <option key={b.id} value={b.id}>{b.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Top hem (mm)</span>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder={bagType === "handle" ? "auto 35" : "0"}
+                  value={hem}
+                  onChange={(e) => setHem(e.target.value)}
+                  className={inputCls}
+                />
+              </label>
+            </div>
+          )}
           {style.hasTaper && (
             <label className="mt-3 block">
               <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Wall taper (mm per side)</span>
