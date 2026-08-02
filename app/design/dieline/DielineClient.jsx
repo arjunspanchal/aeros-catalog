@@ -10,6 +10,11 @@ import { buildFoodboxDieline } from "@/lib/dieline/foodbox";
 import { buildBurgerboxDieline } from "@/lib/dieline/burgerbox";
 import { buildPaperbagKeyline, BAG_TYPES } from "@/lib/dieline/paperbag";
 import { buildTuckboxDieline } from "@/lib/dieline/tuckbox";
+import { buildCartonDieline, CARTON_TYPES } from "@/lib/dieline/carton";
+import { buildSleeveDieline, buildCupSleeveDieline } from "@/lib/dieline/sleeves";
+import { buildPillowboxDieline } from "@/lib/dieline/pillowbox";
+import { buildGableboxDieline } from "@/lib/dieline/gablebox";
+import { buildPizzaboxDieline } from "@/lib/dieline/pizzabox";
 import { toSvg, toPdf, toDxf, fmtBoth } from "@/lib/dieline/exports";
 import { MATERIALS, materialStamp, materialThicknessMm } from "@/lib/dieline/materials";
 
@@ -50,6 +55,98 @@ const STYLES = {
     depthLabel: "Wall height",
     note:
       "Tapered leakproof tray (7 mm flare per side — base comes out 14 mm smaller each way) with corner gussets, hinged lid with V-notches, and an 18 mm lip whose slots catch the wall teeth. Dims are the internal top opening.",
+  },
+  carton: {
+    label: "Folding Carton (tuck end)",
+    build: buildCartonDieline,
+    defaultUnits: "mm",
+    defaults: { L: "80", W: "40", H: "120" },
+    hints: { L: "face width", W: "depth", H: "height" },
+    presets: [
+      { label: "80×40×120", dims: [80, 40, 120], unit: "mm" },
+      { label: "60×60×160", dims: [60, 60, 160], unit: "mm" },
+      { label: "100×50×140", dims: [100, 50, 140], unit: "mm" },
+    ],
+    hasCartonType: true,
+    usesThickness: true,
+    depthLabel: "Top panel depth",
+    note:
+      "Product carton with glue seam — straight or reverse tuck ends, or tuck top with crash-lock (auto) bottom. Standard construction — prototype the first cut.",
+  },
+  gablebox: {
+    label: "Gable Box (handle)",
+    build: buildGableboxDieline,
+    defaultUnits: "mm",
+    defaults: { L: "150", W: "100", H: "120" },
+    hints: { L: "face width", W: "depth", H: "body height" },
+    presets: [
+      { label: "150×100×120", dims: [150, 100, 120], unit: "mm" },
+      { label: "180×120×140", dims: [180, 120, 140], unit: "mm" },
+    ],
+    depthLabel: "Roof + handle",
+    note:
+      "Carry-out gable box: roof creases to a carry handle with hand hole, fold-in gussets, crash-lock style bottom. Standard construction — prototype the first cut.",
+  },
+  pizzabox: {
+    label: "Pizza Box (0426)",
+    build: buildPizzaboxDieline,
+    defaultUnits: "mm",
+    defaults: { L: "320", W: "320", H: "45" },
+    hints: { L: "internal width", W: "internal depth", H: "internal height" },
+    presets: [
+      { label: '10" (260×260×40)', dims: [260, 260, 40], unit: "mm" },
+      { label: '12" (320×320×45)', dims: [320, 320, 45], unit: "mm" },
+      { label: '14" (360×360×45)', dims: [360, 360, 45], unit: "mm" },
+    ],
+    usesThickness: true,
+    depthLabel: "Wall height",
+    note:
+      "One-piece corrugated pizza box: hinged lid with front + side lips, side walls with front ears, front fold-over. Standard construction — prototype the first cut.",
+  },
+  sleeve: {
+    label: "Sleeve (straight)",
+    build: buildSleeveDieline,
+    defaultUnits: "mm",
+    defaults: { L: "150", W: "90", H: "60" },
+    hints: { L: "face width", W: "depth", H: "sleeve height" },
+    presets: [
+      { label: "Tray sleeve 150×90×60", dims: [150, 90, 60], unit: "mm" },
+      { label: "Burger sleeve 110×110×70", dims: [110, 110, 70], unit: "mm" },
+    ],
+    usesThickness: true,
+    depthLabel: null,
+    note:
+      "Open-ended wrap with glue seam and thumb notch — tray sleeves, burger sleeves, soap wraps. Panels grow +2×board so the sleeve slides over its tray.",
+  },
+  cupsleeve: {
+    label: "Cup Sleeve (tapered)",
+    build: buildCupSleeveDieline,
+    defaultUnits: "mm",
+    defaults: { L: "90", W: "80", H: "60" },
+    fieldLabels: ["Top Ø", "Bottom Ø", "Height"],
+    hints: { L: "cup Ø at sleeve top", W: "cup Ø at sleeve bottom", H: "sleeve height" },
+    presets: [
+      { label: "Ø90→80 × 60 (90mm cups)", dims: [90, 80, 60], unit: "mm" },
+      { label: "Ø80→70 × 55 (80mm cups)", dims: [80, 70, 55], unit: "mm" },
+    ],
+    depthLabel: null,
+    note:
+      "Annular-sector unwrap for conical cups (same maths family as a cup fan) with a 12 mm glued overlap seam. Pull cup Ø from the master before cutting.",
+  },
+  pillowbox: {
+    label: "Pillow Box",
+    build: buildPillowboxDieline,
+    defaultUnits: "mm",
+    defaults: { L: "150", W: "90", H: "0" },
+    hints: { L: "box length", W: "face width (flat)", H: "not used — depth comes from the curve" },
+    presets: [
+      { label: "150×90", dims: [150, 90, 0], unit: "mm" },
+      { label: "200×110", dims: [200, 110, 0], unit: "mm" },
+    ],
+    allowZeroH: true,
+    depthLabel: "Tuck flap",
+    note:
+      "Two curved faces with curved tuck-in ends and a glued side seam; pillow depth emerges from the 0.18×W end curve. Standard construction — prototype the first cut.",
   },
   tuckbox: {
     label: "Mailer / Tuck Box (0427)",
@@ -113,16 +210,19 @@ export default function DielineClient() {
   const [matCustomMm, setMatCustomMm] = useState("");
   const [bagType, setBagType] = useState("sos");
   const [hem, setHem] = useState("");
+  const [cartonType, setCartonType] = useState("rte");
 
   const dims = { L: parseFloat(L), W: parseFloat(W), H: parseFloat(H) };
-  const ready = [dims.L, dims.W, dims.H].every((v) => Number.isFinite(v) && v > 0);
+  const ready =
+    [dims.L, dims.W].every((v) => Number.isFinite(v) && v > 0) &&
+    (style.allowZeroH ? Number.isFinite(dims.H) : Number.isFinite(dims.H) && dims.H > 0);
 
   const matLabel = materialStamp(matFamily, matIdx, matCustomMm);
   const boardMm = materialThicknessMm(matFamily, matIdx, matCustomMm);
   const taperMm = style.hasTaper ? parseFloat(taper) || 7 : undefined;
   const result = useMemo(
-    () => (ready ? style.build({ ...dims, taper: taperMm, bagType, hem: hem === "" ? undefined : +hem, thickness: boardMm, units }) : null),
-    [styleId, dims.L, dims.W, dims.H, taperMm, bagType, hem, boardMm, units, ready],
+    () => (ready ? style.build({ ...dims, taper: taperMm, bagType, cartonType, hem: hem === "" ? undefined : +hem, thickness: boardMm, units }) : null),
+    [styleId, dims.L, dims.W, dims.H, taperMm, bagType, cartonType, hem, boardMm, units, ready],
   );
 
   const title = `${style.label} KLD ${L} x ${W} x ${H} ${units} - ${matLabel}`;
@@ -142,6 +242,7 @@ export default function DielineClient() {
     setTaper("7");
     setBagType("sos");
     setHem("");
+    setCartonType("rte");
   }
 
   function switchUnits(next) {
@@ -255,6 +356,16 @@ export default function DielineClient() {
             ))}
           </div>
 
+          {style.hasCartonType && (
+            <label className="mt-3 block">
+              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Carton type</span>
+              <select value={cartonType} onChange={(e) => setCartonType(e.target.value)} className={inputCls}>
+                {CARTON_TYPES.map((c) => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
+            </label>
+          )}
           {style.hasBagType && (
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="block">
@@ -352,7 +463,7 @@ export default function DielineClient() {
                 <dt>Blank height</dt>
                 <dd className="font-mono">{fmtBoth(blank.heightPt)}</dd>
               </div>
-              {blank.flapDepthPt != null && (
+              {blank.flapDepthPt != null && style.depthLabel && (
                 <div className="flex justify-between">
                   <dt>{style.depthLabel}</dt>
                   <dd className="font-mono">{fmtBoth(blank.flapDepthPt)}</dd>
