@@ -9,7 +9,7 @@ import { poseRig } from "@/lib/dieline/fold3d";
 
 export default function Fold3DViewer({ panels, foldT }) {
   const canvasRef = useRef(null);
-  const stateRef = useRef({ yaw: -0.6, pitch: -1.0, zoom: 1, dragging: false, lx: 0, ly: 0 });
+  const stateRef = useRef({ yaw: 0.7, pitch: 1.0, zoom: 1, dragging: false, lx: 0, ly: 0 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -40,12 +40,14 @@ export default function Fold3DViewer({ panels, foldT }) {
       const cp = Math.cos(st.pitch), sp = Math.sin(st.pitch);
       const toCam = ([x, y, z]) => {
         let dx = x - c[0], dy = y - c[1], dz = z - c[2];
-        let x1 = dx * cy - dy * sy, y1 = dx * sy + dy * cy, z1 = dz; // yaw about Z
-        let y2 = y1 * cp - z1 * sp, z2 = y1 * sp + z1 * cp; // pitch about X
+        const x1 = dx * cy - dy * sy, y1 = dx * sy + dy * cy, z1 = dz; // yaw about Z
+        // pitch: eye rises above the scene; camera y keeps world-Z upward
+        const y2 = y1 * sp + z1 * cp;
+        const z2 = -y1 * cp + z1 * sp;
         return [x1, y2, z2 + dist];
       };
       const f = Math.min(cw, chh) * 1.35;
-      const proj = ([x, y, z]) => [cw / 2 + (f * x) / z, chh / 2 + (f * y) / z, z];
+      const proj = ([x, y, z]) => [cw / 2 + (f * x) / z, chh / 2 - (f * y) / z, z]; // canvas y down, world Z up
 
       const light = norm3([0.35, -0.5, -0.8]);
       const rendered = faces.map((face) => {
@@ -81,8 +83,8 @@ export default function Fold3DViewer({ panels, foldT }) {
     const down = (e) => { st.dragging = true; st.lx = e.clientX; st.ly = e.clientY; };
     const move = (e) => {
       if (!st.dragging) return;
-      st.yaw += (e.clientX - st.lx) * 0.01;
-      st.pitch = Math.max(-2.8, Math.min(-0.15, st.pitch + (e.clientY - st.ly) * 0.01));
+      st.yaw -= (e.clientX - st.lx) * 0.01;
+      st.pitch = Math.max(0.12, Math.min(1.45, st.pitch + (e.clientY - st.ly) * 0.01));
       st.lx = e.clientX; st.ly = e.clientY;
       draw();
     };
