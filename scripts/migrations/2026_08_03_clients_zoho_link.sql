@@ -17,16 +17,17 @@
 --   Tapri Coffee     → TAPRI
 --   Faredoon's       → NEW GRAND HIGH CLASS BAKERY (Faredoon's)
 --   Saif Food        → SAIF FOOD PACKS
---   Magnus           → Magnus Textile (single candidate; flagged tentative)
+--   Magnus           → Magnus Textile (Arjun confirmed)
+--   Taj              → Roots Corporation Limited (Ginger Hotels / IHCL —
+--                      Arjun identified it; same PAN as the vendor-side
+--                      ROOTS CORPORATION LIMITED entry)
 --
--- Left unlinked (39): internal rows (Aeros, Self ×2, Tpc, TPC Stock, Kate101,
+-- Left unlinked (38): internal rows (Aeros, Self ×2, Tpc, TPC Stock, Kate101,
 -- shreya), person-named walk-ins (Akshay, Burhan, Sathvik ×2, Samruddhi Mote,
 -- Lal Masand …), and brands with no Zoho customer yet (BARTIN'S ×2, Brioche
 -- Doree, Maverick / Maverick & Farmer, THIRD WAVE COFFEE, Hamleys, Superyum,
 -- Seoul, Waarsa, Tarrai Ragi Chips, Hackensack, Identity Digital, JUUZBOT,
--- James Martin, Essay B, Bombay Brassiere, Dipack, Idli… etc.). "Taj" stayed
--- unlinked deliberately — Zoho has TAJ BENGAL / TAJ SKYLINE / TajSATS as
--- separate entities and the webapp row doesn't say which.
+-- James Martin, Essay B, Bombay Brassiere, Dipack … etc.).
 --
 -- The monthly `zoho-vendor-sync` scheduled task refreshes name + gst_no for
 -- LINKED rows only; clients is a curated directory, never a full Zoho mirror.
