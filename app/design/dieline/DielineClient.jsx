@@ -205,18 +205,19 @@ const STYLES = {
   tuckbox: {
     label: "Mailer / Tuck Box (0427)",
     build: buildTuckboxDieline,
-    defaultUnits: "mm",
-    defaults: { L: "315", W: "202", H: "62" },
-    hints: { L: "internal length", W: "internal width", H: "internal height" },
+    defaultUnits: "in",
+    defaults: { L: "6", W: "6", H: "2" },
+    hints: { L: "internal length", W: "internal width (depth)", H: "internal height" },
     presets: [
-      { label: "315×202×62", dims: [315, 202, 62], unit: "mm" },
-      { label: "250×180×80", dims: [250, 180, 80], unit: "mm" },
-      { label: "200×150×50", dims: [200, 150, 50], unit: "mm" },
+      { label: '6×6×2" (die-exact)', dims: [6, 6, 2], unit: "in" },
+      { label: '6×4×2" (die-exact)', dims: [6, 4, 2], unit: "in" },
+      { label: '6×2×2" (die-exact)', dims: [6, 2, 2], unit: "in" },
+      { label: "315×202×62 mm", dims: [315, 202, 62], unit: "mm" },
     ],
-    usesThickness: true,
+    defaultMaterial: { family: "corrugated", idx: 2 },
     depthLabel: "Wall height",
     note:
-      "Roll-end tuck-top mailer (FEFCO 0427): rolled double side walls, lid with dust flaps, rounded tuck. Thickness allowances come from the selected board caliper. Standard construction — prototype the first die.",
+      "Roll-end tuck-top mailer calibrated to a die-maker's production family (die-exact at 6×6×2, 6×4×2 and 6×2×2 in; other sizes band-scale from the nearest hand-tuned original). Thumb-notch tuck, double roll creases, corner ears, base lock slits. Drawn for corrugated board.",
   },
   paperbag: {
     label: "Paper Bag (keyline)",
