@@ -55,7 +55,17 @@ export function warehouseSections(session) {
     });
   }
 
+  // The manifest generator is its own tab, not a vehicle-dispatch sub-page: a
+  // dispatch is a single-customer freight log, and plenty of trucks carry
+  // invoices for several customers at once.
   if (canVehicle) {
+    sections.push({
+      label: "Manifest Generator",
+      items: [
+        { href: "/warehouse/manifests",     label: "Manifests", exact: true },
+        { href: "/warehouse/manifests/new", label: "New manifest" },
+      ],
+    });
     sections.push({
       label: "Vehicle Dispatch",
       items: [

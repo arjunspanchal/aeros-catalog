@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { Card, Field, PillBtn, Row, SectionHeader, inputCls } from "@/app/calculator/_components/ui";
-import { calculate, PP_PRESETS, PP_RM_GRADES, SIMPLE_MODEL_OVERRIDES } from "@/lib/calc/pp-calculator";
+import { calculate, PP_PRESETS, PP_RM_GRADES, SIMPLE_MODEL_OVERRIDES, NON_PRINTABLE_PRESETS } from "@/lib/calc/pp-calculator";
 import { exportPpCSV, exportPpPDF } from "@/app/calculator/_components/pp-export";
 
 const DEFAULT_FORM = {
@@ -9,7 +9,8 @@ const DEFAULT_FORM = {
   itemName: "",
   quoteRef: "",
   ...PP_PRESETS.custom,
-  rmRate: 116,
+  rmRate: 166,
+  amortisePrintPlate: true,
 };
 
 export default function AdminPpCalculator() {
@@ -25,7 +26,15 @@ export default function AdminPpCalculator() {
   function applyPreset(key) {
     const p = PP_PRESETS[key];
     if (!p) return;
-    setForm((f) => ({ ...f, ...p, preset: key, itemName: p.label, rmRate: f.rmRate }));
+    setForm((f) => ({
+      ...f,
+      ...p,
+      preset: key,
+      itemName: p.label,
+      rmRate: f.rmRate,
+      // Lids never print — drop any colours carried over from a cup preset.
+      printColours: NON_PRINTABLE_PRESETS.has(key) ? 0 : f.printColours,
+    }));
   }
 
   function applySimpleModel() {
@@ -67,6 +76,12 @@ export default function AdminPpCalculator() {
       moldCost: q.moldCost ?? f.moldCost,
       moldLifeShots: q.moldLifeShots ?? f.moldLifeShots,
       rejectPercent: q.rejectPercent ?? f.rejectPercent,
+      printColours: q.printColours ?? f.printColours,
+      printRatePerColour: q.printRatePerColour ?? f.printRatePerColour,
+      printPlateCostPerColour: q.printPlateCostPerColour ?? f.printPlateCostPerColour,
+      printOrderQty: q.printOrderQty ?? f.printOrderQty,
+      printRejectPercent: q.printRejectPercent ?? f.printRejectPercent,
+      amortisePrintPlate: q.amortisePrintPlate ?? f.amortisePrintPlate,
       innerSleeveCost: q.innerSleeveCost ?? f.innerSleeveCost,
       innerPackingLabour: q.innerPackingLabour ?? f.innerPackingLabour,
       unitsPerSleeve: q.unitsPerSleeve ?? f.unitsPerSleeve,
@@ -92,6 +107,7 @@ export default function AdminPpCalculator() {
   }, []);
 
   const result = useMemo(() => calculate(form), [form]);
+  const printable = !NON_PRINTABLE_PRESETS.has(form.preset);
 
   async function saveQuote({ asNew }) {
     setSaving(true);
@@ -114,6 +130,12 @@ export default function AdminPpCalculator() {
       moldCost: form.moldCost,
       moldLifeShots: form.moldLifeShots,
       rejectPercent: form.rejectPercent,
+      printColours: form.printColours,
+      printRatePerColour: form.printRatePerColour,
+      printPlateCostPerColour: form.printPlateCostPerColour,
+      printOrderQty: form.printOrderQty,
+      printRejectPercent: form.printRejectPercent,
+      amortisePrintPlate: form.amortisePrintPlate !== false,
       innerSleeveCost: form.innerSleeveCost,
       innerPackingLabour: form.innerPackingLabour,
       unitsPerSleeve: form.unitsPerSleeve,
@@ -391,6 +413,86 @@ export default function AdminPpCalculator() {
           </Field>
         </Card>
 
+        <Card title="Printing" right={
+          <span className="text-xs text-gray-400 dark:text-gray-500">dry offset on formed cup</span>
+        }>
+          {!printable ? (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              PP lids are plain only — printing is disabled for this preset.
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Colours" hint="0 = plain">
+                  <input
+                    type="number"
+                    className={inputCls}
+                    value={form.printColours}
+                    onChange={(e) => num("printColours", e.target.value)}
+                    min="0"
+                    max="8"
+                    step="1"
+                  />
+                </Field>
+                <Field label="Print Rate (₹ / cup / colour)" hint="Ink + machine + operator">
+                  <input
+                    type="number"
+                    className={inputCls}
+                    value={form.printRatePerColour}
+                    onChange={(e) => num("printRatePerColour", e.target.value)}
+                    min="0"
+                    step="0.01"
+                  />
+                </Field>
+                <Field label="Plate Cost / colour (₹)" hint="One-time cliché">
+                  <input
+                    type="number"
+                    className={inputCls}
+                    value={form.printPlateCostPerColour}
+                    onChange={(e) => num("printPlateCostPerColour", e.target.value)}
+                    min="0"
+                    step="100"
+                  />
+                </Field>
+                <Field label="Order Qty (for plate)" hint="Plate spread over this qty">
+                  <input
+                    type="number"
+                    className={inputCls}
+                    value={form.printOrderQty}
+                    onChange={(e) => num("printOrderQty", e.target.value)}
+                    min="0"
+                    step="10000"
+                  />
+                </Field>
+                <Field label="Print Spoilage (%)" hint="Scraps an already-moulded cup">
+                  <input
+                    type="number"
+                    className={inputCls}
+                    value={form.printRejectPercent}
+                    onChange={(e) => num("printRejectPercent", e.target.value)}
+                    min="0"
+                    max="50"
+                    step="0.5"
+                  />
+                </Field>
+              </div>
+              <label className="flex items-center gap-2 mt-3 text-xs text-gray-600 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={form.amortisePrintPlate !== false}
+                  onChange={(e) => set("amortisePrintPlate", e.target.checked)}
+                />
+                Amortise plate into the per-cup rate
+              </label>
+              {form.amortisePrintPlate === false && result.printPlateOneTime > 0 && (
+                <p className="text-xs text-gray-400 mt-2 dark:text-gray-500">
+                  Plate billed separately: ₹{result.printPlateOneTime.toLocaleString("en-IN")} one-time
+                </p>
+              )}
+            </>
+          )}
+        </Card>
+
         <Card title="Packing">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Inner Sleeve Cost (₹)">
@@ -559,6 +661,32 @@ export default function AdminPpCalculator() {
                 />
               )}
               <Row label="Per-part subtotal" value={`₹${result.formedCost.toFixed(4)}`} />
+
+              {result.printColours > 0 && (
+                <>
+                  <SectionHeader label="Printing" />
+                  <Row
+                    label={`Ink / run (${result.printColours} colour${result.printColours > 1 ? "s" : ""})`}
+                    value={`₹${result.printInkCost.toFixed(4)}`}
+                    sub={`${result.printColours} × ₹${form.printRatePerColour} per cup per colour`}
+                  />
+                  {result.printPlateCostPerItem > 0 && (
+                    <Row
+                      label="Plate amortisation"
+                      value={`₹${result.printPlateCostPerItem.toFixed(4)}`}
+                      sub={`₹${result.printPlateTotal.toLocaleString("en-IN")} / ${Number(form.printOrderQty).toLocaleString("en-IN")} cups`}
+                    />
+                  )}
+                  {result.printRejectUplift > 0 && (
+                    <Row
+                      label={`Print spoilage (${form.printRejectPercent}%)`}
+                      value={`₹${result.printRejectUplift.toFixed(4)}`}
+                      sub={`× ${result.printRejectFactor.toFixed(4)} on moulded cup + printing`}
+                    />
+                  )}
+                  <Row label="Printed subtotal" value={`₹${result.printedCost.toFixed(4)}`} />
+                </>
+              )}
 
               <SectionHeader label="Packing" />
               <Row

@@ -3,7 +3,8 @@
 // Cutover from the legacy `pp_quotes` table — pattern lifted verbatim from
 // app/api/calc/box-quotes/route.js. PP-specific differences:
 //   • quote_type = 'pp' (admin-only; no client side for PP).
-//   • payload jsonb carries 22 thermoforming-specific keys.
+//   • payload jsonb carries 28 thermoforming-specific keys (22 original + 6
+//     printing keys added when dry-offset printing was modelled).
 //   • PP never collects client_email and quotes price per piece, not per
 //     order — so client_email / order_qty / order_total_inr are left NULL
 //     by omission from the inserted row (Postgres uses column defaults).
@@ -22,8 +23,10 @@ const QUOTE_TYPE = "pp";
 
 // ---------- Serialisation ----------
 
-// quotes_v2 row → form-shaped object the UI expects. The 22 payload keys are
-// unpacked back to the camelCase names AdminPpCalculator reads.
+// quotes_v2 row → form-shaped object the UI expects. The payload keys are
+// unpacked back to the camelCase names AdminPpCalculator reads. Older rows
+// predate the printing keys, so those come back null and the form keeps its
+// own defaults (see the `?? f.…` fallbacks in loadQuoteFromList).
 function rowToQuote(row) {
   const p = row.payload || {};
   return {
@@ -46,6 +49,12 @@ function rowToQuote(row) {
     moldCost: p.mold_cost_inr ?? null,
     moldLifeShots: p.mold_life_shots ?? null,
     rejectPercent: p.reject_pct ?? null,
+    printColours: p.print_colours ?? null,
+    printRatePerColour: p.print_rate_per_colour_inr ?? null,
+    printPlateCostPerColour: p.print_plate_cost_per_colour_inr ?? null,
+    printOrderQty: p.print_order_qty ?? null,
+    printRejectPercent: p.print_reject_pct ?? null,
+    amortisePrintPlate: p.amortise_print_plate ?? null,
     innerSleeveCost: p.inner_sleeve_cost_inr ?? null,
     innerPackingLabour: p.inner_packing_labour_inr ?? null,
     unitsPerSleeve: p.units_per_sleeve ?? null,
@@ -97,6 +106,12 @@ function buildRow(body, session) {
       mold_cost_inr: num(body.moldCost),
       mold_life_shots: num(body.moldLifeShots),
       reject_pct: num(body.rejectPercent),
+      print_colours: num(body.printColours),
+      print_rate_per_colour_inr: num(body.printRatePerColour),
+      print_plate_cost_per_colour_inr: num(body.printPlateCostPerColour),
+      print_order_qty: num(body.printOrderQty),
+      print_reject_pct: num(body.printRejectPercent),
+      amortise_print_plate: body.amortisePrintPlate === undefined ? null : !!body.amortisePrintPlate,
       inner_sleeve_cost_inr: num(body.innerSleeveCost),
       inner_packing_labour_inr: num(body.innerPackingLabour),
       units_per_sleeve: num(body.unitsPerSleeve),
