@@ -65,7 +65,11 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
     }
     const c = [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2];
     const radius = Math.max(maxX - minX, maxY - minY, maxZ - minZ) || 1;
-    const dist = (radius * 2.1) / st.zoom;
+    // camera distance: zoom scales the view but the camera must NEVER enter
+    // the model's bounding sphere — z would cross 0 and projected coordinates
+    // explode (glitch polygons + seconds-long draws)
+    const dist = radius * (0.95 + 1.6 / st.zoom);
+    const near = radius * 0.02;
 
     const cy = Math.cos(st.yaw), sy = Math.sin(st.yaw);
     const cp = Math.cos(st.pitch), sp = Math.sin(st.pitch);
@@ -96,18 +100,23 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
       const x1 = x * cy - y * sy, y1 = x * sy + y * cy, z1 = z;
       return [x1, y1 * sp + z1 * cp, -y1 * cp + z1 * sp];
     };
-    const rendered = faces.map((face, i) => {
+    const rendered = [];
+    faces.forEach((face, i) => {
       const cam = face.pts3.map(toCam);
+      // near-plane cull: a vertex at/behind the camera would explode the
+      // projection; degenerate zero-area panels are skipped the same way
+      if (cam.some((p) => p[2] < near)) return;
+      const nw = cross(sub(face.pts3[1], face.pts3[0]), sub(face.pts3[3], face.pts3[0]));
+      if (Math.hypot(nw[0], nw[1], nw[2]) < 1e-9) return;
       const scr = cam.map(proj);
       // world normal of the panel = its local +Z (the fold-toward / interior side)
-      const nw = norm3(cross(sub(face.pts3[1], face.pts3[0]), sub(face.pts3[3], face.pts3[0])));
-      const nCam = rotCam(nw);
+      const nCam = rotCam(norm3(nw));
       // camera sees the PRINT (local -Z, exterior) side when +Z points away
       const exterior = nCam[2] > 0;
       const nn = exterior ? nCam.map((v) => -v) : nCam;
       const shade = 0.6 + 0.4 * Math.max(0, -(nn[0] * light[0] + nn[1] * light[1] + nn[2] * light[2]));
       const depth = cam.reduce((s, p) => s + p[2], 0) / cam.length;
-      return { scr, depth, shade, facing: exterior ? 1 : -1, i };
+      rendered.push({ scr, depth, shade, facing: exterior ? 1 : -1, i });
     });
     rendered.sort((a, b) => b.depth - a.depth);
 
@@ -156,7 +165,7 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
     if (!canvas || !panels) return;
     const dpr = window.devicePixelRatio || 1;
     const cw = canvas.clientWidth, chh = canvas.clientHeight;
-    if (canvas.width !== cw * dpr) { canvas.width = cw * dpr; canvas.height = chh * dpr; }
+    if (canvas.width !== cw * dpr || canvas.height !== chh * dpr) { canvas.width = cw * dpr; canvas.height = chh * dpr; }
     const ctx = canvas.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     renderScene(ctx, cw, chh);
@@ -164,6 +173,7 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
 
   useImperativeHandle(apiRef, () => ({
     exportPng(size = 2048) {
+      if (!panels) return Promise.resolve(null);
       const off = document.createElement("canvas");
       off.width = size;
       off.height = Math.round(size * 0.75);
@@ -171,12 +181,19 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
       return new Promise((res) => off.toBlob(res, "image/png"));
     },
     async exportTurntable(seconds = 3) {
+      if (!panels || typeof MediaRecorder === "undefined") return null;
       const off = document.createElement("canvas");
       off.width = 1280;
       off.height = 960;
       const octx = off.getContext("2d");
+      if (!off.captureStream) return null;
       const stream = off.captureStream(30);
-      const rec = new MediaRecorder(stream, { mimeType: "video/webm" });
+      // Safari records mp4, not webm — pick the first supported container
+      const mime = ["video/webm;codecs=vp9", "video/webm", "video/mp4"].find(
+        (m) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m),
+      );
+      if (!mime) return null;
+      const rec = new MediaRecorder(stream, { mimeType: mime });
       const chunks = [];
       rec.ondataavailable = (e) => chunks.push(e.data);
       const done = new Promise((res) => (rec.onstop = res));
@@ -189,7 +206,7 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
       }
       rec.stop();
       await done;
-      return new Blob(chunks, { type: "video/webm" });
+      return new Blob(chunks, { type: mime.split(";")[0] });
     },
   }));
 
@@ -263,12 +280,20 @@ function drawTexturedTriangle(ctx, img, s, d) {
   const e = dx0 - a * sx0 - b * sy0;
   const ff = dy0 - cc * sx0 - dd * sy0;
   ctx.save();
+  // expand the clip triangle ~0.7px about its centroid so adjacent
+  // triangles overlap and hairline AA seams disappear
+  const gx = (dx0 + dx1 + dx2) / 3, gy = (dy0 + dy1 + dy2) / 3;
+  const grow = (px, py) => {
+    const vx = px - gx, vy = py - gy;
+    const l = Math.hypot(vx, vy) || 1;
+    return [px + (vx / l) * 0.7, py + (vy / l) * 0.7];
+  };
+  const [e0, e1, e2] = [grow(dx0, dy0), grow(dx1, dy1), grow(dx2, dy2)];
   ctx.beginPath();
-  ctx.moveTo(dx0, dy0);
-  ctx.lineTo(dx1, dy1);
-  ctx.lineTo(dx2, dy2);
+  ctx.moveTo(e0[0], e0[1]);
+  ctx.lineTo(e1[0], e1[1]);
+  ctx.lineTo(e2[0], e2[1]);
   ctx.closePath();
-  // expand clip slightly to hide seams
   ctx.clip();
   ctx.transform(a, cc, b, dd, e, ff);
   ctx.drawImage(img, 0, 0);
