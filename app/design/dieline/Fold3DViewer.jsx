@@ -221,6 +221,10 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
     const down = (e) => { st.dragging = true; st.lx = e.clientX; st.ly = e.clientY; };
     const move = (e) => {
       if (!st.dragging) return;
+      // ORBIT DIRECTIONS ARE LOCKED (approved 11-Aug-2026): the box follows
+      // the cursor on BOTH axes — drag right pulls the near face right, drag
+      // down rolls the top face toward you. These signs are calibrated to the
+      // corrected camera below (pitch = true elevation). Do NOT flip them.
       st.yaw += (e.clientX - st.lx) * 0.01;
       st.pitch = Math.max(-1.45, Math.min(1.45, st.pitch + (e.clientY - st.ly) * 0.01));
       st.lx = e.clientX; st.ly = e.clientY;
