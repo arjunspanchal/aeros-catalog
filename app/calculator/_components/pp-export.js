@@ -63,6 +63,17 @@ export function exportPpCSV({ form, result, filename }) {
   push("Reject %", form.rejectPercent);
   push();
 
+  if (result.printColours > 0) {
+    push("Printing");
+    push("Colours", result.printColours);
+    push("Print rate (₹ / cup / colour)", form.printRatePerColour);
+    push("Plate cost per colour (₹)", form.printPlateCostPerColour);
+    push("Plate total (₹)", result.printPlateTotal);
+    push("Plate amortised over qty", form.amortisePrintPlate === false ? "Billed separately" : form.printOrderQty);
+    push("Print spoilage (%)", form.printRejectPercent);
+    push();
+  }
+
   push("Packing");
   push("Inner sleeve cost (₹)", form.innerSleeveCost);
   push("Inner packing labour (₹)", form.innerPackingLabour);
@@ -80,6 +91,12 @@ export function exportPpCSV({ form, result, filename }) {
   if (result.moldCostPerItem > 0) push("Mold amortisation", result.moldCostPerItem.toFixed(4));
   if (result.rejectUplift > 0) push(`Reject uplift (${form.rejectPercent}%)`, result.rejectUplift.toFixed(4));
   push("Per-part subtotal", result.formedCost.toFixed(4));
+  if (result.printColours > 0) {
+    push(`Ink / run (${result.printColours} colour)`, result.printInkCost.toFixed(4));
+    if (result.printPlateCostPerItem > 0) push("Plate amortisation", result.printPlateCostPerItem.toFixed(4));
+    if (result.printRejectUplift > 0) push(`Print spoilage (${form.printRejectPercent}%)`, result.printRejectUplift.toFixed(4));
+    push("Printed subtotal", result.printedCost.toFixed(4));
+  }
   push("Inner packing", result.innerPackCostPerItem.toFixed(4));
   push("Carton", result.cartonCostPerItem.toFixed(4));
   push("Total packing", result.totalPackingCost.toFixed(4));
@@ -113,6 +130,12 @@ export function exportPpPDF({ form, result }) {
   if (result.moldCostPerItem > 0) ladder.push(ladderRow("Mold amortisation", result.moldCostPerItem));
   if (result.rejectUplift > 0) ladder.push(ladderRow(`Reject uplift (${form.rejectPercent}%)`, result.rejectUplift));
   ladder.push(ladderRow("Per-part subtotal", result.formedCost, { total: true }));
+  if (result.printColours > 0) {
+    ladder.push(ladderRow(`Ink / run (${result.printColours} colour${result.printColours > 1 ? "s" : ""})`, result.printInkCost));
+    if (result.printPlateCostPerItem > 0) ladder.push(ladderRow("Plate amortisation", result.printPlateCostPerItem));
+    if (result.printRejectUplift > 0) ladder.push(ladderRow(`Print spoilage (${form.printRejectPercent}%)`, result.printRejectUplift));
+    ladder.push(ladderRow("Printed subtotal", result.printedCost, { total: true }));
+  }
   ladder.push(ladderRow("Inner packing", result.innerPackCostPerItem));
   ladder.push(ladderRow("Carton", result.cartonCostPerItem));
   ladder.push(ladderRow("Mfg cost / item", result.totalMfg, { total: true }));
@@ -159,6 +182,9 @@ export function exportPpPDF({ form, result }) {
     ${specRow("RM rate", `₹${form.rmRate}/kg`)}
     ${specRow("Runner share", `${result.runnerSharePerItem} g / item (${form.runnerWeightPerShot} g per shot)`)}
     ${specRow("Regrind capture", `${form.regrindCapturePercent}%`)}
+    ${result.printColours > 0
+      ? specRow("Printing", `${result.printColours} colour dry offset${form.amortisePrintPlate === false ? ` · plate ₹${result.printPlateTotal.toLocaleString("en-IN")} billed separately` : ` · plate amortised over ${Number(form.printOrderQty).toLocaleString("en-IN")}`}`)
+      : specRow("Printing", "Plain")}
   </table>
 
   <h2>Throughput</h2>

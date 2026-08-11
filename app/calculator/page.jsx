@@ -44,6 +44,12 @@ export default function CalculatorPickerPage() {
       desc: "Plan exports — FCL floor, FCL pallet or LCL. Multi-item loads with a top-down stuffing diagram.",
       accent: "from-fuchsia-600 to-purple-700",
     },
+    {
+      href: "/design/dieline",
+      title: "Cake Box Dieline Generator",
+      desc: "Parametric KLD for lock-corner cake / snack boxes — any size, instant preview, PDF / SVG / DXF for the die maker.",
+      accent: "from-neutral-700 to-neutral-900",
+    },
     // Admin-only: AppHeader carries a PP sub-tab for admins; keep the picker
     // in sync so admins land on the same set of products from either nav.
     ...(isAdmin
@@ -63,6 +69,12 @@ export default function CalculatorPickerPage() {
             title: "Import Calculator (China → India)",
             desc: "Landed cost from FOB through duty, freight, clearance, handling and margin. Multi-item LCL or FCL.",
             accent: "from-rose-600 to-red-700",
+          },
+          {
+            href: "/calculator/logistics",
+            title: "Logistics Calculator (Domestic)",
+            desc: "Delhivery B2B shipment cost — items from the catalogue, vendor or warehouse origin, saved delivery addresses, contract-exact breakdown.",
+            accent: "from-indigo-700 to-blue-900",
           },
           {
             href: "/calculator/express-ship",

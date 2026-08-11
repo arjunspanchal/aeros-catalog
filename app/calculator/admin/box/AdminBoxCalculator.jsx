@@ -4,7 +4,7 @@ import { Card, Field, Toggle, PillBtn, Row, SectionHeader, inputCls } from "@/ap
 import {
   BOX_TYPES, FLUTE_PROFILES, PLY_OPTIONS, MASTER_SHEETS, calculate, computeRateCurve, optimizationTips,
   getDefaultWastage, isPasted, isCorrugated, isTaped, defaultCorrugatedLayers, sheetLayout,
-  TAPE_ROLL_LENGTH_M,
+  TAPE_ROLL_LENGTH_M, FINISH_RATES,
 } from "@/lib/calc/box-calculator";
 
 const QTY_OPTIONS = [5000, 10000, 25000, 50000, 100000];
@@ -19,7 +19,8 @@ export default function AdminBoxCalculator({ papers = [] }) {
     corrugationRate: 0, stitchingPerCarton: 0,
     taping: false, tapeStraps: 2, tapeStrapLength: 250, tapeRatePerM: 0.8,
     tapeApplyPerPc: 0.35, tapeWastagePct: "",
-    printing: false, colours: 1, coverage: 30,
+    outsideFinish: "", insideFinish: "", insideBlister: false,
+    printing: false, colours: 1, coverage: 30, printSides: 1,
     punching: false, punchingDieCost: 0, punchingPerPiece: 0,
     innerPackRate: 0, innerPackQty: 0,
     outerCartonRate: 0, boxesPerCarton: 0,
@@ -285,16 +286,31 @@ export default function AdminBoxCalculator({ papers = [] }) {
           <Toggle value={form.printing} onChange={() => set("printing", !form.printing)} label="Printing Required" />
           {form.printing && (
             <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
-              <Field label="No. of Colours">
-                <input type="number" className={inputCls} value={form.colours} onChange={(e) => num("colours", e.target.value)} min="1" max="8" />
-              </Field>
-              <Field label="Ink Coverage">
-                <div className="flex gap-2">
-                  {[[10, "10%"], [30, "30%"], [100, "100%"]].map(([val, lbl]) => (
-                    <PillBtn key={val} active={form.coverage === val} onClick={() => set("coverage", val)}>{lbl}</PillBtn>
-                  ))}
-                </div>
-              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="No. of Colours">
+                  <input type="number" className={inputCls} value={form.colours} onChange={(e) => num("colours", e.target.value)} min="1" max="8" />
+                </Field>
+                <Field label="Printed Sides">
+                  <div className="flex gap-2">
+                    <PillBtn active={form.printSides !== 2} onClick={() => set("printSides", 1)}>1 side</PillBtn>
+                    <PillBtn active={form.printSides === 2} onClick={() => set("printSides", 2)}>Both sides</PillBtn>
+                  </div>
+                </Field>
+              </div>
+              {result.offsetBasis ? (
+                <p className="text-xs text-gray-400">
+                  Offset basis: {result.impressions} impressions (colours × sides) @ ₹400/1000 sheets ÷ {result.layout?.ups}-up.
+                  Plates {result.impressions} × ₹700. Coverage doesn't affect cost.
+                </p>
+              ) : (
+                <Field label="Ink Coverage" hint="Legacy ₹/kg fallback — select a master sheet for offset per-impression pricing">
+                  <div className="flex gap-2">
+                    {[[10, "10%"], [30, "30%"], [100, "100%"]].map(([val, lbl]) => (
+                      <PillBtn key={val} active={form.coverage === val} onClick={() => set("coverage", val)}>{lbl}</PillBtn>
+                    ))}
+                  </div>
+                </Field>
+              )}
             </div>
           )}
         </Card>
@@ -324,6 +340,40 @@ export default function AdminBoxCalculator({ papers = [] }) {
                 </p>
               </div>
             )}
+          </Card>
+        )}
+
+        {!corrugated && (
+          <Card title="Lamination / Finish">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Outside" hint="Usually matt">
+                <select className={inputCls} value={form.outsideFinish} onChange={(e) => set("outsideFinish", e.target.value)}>
+                  <option value="">— None —</option>
+                  {Object.entries(FINISH_RATES).map(([k, v]) => (
+                    <option key={k} value={k}>{v.label} · {v.factor}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Inside">
+                <select className={inputCls} value={form.insideFinish} onChange={(e) => set("insideFinish", e.target.value)}>
+                  <option value="">— None —</option>
+                  {Object.entries(FINISH_RATES).map(([k, v]) => (
+                    <option key={k} value={k}>{v.label} · {v.factor}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+              <Toggle value={form.insideBlister} onChange={() => set("insideBlister", !form.insideBlister)} label="Blister layer inside (0.25) — under the inside lamination" />
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Sheet-priced: L×B (in) × factor ÷ 100 per side, ÷ ups.
+              {result.finishCost > 0
+                ? ` Current adder: ₹${result.finishCost.toFixed(2)}/box.`
+                : form.outsideFinish || form.insideFinish || form.insideBlister
+                ? " Select a master sheet to price this."
+                : ""}
+            </p>
           </Card>
         )}
 
@@ -439,10 +489,25 @@ export default function AdminBoxCalculator({ papers = [] }) {
                 <Row label="Tape strap" value={`₹${result.tapeCost.toFixed(4)}`} sub={`${result.tapeMetresPerPc.toFixed(3)} m/pc incl. ${result.tapeWastagePct}% splice @ ₹${form.tapeRatePerM}/m`} />
               )}
               {result.tapeApplyCost > 0 && <Row label="Tape application" value={`₹${result.tapeApplyCost.toFixed(4)}`} />}
+              {result.outsideFinishCost > 0 && (
+                <Row label={`Outside · ${FINISH_RATES[form.outsideFinish]?.label}`} value={`₹${result.outsideFinishCost.toFixed(4)}`} sub={`factor ${FINISH_RATES[form.outsideFinish]?.factor} / sheet ÷ ${result.layout?.ups}-up`} />
+              )}
+              {result.insideFinishCost > 0 && (
+                <Row label={`Inside · ${FINISH_RATES[form.insideFinish]?.label}`} value={`₹${result.insideFinishCost.toFixed(4)}`} sub={`factor ${FINISH_RATES[form.insideFinish]?.factor} / sheet ÷ ${result.layout?.ups}-up`} />
+              )}
+              {result.blisterCost > 0 && (
+                <Row label="Inside · Blister layer" value={`₹${result.blisterCost.toFixed(4)}`} sub="factor 0.25 / sheet" />
+              )}
               {result.corrugationCost > 0 && <Row label={`Corrugation (₹${form.corrugationRate}/kg)`} value={`₹${result.corrugationCost.toFixed(4)}`} />}
               {result.stitchingCost > 0 && <Row label="Stitching / glue" value={`₹${result.stitchingCost.toFixed(4)}`} />}
               {result.pastingCost > 0 && <Row label="Pasting (₹15/kg)" value={`₹${result.pastingCost.toFixed(4)}`} />}
-              {result.printCost > 0 && <Row label={`Printing (${form.coverage}% coverage)`} value={`₹${result.printCost.toFixed(4)}`} />}
+              {result.printCost > 0 && (
+                <Row
+                  label={result.offsetBasis ? `Printing (${result.impressions} impressions)` : `Printing (${form.coverage}% coverage)`}
+                  value={`₹${result.printCost.toFixed(4)}`}
+                  sub={result.offsetBasis ? `₹400/1000 sheets ÷ ${result.layout?.ups}-up` : "legacy ₹/kg fallback"}
+                />
+              )}
               {result.plateCostTotal > 0 && (
                 <Row
                   label="Plate cost (amortised)"

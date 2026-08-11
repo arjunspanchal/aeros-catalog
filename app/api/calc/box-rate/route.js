@@ -66,6 +66,7 @@ export async function POST(req) {
     printing: !!body.printing,
     colours: Number(body.colours) || 1,
     coverage: Number(body.coverage) || 30,
+    printSides: Number(body.printSides) === 2 ? 2 : 1,
     punching: !!body.punching,
     punchingDieCost: Number(body.punchingDieCost) || 0,
     punchingPerPiece: Number(body.punchingPerPiece) || 0,
@@ -88,6 +89,9 @@ export async function POST(req) {
       tapeRatePerM: Number(body.tapeRatePerM) || 0,
       tapeApplyPerPc: Number(body.tapeApplyPerPc) || 0,
       tapeWastagePct: body.tapeWastagePct ?? "",
+      outsideFinish: body.outsideFinish || "",
+      insideFinish: body.insideFinish || "",
+      insideBlister: !!body.insideBlister,
     } : { taping: false }),
   };
 

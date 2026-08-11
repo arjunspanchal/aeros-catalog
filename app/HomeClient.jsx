@@ -170,6 +170,7 @@ const TILES = [
 ];
 
 const QUICK_ACTIONS = [
+  { label: "Dieline generator", href: "/design/dieline",              always: true },
   { label: "New job",           href: "/factoryos/admin/jobs/new",    module: "factoryos" },
   { label: "Quote a customer",  href: "/calculator/admin",            module: "calculator" },
   { label: "Mark inward",       href: "/warehouse/inventory/inward",  module: "clearance" },
