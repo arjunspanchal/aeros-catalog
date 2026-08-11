@@ -4,7 +4,7 @@
 // lib/dieline/ (verified against a real Aeros/reference die); exporters are
 // style-agnostic. Everything runs client-side.
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { buildCakeboxDieline } from "@/lib/dieline/cakebox";
 import { buildFoodboxDieline } from "@/lib/dieline/foodbox";
 import { buildBurgerboxDieline } from "@/lib/dieline/burgerbox";
@@ -289,6 +289,10 @@ export default function DielineClient() {
   const [cups, setCups] = useState(2);
   const [view, setView] = useState("2d");
   const [foldT, setFoldT] = useState(1);
+  const [artwork, setArtwork] = useState(null);
+  const [backdrop, setBackdrop] = useState("studio");
+  const [exporting, setExporting] = useState("");
+  const viewerRef = useRef(null);
 
   const dims = { L: parseFloat(L), W: parseFloat(W), H: parseFloat(H) };
   const ready =
@@ -355,6 +359,29 @@ export default function DielineClient() {
     if (p.cups != null) setCups(p.cups);
   }
 
+  function onArtworkFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => setArtwork(img);
+    img.src = URL.createObjectURL(file);
+  }
+
+  async function exportMockup(kind) {
+    if (!viewerRef.current) return;
+    setExporting(kind);
+    try {
+      const blob = kind === "png" ? await viewerRef.current.exportPng(2048) : await viewerRef.current.exportTurntable(3);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `aeros-mockup-${styleId}-${L}x${W}x${H}${units}.${kind === "png" ? "png" : "webm"}`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } finally {
+      setExporting("");
+    }
+  }
+
   function download(ext) {
     if (!result || !result.blank) return;
     const base = `aeros-${styleId}-${L}x${W}x${H}${units}-KLD`;
@@ -376,6 +403,7 @@ export default function DielineClient() {
 
   const blank = result?.blank;
   const has3d = RIGGED_STYLES.includes(styleId);
+  const surface = matFamily === "corrugated" ? "corrugated" : matFamily === "kraft" ? "kraft" : matFamily === "duplex" ? "duplex" : matFamily === "art" ? "art" : "white";
   const rig = useMemo(() => {
     if (!has3d || !ready) return null;
     const mm = (v) => (units === "in" ? v * 25.4 : v);
@@ -672,10 +700,36 @@ export default function DielineClient() {
         )}
         {view === "3d" && rig ? (
           <>
-            <Fold3DViewer panels={rig} foldT={foldT} />
+            <Fold3DViewer ref={viewerRef} panels={rig} foldT={foldT} artwork={artwork} backdrop={backdrop} surface={surface} />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <label className="cursor-pointer rounded-md bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900">
+                {artwork ? "Replace artwork" : "Upload artwork"}
+                <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onArtworkFile} />
+              </label>
+              {artwork && (
+                <button onClick={() => setArtwork(null)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                  Clear
+                </button>
+              )}
+              <select value={backdrop} onChange={(e) => setBackdrop(e.target.value)} className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                <option value="studio">Studio grey</option>
+                <option value="white">White</option>
+                <option value="warm">Warm</option>
+                <option value="dark">Dark</option>
+              </select>
+              <div className="ml-auto flex gap-2">
+                <button onClick={() => exportMockup("png")} disabled={!!exporting} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-gray-900 disabled:opacity-40 dark:border-gray-700 dark:text-gray-200">
+                  {exporting === "png" ? "Exporting…" : "Export PNG"}
+                </button>
+                <button onClick={() => exportMockup("webm")} disabled={!!exporting} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-gray-900 disabled:opacity-40 dark:border-gray-700 dark:text-gray-200">
+                  {exporting === "webm" ? "Recording…" : "Turntable video"}
+                </button>
+              </div>
+            </div>
             <p className="mt-2 text-[11px] text-gray-400">
-              Drag to orbit · scroll to zoom · slider folds the blank into the box. Simplified panel model —
-              tabs and locks are omitted; the dieline view stays the source of truth.
+              Drag to orbit · scroll to zoom · slider folds the blank. Artwork maps to the flat blank (print side) and
+              folds with the box — set the slider to Flat to position your design. Simplified panel model; the dieline
+              stays the source of truth.
             </p>
           </>
         ) : svg ? (
