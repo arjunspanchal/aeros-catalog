@@ -18,6 +18,7 @@ import { buildPizzaboxDieline } from "@/lib/dieline/pizzabox";
 import { buildSnackboxDieline } from "@/lib/dieline/snackbox";
 import { buildTrayDieline } from "@/lib/dieline/tray";
 import { buildEnvelopeDieline } from "@/lib/dieline/envelope";
+import { buildCupcarrierDieline } from "@/lib/dieline/cupcarrier";
 import { toSvg, toPdf, toDxf, fmtBoth } from "@/lib/dieline/exports";
 import { MATERIALS, materialStamp, materialThicknessMm } from "@/lib/dieline/materials";
 import { buildRig, RIGGED_STYLES } from "@/lib/dieline/fold3d";
@@ -186,6 +187,23 @@ const STYLES = {
     note:
       "Glue-free open tray: side-wall ears wrap the ends, end-wall fold-over lips lock into base slots (same lock as the mailer). For a telescope set, generate a cover at L+3 × W+3 with the cover height. Standard construction — prototype the first cut.",
   },
+  cupcarrier: {
+    label: "Cup Carrier (1–2 cup)",
+    build: buildCupcarrierDieline,
+    defaultUnits: "mm",
+    defaults: { L: "82", W: "115", H: "95" },
+    fieldLabels: ["Cup hole Ø", "Pitch / strip W", "Handle H"],
+    hints: { L: "cup body Ø at support + 1mm", W: "2-cup: centre-to-centre · 1-cup: strip width", H: "handle panel height" },
+    presets: [
+      { label: "2-cup Ø82 (90mm cups)", dims: [82, 115, 95], unit: "mm", cups: 2 },
+      { label: "1-cup Ø60 × 120 strip", dims: [60, 120, 120], unit: "mm", cups: 1 },
+      { label: "1-cup Ø82 × 130 strip", dims: [82, 130, 130], unit: "mm", cups: 1 },
+    ],
+    hasCups: true,
+    depthLabel: "Wing / band depth",
+    note:
+      "Glue-free over-cup carrier. 2-cup: crest-folded A-frame — hole wings fold flat, hand-holes align. 1-cup: sling strip (handle | hole band | handle). Verify hole Ø against the cup taper before cutting.",
+  },
   envelope: {
     label: "Envelope",
     build: buildEnvelopeDieline,
@@ -268,6 +286,7 @@ export default function DielineClient() {
   const [cartonType, setCartonType] = useState("rte");
   const [winW, setWinW] = useState("");
   const [winH, setWinH] = useState("");
+  const [cups, setCups] = useState(2);
   const [view, setView] = useState("2d");
   const [foldT, setFoldT] = useState(1);
 
@@ -280,8 +299,8 @@ export default function DielineClient() {
   const boardMm = materialThicknessMm(matFamily, matIdx, matCustomMm);
   const taperMm = style.hasTaper ? parseFloat(taper) || 7 : undefined;
   const result = useMemo(
-    () => (ready ? style.build({ ...dims, taper: taperMm, bagType, cartonType, hem: hem === "" ? undefined : +hem, windowW: winW === "" ? undefined : +winW, windowH: winH === "" ? undefined : +winH, thickness: boardMm, units }) : null),
-    [styleId, dims.L, dims.W, dims.H, taperMm, bagType, cartonType, hem, winW, winH, boardMm, units, ready],
+    () => (ready ? style.build({ ...dims, taper: taperMm, bagType, cartonType, cups, hem: hem === "" ? undefined : +hem, windowW: winW === "" ? undefined : +winW, windowH: winH === "" ? undefined : +winH, thickness: boardMm, units }) : null),
+    [styleId, dims.L, dims.W, dims.H, taperMm, bagType, cartonType, cups, hem, winW, winH, boardMm, units, ready],
   );
 
   const title = `${style.label} KLD ${L} x ${W} x ${H} ${units} - ${matLabel}`;
@@ -333,6 +352,7 @@ export default function DielineClient() {
     setW(conv(p.dims[1]));
     setH(conv(p.dims[2]));
     if (p.taper != null) setTaper(String(p.taper));
+    if (p.cups != null) setCups(p.cups);
   }
 
   function download(ext) {
@@ -359,8 +379,8 @@ export default function DielineClient() {
   const rig = useMemo(() => {
     if (!has3d || !ready) return null;
     const mm = (v) => (units === "in" ? v * 25.4 : v);
-    return buildRig(styleId, { L: mm(dims.L), W: mm(dims.W), H: mm(dims.H), taper: taperMm });
-  }, [styleId, dims.L, dims.W, dims.H, taperMm, units, ready, has3d]);
+    return buildRig(styleId, { L: mm(dims.L), W: mm(dims.W), H: mm(dims.H), taper: taperMm, cups });
+  }, [styleId, dims.L, dims.W, dims.H, taperMm, cups, units, ready, has3d]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
@@ -428,6 +448,23 @@ export default function DielineClient() {
             ))}
           </div>
 
+          {style.hasCups && (
+            <div className="mt-3 flex gap-2">
+              {[[2, "2 cups (A-frame)"], [1, "1 cup (sling)"]].map(([n, label]) => (
+                <button
+                  key={n}
+                  onClick={() => setCups(n)}
+                  className={
+                    cups === n
+                      ? "rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold text-white dark:bg-gray-100 dark:text-gray-900"
+                      : "rounded-full border border-gray-300 px-3 py-1 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-300"
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           {style.hasCartonType && (
             <label className="mt-3 block">
               <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Carton type</span>
