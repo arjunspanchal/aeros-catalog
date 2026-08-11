@@ -188,21 +188,21 @@ const STYLES = {
       "Glue-free open tray: side-wall ears wrap the ends, end-wall fold-over lips lock into base slots (same lock as the mailer). For a telescope set, generate a cover at L+3 × W+3 with the cover height. Standard construction — prototype the first cut.",
   },
   cupcarrier: {
-    label: "Cup Carrier (1–2 cup)",
+    label: "Take Away Cup Holder",
     build: buildCupcarrierDieline,
     defaultUnits: "mm",
     defaults: { L: "82", W: "115", H: "95" },
     fieldLabels: ["Cup hole Ø", "Pitch / strip W", "Handle H"],
     hints: { L: "cup body Ø at support + 1mm", W: "2-cup: centre-to-centre · 1-cup: strip width", H: "handle panel height" },
     presets: [
-      { label: "2-cup Ø82 (90mm cups)", dims: [82, 115, 95], unit: "mm", cups: 2 },
-      { label: "1-cup Ø60 × 120 strip", dims: [60, 120, 120], unit: "mm", cups: 1 },
-      { label: "1-cup Ø82 × 130 strip", dims: [82, 130, 130], unit: "mm", cups: 1 },
+      { label: "Two cup · Ø82 (90mm cups)", dims: [82, 115, 100], unit: "mm", cups: 2 },
+      { label: "Single cup · Ø60 × 120 strip", dims: [60, 120, 120], unit: "mm", cups: 1 },
+      { label: "Single cup · Ø82 × 130 strip", dims: [82, 130, 130], unit: "mm", cups: 1 },
     ],
     hasCups: true,
     depthLabel: "Wing / band depth",
     note:
-      "Glue-free over-cup carrier. 2-cup: crest-folded A-frame — hole wings fold flat, hand-holes align. 1-cup: sling strip (handle | hole band | handle). Verify hole Ø against the cup taper before cutting.",
+      "Take Away Cup Holder — one-piece sling that drops over the cups: handle panel | central band with cup hole(s) | handle panel; the ends fold up and the hand-holes align. Verify hole Ø against the cup taper before cutting.",
   },
   envelope: {
     label: "Envelope",
@@ -450,7 +450,7 @@ export default function DielineClient() {
 
           {style.hasCups && (
             <div className="mt-3 flex gap-2">
-              {[[2, "2 cups (A-frame)"], [1, "1 cup (sling)"]].map(([n, label]) => (
+              {[[2, "Take Away Two Cup Holder"], [1, "Single Cup Holder"]].map(([n, label]) => (
                 <button
                   key={n}
                   onClick={() => setCups(n)}
