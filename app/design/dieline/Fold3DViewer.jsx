@@ -202,7 +202,7 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
     const move = (e) => {
       if (!st.dragging) return;
       st.yaw += (e.clientX - st.lx) * 0.01;
-      st.pitch = Math.max(0.12, Math.min(1.45, st.pitch - (e.clientY - st.ly) * 0.01));
+      st.pitch = Math.max(0.12, Math.min(1.45, st.pitch + (e.clientY - st.ly) * 0.01));
       st.lx = e.clientX; st.ly = e.clientY;
       draw();
     };
