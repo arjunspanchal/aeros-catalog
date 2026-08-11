@@ -34,7 +34,7 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
   apiRef,
 ) {
   const canvasRef = useRef(null);
-  const stateRef = useRef({ yaw: 0.7, pitch: 1.0, zoom: 1, dragging: false, lx: 0, ly: 0 });
+  const stateRef = useRef({ yaw: 0.7, pitch: 0.55, zoom: 1, dragging: false, lx: 0, ly: 0 });
 
   // core scene renderer, reusable for screen + export
   const renderScene = (ctx, cw, chh, opts = {}) => {
@@ -73,11 +73,14 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
 
     const cy = Math.cos(st.yaw), sy = Math.sin(st.yaw);
     const cp = Math.cos(st.pitch), sp = Math.sin(st.pitch);
+    // pitch = elevation: 0 level, +1.45 near top-down, negative looks up from
+    // below. (The old transform negated depth, trapping the camera below the
+    // equator — "top view" was really the underside.)
     const toCam = ([x, y, z]) => {
       const dx = x - c[0], dy = y - c[1], dz = z - c[2];
       const x1 = dx * cy - dy * sy, y1 = dx * sy + dy * cy, z1 = dz;
       const y2 = y1 * sp + z1 * cp;
-      const z2 = -y1 * cp + z1 * sp;
+      const z2 = y1 * cp - z1 * sp;
       return [x1, y2, z2 + dist];
     };
     const f = Math.min(cw, chh) * 1.35;
@@ -98,7 +101,7 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
     // rotate a world vector into camera space (rotation only)
     const rotCam = ([x, y, z]) => {
       const x1 = x * cy - y * sy, y1 = x * sy + y * cy, z1 = z;
-      return [x1, y1 * sp + z1 * cp, -y1 * cp + z1 * sp];
+      return [x1, y1 * sp + z1 * cp, y1 * cp - z1 * sp];
     };
     const rendered = [];
     faces.forEach((face, i) => {
@@ -219,7 +222,7 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
     const move = (e) => {
       if (!st.dragging) return;
       st.yaw -= (e.clientX - st.lx) * 0.01;
-      st.pitch = Math.max(0.12, Math.min(1.45, st.pitch - (e.clientY - st.ly) * 0.01));
+      st.pitch = Math.max(-1.45, Math.min(1.45, st.pitch - (e.clientY - st.ly) * 0.01));
       st.lx = e.clientX; st.ly = e.clientY;
       draw();
     };
