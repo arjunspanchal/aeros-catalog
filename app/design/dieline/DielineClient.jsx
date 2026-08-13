@@ -718,7 +718,7 @@ export default function DielineClient() {
         )}
         {view === "3d" && rig ? (
           <>
-            <Fold3DViewer ref={viewerRef} panels={rig} foldT={foldT} artwork={artwork} backdrop={backdrop} surface={surface} />
+            <Fold3DViewer ref={viewerRef} panels={rig} foldT={foldT} artwork={artwork} backdrop={backdrop} surface={surface} styleId={styleId} />
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <label className="cursor-pointer rounded-md bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900">
                 {artwork ? "Replace artwork" : "Upload artwork"}

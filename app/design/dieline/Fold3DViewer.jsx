@@ -1,17 +1,22 @@
 "use client";
 
-// Dependency-free 3D fold + MOCKUP viewer.
-// - Orbit (drag), zoom (wheel), fold slider (t: 0 flat -> 1 formed).
-// - Artwork mockup: the rig's FLAT pose (t = 0) is the print layout, so an
-//   uploaded artwork image is UV-mapped to the flat pose once and travels
-//   with every panel as the box folds — works for every rigged style with
-//   no per-style mapping. Outside faces carry the print; inside faces stay
-//   unprinted board. Textured quads are drawn as subdivided affine
-//   triangles (classic canvas technique).
-// - Backdrop presets, soft contact shadow, HD PNG export & WebM turntable
-//   via the imperative handle.
+// WebGL fold + MOCKUP viewer (three.js) — Pacdora-class presentation.
+// - Real lighting (hemisphere + shadowed key light), soft contact shadow,
+//   damped orbit with inertia, wheel zoom.
+// - Artwork mockup: the rig's FLAT pose (t = 0) is the print layout; every
+//   panel's UVs are its flat-pose rectangle, so one uploaded image drapes
+//   the whole box and folds with it. Print side = panel local -Z (exterior);
+//   the inside stays unprinted board.
+// - Styles that physically fold flat on the ground (bags, cartons, sleeves)
+//   are stood upright as the fold completes.
+// - HD PNG export + WebM/MP4 turntable via the imperative handle.
+//
+// ORBIT DIRECTIONS ARE LOCKED (approved 11-Aug-2026): the box follows the
+// cursor on BOTH axes — drag right pulls the near face right, drag down
+// rolls the top face toward you. pitch = true elevation. Do NOT flip.
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import * as THREE from "three";
 import { poseRig } from "@/lib/dieline/fold3d";
 
 const BACKDROPS = {
@@ -22,294 +27,326 @@ const BACKDROPS = {
 };
 
 const SURFACES = {
-  white: { out: [244, 243, 240], inn: [250, 249, 246] },
-  kraft: { out: [214, 189, 150], inn: [235, 222, 196] },
-  duplex: { out: [235, 233, 228], inn: [176, 168, 152] },
-  art: { out: [248, 247, 244], inn: [250, 249, 246] },
-  corrugated: { out: [205, 176, 133], inn: [222, 200, 164] },
+  white: { out: 0xf4f3f0, inn: 0xfaf9f6 },
+  kraft: { out: 0xd6bd96, inn: 0xebdec4 },
+  duplex: { out: 0xebe9e4, inn: 0xb0a898 },
+  art: { out: 0xf8f7f4, inn: 0xfaf9f6 },
+  corrugated: { out: 0xcdb085, inn: 0xdec8a4 },
 };
 
+// formed pose lies flat on the ground for these — stand them up as t -> 1
+const UPRIGHT_STYLES = new Set(["carton", "sleeve", "paperbag", "dcutbag"]);
+const ease = (v) => (v <= 0 ? 0 : v >= 1 ? 1 : v * v * (3 - 2 * v));
+
 const Fold3DViewer = forwardRef(function Fold3DViewer(
-  { panels, foldT, artwork = null, backdrop = "studio", surface = "kraft" },
+  { panels, foldT, artwork = null, backdrop = "studio", surface = "kraft", styleId = "" },
   apiRef,
 ) {
-  const canvasRef = useRef(null);
-  const stateRef = useRef({ yaw: 0.7, pitch: 0.55, zoom: 1, dragging: false, lx: 0, ly: 0 });
+  const hostRef = useRef(null);
+  const stateRef = useRef({
+    yaw: 0.7, pitch: 0.55, zoom: 1,
+    dragging: false, lx: 0, ly: 0, vyaw: 0, vpitch: 0,
+  });
+  const threeRef = useRef(null); // { renderer, scene, camera, group, meshes, ... }
+  const propsRef = useRef({ panels, foldT, artwork, surface, styleId });
+  propsRef.current = { panels, foldT, artwork, surface, styleId };
 
-  // core scene renderer, reusable for screen + export
-  const renderScene = (ctx, cw, chh, opts = {}) => {
-    const st = { ...stateRef.current, ...opts.camera };
-    const t = opts.foldT ?? foldT;
-    const [g0, g1] = BACKDROPS[backdrop] || BACKDROPS.studio;
-    const grad = ctx.createLinearGradient(0, 0, 0, chh);
-    grad.addColorStop(0, g0);
-    grad.addColorStop(1, g1);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, cw, chh);
+  // ---------- scene setup (once) ----------
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(host.clientWidth, host.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    host.appendChild(renderer.domElement);
+    renderer.domElement.style.touchAction = "none";
+    renderer.domElement.style.cursor = "grab";
 
-    const faces = poseRig(panels, t);
-    const flat = poseRig(panels, 0); // print layout (UV source)
-    // artwork space: bbox of the flat pose
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(32, host.clientWidth / host.clientHeight, 1, 50000);
+    camera.up.set(0, 0, 1); // rig world is Z-up
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xb0aca4, 0.95));
+    const key = new THREE.DirectionalLight(0xffffff, 1.35);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.radius = 6;
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+    scene.add(fill);
+
+    const group = new THREE.Group();
+    scene.add(group);
+
+    // ground: shadow-only plane at z = 0
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.ShadowMaterial({ opacity: 0.16 }),
+    );
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    threeRef.current = { renderer, scene, camera, group, ground, key, fill, meshes: [], texture: null, texKey: null, raf: 0 };
+
+    const ro = new ResizeObserver(() => {
+      const w = host.clientWidth, h = host.clientHeight;
+      if (w && h) {
+        renderer.setSize(w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+    });
+    ro.observe(host);
+
+    // ---------- render loop (damped orbit) ----------
+    const st = stateRef.current;
+    const tick = () => {
+      threeRef.current.raf = requestAnimationFrame(tick);
+      if (!st.dragging) {
+        st.yaw += st.vyaw;
+        st.pitch = Math.max(-1.45, Math.min(1.45, st.pitch + st.vpitch));
+        st.vyaw *= 0.92;
+        st.vpitch *= 0.92;
+      }
+      renderFrame();
+    };
+    tick();
+
+    // ---------- input (LOCKED directions — see header) ----------
+    const el = renderer.domElement;
+    const down = (e) => { st.dragging = true; st.lx = e.clientX; st.ly = e.clientY; st.vyaw = 0; st.vpitch = 0; el.style.cursor = "grabbing"; };
+    const move = (e) => {
+      if (!st.dragging) return;
+      const dx = (e.clientX - st.lx) * 0.008, dy = (e.clientY - st.ly) * 0.008;
+      st.yaw += dx;
+      st.pitch = Math.max(-1.45, Math.min(1.45, st.pitch + dy));
+      st.vyaw = dx; st.vpitch = dy;
+      st.lx = e.clientX; st.ly = e.clientY;
+    };
+    const up = () => { st.dragging = false; el.style.cursor = "grab"; };
+    const wheel = (e) => {
+      e.preventDefault();
+      st.zoom = Math.max(0.4, Math.min(3, st.zoom * (e.deltaY < 0 ? 1.08 : 0.92)));
+    };
+    el.addEventListener("pointerdown", down);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    el.addEventListener("wheel", wheel, { passive: false });
+
+    return () => {
+      cancelAnimationFrame(threeRef.current.raf);
+      ro.disconnect();
+      el.removeEventListener("pointerdown", down);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      el.removeEventListener("wheel", wheel);
+      disposeMeshes();
+      threeRef.current.texture?.dispose();
+      renderer.dispose();
+      host.removeChild(renderer.domElement);
+      threeRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function disposeMeshes() {
+    const t = threeRef.current;
+    if (!t) return;
+    for (const m of t.meshes) {
+      t.group.remove(m);
+      m.geometry.dispose();
+      m.material.dispose();
+    }
+    t.meshes = [];
+  }
+
+  // ---------- build / update panel meshes ----------
+  function syncScene() {
+    const t = threeRef.current;
+    const { panels: rig, foldT: ft, artwork: art, surface: surf, styleId: sid } = propsRef.current;
+    if (!t || !rig) return;
+
+    // artwork texture (recreate only when the image object changes)
+    if (art !== t.texKey) {
+      t.texture?.dispose();
+      t.texture = null;
+      t.texKey = art;
+      if (art) {
+        const tex = new THREE.Texture(art);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = t.renderer.capabilities.getMaxAnisotropy();
+        tex.needsUpdate = true;
+        t.texture = tex;
+      }
+      disposeMeshes(); // materials change with artwork
+    }
+
+    const faces = poseRig(rig, ft);
+    const flat = poseRig(rig, 0);
     let fminX = 1e9, fmaxX = -1e9, fminY = 1e9, fmaxY = -1e9;
     for (const f of flat) for (const [x, y] of f.pts3) {
       fminX = Math.min(fminX, x); fmaxX = Math.max(fmaxX, x);
       fminY = Math.min(fminY, y); fmaxY = Math.max(fmaxY, y);
     }
     const fw = fmaxX - fminX || 1, fh = fmaxY - fminY || 1;
+    const sur = SURFACES[surf] || SURFACES.kraft;
 
-    let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9, minZ = 1e9, maxZ = -1e9;
-    for (const f of faces) for (const [x, y, z] of f.pts3) {
-      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-      minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+    // (re)build meshes if the rig shape changed
+    if (t.meshes.length !== faces.length * 2) {
+      disposeMeshes();
+      for (let i = 0; i < faces.length; i++) {
+        // exterior (print side, local -Z): draw the quad with reversed
+        // winding so its front face looks along -Z
+        const gExt = new THREE.BufferGeometry();
+        gExt.setIndex([0, 2, 1, 0, 3, 2]);
+        gExt.setAttribute("position", new THREE.BufferAttribute(new Float32Array(12), 3));
+        // print side is viewed from local -Z, where rig +x runs screen-left —
+        // mirror U so the artwork (authored print-side, like the dieline)
+        // reads correctly and lands on the right panels
+        const u = flat[i].pts3.map(([x, y]) => [1 - (x - fminX) / fw, (y - fminY) / fh]);
+        gExt.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(u.flat()), 2));
+        const mExt = new THREE.MeshStandardMaterial({
+          color: t.texture ? 0xffffff : sur.out,
+          map: t.texture || null,
+          roughness: 0.88,
+          metalness: 0,
+        });
+        const ext = new THREE.Mesh(gExt, mExt);
+        ext.castShadow = true;
+        ext.receiveShadow = true;
+
+        // interior (unprinted board, local +Z)
+        const gInn = new THREE.BufferGeometry();
+        gInn.setIndex([0, 1, 2, 0, 2, 3]);
+        gInn.setAttribute("position", new THREE.BufferAttribute(new Float32Array(12), 3));
+        const tone = 1 - (faces[i].tone || 0) * 0.18;
+        const cInn = new THREE.Color(sur.inn).multiplyScalar(tone);
+        const inn = new THREE.Mesh(gInn, new THREE.MeshStandardMaterial({ color: cInn, roughness: 0.95, metalness: 0 }));
+        inn.castShadow = true;
+        inn.receiveShadow = true;
+
+        t.group.add(ext, inn);
+        t.meshes.push(ext, inn);
+      }
     }
-    const c = [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2];
-    const radius = Math.max(maxX - minX, maxY - minY, maxZ - minZ) || 1;
-    // camera distance: zoom scales the view but the camera must NEVER enter
-    // the model's bounding sphere — z would cross 0 and projected coordinates
-    // explode (glitch polygons + seconds-long draws)
-    const dist = radius * (0.95 + 1.6 / st.zoom);
-    const near = radius * 0.02;
+
+    // update vertex positions for the current fold state
+    for (let i = 0; i < faces.length; i++) {
+      const pts = faces[i].pts3;
+      for (const k of [0, 1]) {
+        const mesh = t.meshes[i * 2 + k];
+        const pos = mesh.geometry.getAttribute("position");
+        for (let j = 0; j < 4; j++) pos.setXYZ(j, pts[j][0], pts[j][1], pts[j][2]);
+        pos.needsUpdate = true;
+        mesh.geometry.computeVertexNormals();
+        mesh.geometry.computeBoundingSphere();
+      }
+    }
+
+    // upright presentation for styles that fold lying down
+    const upright = UPRIGHT_STYLES.has(sid) ? ease((ft - 0.55) / 0.45) : 0;
+    t.group.rotation.x = (upright * Math.PI) / 2;
+
+    // sit the model on the ground (z = 0)
+    t.group.position.set(0, 0, 0);
+    t.group.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(t.group);
+    if (Number.isFinite(bb.min.z)) t.group.position.z = -bb.min.z;
+    t.bbox = new THREE.Box3().setFromObject(t.group);
+  }
+
+  function renderFrame() {
+    const t = threeRef.current;
+    if (!t || !t.bbox) return;
+    const st = stateRef.current;
+    const c = t.bbox.getCenter(new THREE.Vector3());
+    const size = t.bbox.getSize(new THREE.Vector3());
+    const radius = Math.max(size.x, size.y, size.z) || 1;
+    const dist = radius * (1.05 + 2.1 / st.zoom);
 
     const cy = Math.cos(st.yaw), sy = Math.sin(st.yaw);
     const cp = Math.cos(st.pitch), sp = Math.sin(st.pitch);
-    // pitch = elevation: 0 level, +1.45 near top-down, negative looks up from
-    // below. (The old transform negated depth, trapping the camera below the
-    // equator — "top view" was really the underside.)
-    const toCam = ([x, y, z]) => {
-      const dx = x - c[0], dy = y - c[1], dz = z - c[2];
-      const x1 = dx * cy - dy * sy, y1 = dx * sy + dy * cy, z1 = dz;
-      const y2 = y1 * sp + z1 * cp;
-      const z2 = y1 * cp - z1 * sp;
-      return [x1, y2, z2 + dist];
-    };
-    const f = Math.min(cw, chh) * 1.35;
-    const proj = ([x, y, z]) => [cw / 2 + (f * x) / z, chh / 2 - (f * y) / z, z];
+    t.camera.position.set(c.x - dist * cp * sy, c.y - dist * cp * cy, c.z + dist * sp);
+    t.camera.lookAt(c);
 
-    // soft contact shadow (ellipse under the model on the backdrop)
-    const groundY = proj(toCam([c[0], c[1], minZ]))[1];
-    ctx.save();
-    ctx.filter = "blur(10px)";
-    ctx.fillStyle = "rgba(0,0,0,0.18)";
-    ctx.beginPath();
-    ctx.ellipse(cw / 2, Math.min(groundY + 14, chh - 12), cw * 0.24 * st.zoom, 14 * st.zoom, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    t.key.position.set(c.x + radius * 1.5, c.y - radius * 2, c.z + radius * 3);
+    t.key.target.position.copy(c);
+    t.key.target.updateMatrixWorld();
+    const s = t.key.shadow.camera;
+    s.left = -radius * 1.6; s.right = radius * 1.6; s.top = radius * 1.6; s.bottom = -radius * 1.6;
+    s.near = radius * 0.2; s.far = radius * 8;
+    s.updateProjectionMatrix();
+    t.fill.position.set(c.x - radius * 2, c.y + radius, c.z + radius);
 
-    const light = norm3([0.35, -0.5, -0.8]);
-    const sur = SURFACES[surface] || SURFACES.kraft;
-    // rotate a world vector into camera space (rotation only)
-    const rotCam = ([x, y, z]) => {
-      const x1 = x * cy - y * sy, y1 = x * sy + y * cy, z1 = z;
-      return [x1, y1 * sp + z1 * cp, y1 * cp - z1 * sp];
-    };
-    const rendered = [];
-    faces.forEach((face, i) => {
-      const cam = face.pts3.map(toCam);
-      // near-plane cull: a vertex at/behind the camera would explode the
-      // projection; degenerate zero-area panels are skipped the same way
-      if (cam.some((p) => p[2] < near)) return;
-      const nw = cross(sub(face.pts3[1], face.pts3[0]), sub(face.pts3[3], face.pts3[0]));
-      if (Math.hypot(nw[0], nw[1], nw[2]) < 1e-9) return;
-      const scr = cam.map(proj);
-      // world normal of the panel = its local +Z (the fold-toward / interior side)
-      const nCam = rotCam(norm3(nw));
-      // camera sees the PRINT (local -Z, exterior) side when +Z points away
-      const exterior = nCam[2] > 0;
-      const nn = exterior ? nCam.map((v) => -v) : nCam;
-      const shade = 0.6 + 0.4 * Math.max(0, -(nn[0] * light[0] + nn[1] * light[1] + nn[2] * light[2]));
-      const depth = cam.reduce((s, p) => s + p[2], 0) / cam.length;
-      rendered.push({ scr, depth, shade, facing: exterior ? 1 : -1, i });
-    });
-    rendered.sort((a, b) => b.depth - a.depth);
+    t.ground.scale.set(radius * 30, radius * 30, 1);
+    t.ground.position.set(c.x, c.y, 0);
 
-    for (const r of rendered) {
-      const tone = faces[r.i].tone || 0;
-      const base = r.facing === 1 ? sur.out : sur.inn;
-      const col = base.map((v) => Math.round(v * (1 - tone * 0.2) * r.shade));
-      // face base fill
-      ctx.beginPath();
-      ctx.moveTo(r.scr[0][0], r.scr[0][1]);
-      for (let k = 1; k < r.scr.length; k++) ctx.lineTo(r.scr[k][0], r.scr[k][1]);
-      ctx.closePath();
-      ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
-      ctx.fill();
-      // artwork on OUTSIDE faces: flat-pose region -> projected quad
-      if (artwork && r.facing === 1) {
-        const src = flat[r.i].pts3.map(([x, y]) => [
-          ((x - fminX) / fw) * artwork.width,
-          (1 - (y - fminY) / fh) * artwork.height, // flat +y is "up the blank"
-        ]);
-        drawTexturedQuad(ctx, artwork, src, r.scr, 3);
-        // shading multiply over the artwork
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(r.scr[0][0], r.scr[0][1]);
-        for (let k = 1; k < r.scr.length; k++) ctx.lineTo(r.scr[k][0], r.scr[k][1]);
-        ctx.closePath();
-        ctx.clip();
-        ctx.globalAlpha = 1 - r.shade;
-        ctx.fillStyle = "rgb(30,25,18)";
-        ctx.fill();
-        ctx.restore();
-      }
-      ctx.beginPath();
-      ctx.moveTo(r.scr[0][0], r.scr[0][1]);
-      for (let k = 1; k < r.scr.length; k++) ctx.lineTo(r.scr[k][0], r.scr[k][1]);
-      ctx.closePath();
-      ctx.strokeStyle = artwork ? "rgba(60,50,35,0.25)" : "rgba(90,70,45,0.55)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-  };
+    t.renderer.render(t.scene, t.camera);
+  }
 
-  const draw = () => {
-    const canvas = canvasRef.current;
-    if (!canvas || !panels) return;
-    const dpr = window.devicePixelRatio || 1;
-    const cw = canvas.clientWidth, chh = canvas.clientHeight;
-    if (canvas.width !== cw * dpr || canvas.height !== chh * dpr) { canvas.width = cw * dpr; canvas.height = chh * dpr; }
-    const ctx = canvas.getContext("2d");
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    renderScene(ctx, cw, chh);
-  };
+  // rebuild scene contents when inputs change
+  useEffect(() => {
+    syncScene();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panels, foldT, artwork, surface, styleId]);
 
   useImperativeHandle(apiRef, () => ({
-    exportPng(size = 2048) {
-      if (!panels) return Promise.resolve(null);
-      const off = document.createElement("canvas");
-      off.width = size;
-      off.height = Math.round(size * 0.75);
-      renderScene(off.getContext("2d"), off.width, off.height);
-      return new Promise((res) => off.toBlob(res, "image/png"));
+    async exportPng(size = 2048) {
+      const t = threeRef.current;
+      if (!t || !propsRef.current.panels) return null;
+      const host = hostRef.current;
+      const w0 = host.clientWidth, h0 = host.clientHeight;
+      t.renderer.setSize(size, Math.round(size * 0.75), false);
+      t.camera.aspect = size / Math.round(size * 0.75);
+      t.camera.updateProjectionMatrix();
+      renderFrame();
+      const blob = await new Promise((res) => t.renderer.domElement.toBlob(res, "image/png"));
+      t.renderer.setSize(w0, h0, false);
+      t.camera.aspect = w0 / h0;
+      t.camera.updateProjectionMatrix();
+      return blob;
     },
     async exportTurntable(seconds = 3) {
-      if (!panels || typeof MediaRecorder === "undefined") return null;
-      const off = document.createElement("canvas");
-      off.width = 1280;
-      off.height = 960;
-      const octx = off.getContext("2d");
-      if (!off.captureStream) return null;
-      const stream = off.captureStream(30);
-      // Safari records mp4, not webm — pick the first supported container
+      const t = threeRef.current;
+      if (!t || !propsRef.current.panels || typeof MediaRecorder === "undefined") return null;
+      const canvas = t.renderer.domElement;
+      if (!canvas.captureStream) return null;
       const mime = ["video/webm;codecs=vp9", "video/webm", "video/mp4"].find(
         (m) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m),
       );
       if (!mime) return null;
+      const stream = canvas.captureStream(30);
       const rec = new MediaRecorder(stream, { mimeType: mime });
       const chunks = [];
       rec.ondataavailable = (e) => chunks.push(e.data);
       const done = new Promise((res) => (rec.onstop = res));
+      const st = stateRef.current;
+      const startYaw = st.yaw;
       rec.start();
       const frames = seconds * 30;
-      const startYaw = stateRef.current.yaw;
       for (let i = 0; i <= frames; i++) {
-        renderScene(octx, off.width, off.height, { camera: { yaw: startYaw + (i / frames) * Math.PI * 2 } });
+        st.yaw = startYaw + (i / frames) * Math.PI * 2;
+        renderFrame();
         await new Promise((r) => setTimeout(r, 1000 / 30));
       }
+      st.yaw = startYaw;
       rec.stop();
       await done;
       return new Blob(chunks, { type: mime.split(";")[0] });
     },
   }));
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !panels) return;
-    draw();
-    const st = stateRef.current;
-    const down = (e) => { st.dragging = true; st.lx = e.clientX; st.ly = e.clientY; };
-    const move = (e) => {
-      if (!st.dragging) return;
-      // ORBIT DIRECTIONS ARE LOCKED (approved 11-Aug-2026): the box follows
-      // the cursor on BOTH axes — drag right pulls the near face right, drag
-      // down rolls the top face toward you. These signs are calibrated to the
-      // corrected camera below (pitch = true elevation). Do NOT flip them.
-      st.yaw += (e.clientX - st.lx) * 0.01;
-      st.pitch = Math.max(-1.45, Math.min(1.45, st.pitch + (e.clientY - st.ly) * 0.01));
-      st.lx = e.clientX; st.ly = e.clientY;
-      draw();
-    };
-    const up = () => { st.dragging = false; };
-    const wheel = (e) => {
-      e.preventDefault();
-      st.zoom = Math.max(0.4, Math.min(3, st.zoom * (e.deltaY < 0 ? 1.1 : 0.9)));
-      draw();
-    };
-    canvas.addEventListener("pointerdown", down);
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    canvas.addEventListener("wheel", wheel, { passive: false });
-    return () => {
-      canvas.removeEventListener("pointerdown", down);
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      canvas.removeEventListener("wheel", wheel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panels, foldT, artwork, backdrop, surface]);
-
+  const [g0, g1] = BACKDROPS[backdrop] || BACKDROPS.studio;
   return (
-    <canvas
-      ref={canvasRef}
-      className="h-[440px] w-full cursor-grab touch-none rounded-md active:cursor-grabbing"
+    <div
+      ref={hostRef}
+      className="h-[440px] w-full overflow-hidden rounded-md"
+      style={{ background: `linear-gradient(${g0}, ${g1})` }}
     />
   );
 });
 
 export default Fold3DViewer;
-
-// draw image quad src(4 pts, image space) -> dest(4 pts, screen) via an
-// n x n grid of affine-mapped triangles
-function drawTexturedQuad(ctx, img, src, dst, n = 3) {
-  const lerp2 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-  const bilerp = (q, u, v) => lerp2(lerp2(q[0], q[1], u), lerp2(q[3], q[2], u), v);
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      const u0 = i / n, u1 = (i + 1) / n, v0 = j / n, v1 = (j + 1) / n;
-      const s = [bilerp(src, u0, v0), bilerp(src, u1, v0), bilerp(src, u1, v1), bilerp(src, u0, v1)];
-      const d = [bilerp(dst, u0, v0), bilerp(dst, u1, v0), bilerp(dst, u1, v1), bilerp(dst, u0, v1)];
-      drawTexturedTriangle(ctx, img, [s[0], s[1], s[2]], [d[0], d[1], d[2]]);
-      drawTexturedTriangle(ctx, img, [s[0], s[2], s[3]], [d[0], d[2], d[3]]);
-    }
-  }
-}
-
-function drawTexturedTriangle(ctx, img, s, d) {
-  const [[sx0, sy0], [sx1, sy1], [sx2, sy2]] = s;
-  const [[dx0, dy0], [dx1, dy1], [dx2, dy2]] = d;
-  const denom = sx0 * (sy1 - sy2) + sx1 * (sy2 - sy0) + sx2 * (sy0 - sy1);
-  if (Math.abs(denom) < 1e-6) return;
-  const a = (dx0 * (sy1 - sy2) + dx1 * (sy2 - sy0) + dx2 * (sy0 - sy1)) / denom;
-  const b = (dx0 * (sx2 - sx1) + dx1 * (sx0 - sx2) + dx2 * (sx1 - sx0)) / denom;
-  const cc = (dy0 * (sy1 - sy2) + dy1 * (sy2 - sy0) + dy2 * (sy0 - sy1)) / denom;
-  const dd = (dy0 * (sx2 - sx1) + dy1 * (sx0 - sx2) + dy2 * (sx1 - sx0)) / denom;
-  const e = dx0 - a * sx0 - b * sy0;
-  const ff = dy0 - cc * sx0 - dd * sy0;
-  ctx.save();
-  // expand the clip triangle ~0.7px about its centroid so adjacent
-  // triangles overlap and hairline AA seams disappear
-  const gx = (dx0 + dx1 + dx2) / 3, gy = (dy0 + dy1 + dy2) / 3;
-  const grow = (px, py) => {
-    const vx = px - gx, vy = py - gy;
-    const l = Math.hypot(vx, vy) || 1;
-    return [px + (vx / l) * 0.7, py + (vy / l) * 0.7];
-  };
-  const [e0, e1, e2] = [grow(dx0, dy0), grow(dx1, dy1), grow(dx2, dy2)];
-  ctx.beginPath();
-  ctx.moveTo(e0[0], e0[1]);
-  ctx.lineTo(e1[0], e1[1]);
-  ctx.lineTo(e2[0], e2[1]);
-  ctx.closePath();
-  ctx.clip();
-  ctx.transform(a, cc, b, dd, e, ff);
-  ctx.drawImage(img, 0, 0);
-  ctx.restore();
-}
-
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-function norm3(v) {
-  const l = Math.hypot(v[0], v[1], v[2]) || 1;
-  return [v[0] / l, v[1] / l, v[2] / l];
-}
