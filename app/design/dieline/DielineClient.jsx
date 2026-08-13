@@ -9,6 +9,7 @@ import { buildCakeboxDieline } from "@/lib/dieline/cakebox";
 import { buildFoodboxDieline } from "@/lib/dieline/foodbox";
 import { buildBurgerboxDieline } from "@/lib/dieline/burgerbox";
 import { buildPaperbagKeyline, BAG_TYPES } from "@/lib/dieline/paperbag";
+import { buildDcutbagDieline } from "@/lib/dieline/dcutbag";
 import { buildTuckboxDieline } from "@/lib/dieline/tuckbox";
 import { buildCartonDieline, CARTON_TYPES } from "@/lib/dieline/carton";
 import { buildSleeveDieline, buildCupSleeveDieline } from "@/lib/dieline/sleeves";
@@ -255,6 +256,23 @@ const STYLES = {
     depthLabel: "Bottom fold",
     note:
       "Flat blank for print/artwork — seam | front | gusset | back | gusset, SOS diamond folds at the gusset centres. Blank maths matches the bag rate calculator exactly (seam 15/20/25 by width, bottom = 0.75×G, V-bottom +15).",
+  },
+  dcutbag: {
+    label: "D-Cut Bag",
+    build: buildDcutbagDieline,
+    defaultUnits: "mm",
+    defaults: { L: "209.5", W: "140", H: "317.5" },
+    fieldLabels: ["Width (W)", "Gusset (G)", "Height (H)"],
+    hints: { L: "bag face width", W: "side gusset", H: "body height (below the mouth)" },
+    presets: [
+      { label: "Burma Burma Small (die ref)", dims: [209.5, 140, 317.5], unit: "mm" },
+      { label: "180×110×270", dims: [180, 110, 270], unit: "mm" },
+      { label: "250×160×350", dims: [250, 160, 350], unit: "mm" },
+    ],
+    defaultMaterial: { family: "white", idx: 0 },
+    depthLabel: "Bottom flap",
+    note:
+      "Die-cut stadium-handle bag calibrated to the Burma Burma Small Bag production file — seam | face | gusset | face | gusset wrap, 63.7 mm fold-over hem with rounded corners over face 1, 80 × 25.5 mm handle slots in both faces (hem slot mirrored so the holes align), glued flat bottom with G/2 + 26 flaps. Handle stays fixed across sizes (it's ergonomic).",
   },
   burgerbox: {
     label: "Burger Box (clamshell)",
