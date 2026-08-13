@@ -23,6 +23,11 @@ import { buildCupcarrierDieline } from "@/lib/dieline/cupcarrier";
 import { toSvg, toPdf, toDxf, fmtBoth } from "@/lib/dieline/exports";
 import { MATERIALS, materialStamp, materialThicknessMm } from "@/lib/dieline/materials";
 import { SURFACES_3D } from "@/lib/dieline/materials3d";
+import { buildDieMask } from "@/lib/dieline/mask";
+
+// styles whose 3D flat pose lays out on the same grid as the die blank —
+// their panels get clipped to the true die silhouette (curved wings, notches)
+const DIE_MASK_STYLES = new Set(["snackbox"]);
 import { buildRig, RIGGED_STYLES } from "@/lib/dieline/fold3d";
 import Fold3DViewer from "./Fold3DViewer";
 
@@ -432,6 +437,11 @@ export default function DielineClient() {
     return buildRig(styleId, { L: mm(dims.L), W: mm(dims.W), H: mm(dims.H), taper: taperMm, cups });
   }, [styleId, dims.L, dims.W, dims.H, taperMm, cups, units, ready, has3d]);
 
+  const dieMask = useMemo(
+    () => (view === "3d" && rig && DIE_MASK_STYLES.has(styleId) && result?.valid ? buildDieMask(result) : null),
+    [view, rig, styleId, result],
+  );
+
   return (
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
       {/* Controls */}
@@ -722,7 +732,7 @@ export default function DielineClient() {
         )}
         {view === "3d" && rig ? (
           <>
-            <Fold3DViewer ref={viewerRef} panels={rig} foldT={foldT} artwork={artwork} backdrop={backdrop} surface={surface} styleId={styleId} />
+            <Fold3DViewer ref={viewerRef} panels={rig} foldT={foldT} artwork={artwork} backdrop={backdrop} surface={surface} styleId={styleId} dieMask={dieMask} />
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Material</span>
               {SURFACES_3D.map((s) => (
