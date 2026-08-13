@@ -22,6 +22,7 @@ import { buildEnvelopeDieline } from "@/lib/dieline/envelope";
 import { buildCupcarrierDieline } from "@/lib/dieline/cupcarrier";
 import { toSvg, toPdf, toDxf, fmtBoth } from "@/lib/dieline/exports";
 import { MATERIALS, materialStamp, materialThicknessMm } from "@/lib/dieline/materials";
+import { SURFACES_3D } from "@/lib/dieline/materials3d";
 import { buildRig, RIGGED_STYLES } from "@/lib/dieline/fold3d";
 import Fold3DViewer from "./Fold3DViewer";
 
@@ -309,6 +310,7 @@ export default function DielineClient() {
   const [foldT, setFoldT] = useState(1);
   const [artwork, setArtwork] = useState(null);
   const [backdrop, setBackdrop] = useState("studio");
+  const [surface3d, setSurface3d] = useState(null); // null = follow the 2D board pick
   const [exporting, setExporting] = useState("");
   const viewerRef = useRef(null);
 
@@ -421,7 +423,9 @@ export default function DielineClient() {
 
   const blank = result?.blank;
   const has3d = RIGGED_STYLES.includes(styleId);
-  const surface = matFamily === "corrugated" ? "corrugated" : matFamily === "kraft" ? "kraft" : matFamily === "duplex" ? "duplex" : matFamily === "art" ? "art" : "white";
+  // 3D surface: follows the 2D board pick until a swatch is chosen explicitly
+  const surfaceAuto = matFamily === "corrugated" ? "corrugated" : matFamily === "kraft" ? "kraft" : matFamily === "duplex" ? "duplex" : matFamily === "art" ? "gloss" : "white";
+  const surface = surface3d ?? surfaceAuto;
   const rig = useMemo(() => {
     if (!has3d || !ready) return null;
     const mm = (v) => (units === "in" ? v * 25.4 : v);
@@ -719,7 +723,25 @@ export default function DielineClient() {
         {view === "3d" && rig ? (
           <>
             <Fold3DViewer ref={viewerRef} panels={rig} foldT={foldT} artwork={artwork} backdrop={backdrop} surface={surface} styleId={styleId} />
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Material</span>
+              {SURFACES_3D.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setSurface3d(s.id)}
+                  title={s.label}
+                  className={`flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] ${
+                    surface === s.id
+                      ? "border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900"
+                      : "border-gray-300 text-gray-600 hover:border-gray-500 dark:border-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  <span className="h-3.5 w-3.5 rounded-full border border-black/10" style={{ background: s.swatch }} />
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <label className="cursor-pointer rounded-md bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900">
                 {artwork ? "Replace artwork" : "Upload artwork"}
                 <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={onArtworkFile} />

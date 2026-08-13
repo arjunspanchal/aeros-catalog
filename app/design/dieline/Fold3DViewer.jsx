@@ -17,21 +17,15 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { poseRig } from "@/lib/dieline/fold3d";
+import { getSurfaceDef } from "@/lib/dieline/materials3d";
 
 const BACKDROPS = {
   studio: ["#f4f4f5", "#d4d4d8"],
   white: ["#ffffff", "#f1f1f1"],
   warm: ["#f5efe6", "#e2d5bf"],
   dark: ["#3f3f46", "#18181b"],
-};
-
-const SURFACES = {
-  white: { out: 0xf4f3f0, inn: 0xfaf9f6 },
-  kraft: { out: 0xd6bd96, inn: 0xebdec4 },
-  duplex: { out: 0xebe9e4, inn: 0xb0a898 },
-  art: { out: 0xf8f7f4, inn: 0xfaf9f6 },
-  corrugated: { out: 0xcdb085, inn: 0xdec8a4 },
 };
 
 // formed pose lies flat on the ground for these — stand them up as t -> 1
@@ -69,7 +63,12 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
     const camera = new THREE.PerspectiveCamera(32, host.clientWidth / host.clientHeight, 1, 50000);
     camera.up.set(0, 0, 1); // rig world is Z-up
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xb0aca4, 0.95));
+    // studio environment for physically-based reflections (gloss finishes)
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity = 0.55;
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xb0aca4, 0.55));
     const key = new THREE.DirectionalLight(0xffffff, 1.35);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
@@ -145,6 +144,8 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
       el.removeEventListener("wheel", wheel);
       disposeMeshes();
       threeRef.current.texture?.dispose();
+      for (const k in threeRef.current.surfTex || {}) threeRef.current.surfTex[k].dispose();
+      pmrem.dispose();
       renderer.dispose();
       host.removeChild(renderer.domElement);
       threeRef.current = null;
@@ -183,6 +184,24 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
       }
       disposeMeshes(); // materials change with artwork
     }
+    if (surf !== t.surfKey) {
+      t.surfKey = surf;
+      disposeMeshes(); // materials change with the surface preset
+    }
+    // procedural surface textures, cached per surface id
+    if (!t.surfTex) t.surfTex = {};
+    const mkTex = (key, canvasFn, srgb) => {
+      const cacheKey = surf + ":" + key;
+      if (!t.surfTex[cacheKey] && canvasFn) {
+        const tex = new THREE.CanvasTexture(canvasFn());
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(2, 2);
+        if (srgb) tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = t.renderer.capabilities.getMaxAnisotropy();
+        t.surfTex[cacheKey] = tex;
+      }
+      return t.surfTex[cacheKey] || null;
+    };
 
     const faces = poseRig(rig, ft);
     const flat = poseRig(rig, 0);
@@ -192,7 +211,11 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
       fminY = Math.min(fminY, y); fmaxY = Math.max(fmaxY, y);
     }
     const fw = fmaxX - fminX || 1, fh = fmaxY - fminY || 1;
-    const sur = SURFACES[surf] || SURFACES.kraft;
+    const def = getSurfaceDef(surf);
+    const extMap = mkTex("ext", def.ext.canvas, true);
+    const extBump = def.ext.bump ? mkTex("extb", def.ext.canvas, false) : null;
+    const innMap = mkTex("inn", def.inn.canvas, true);
+    const innBump = def.inn.bump ? mkTex("innb", def.inn.canvas, false) : null;
 
     // (re)build meshes if the rig shape changed
     if (t.meshes.length !== faces.length * 2) {
@@ -208,10 +231,14 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
         // reads correctly and lands on the right panels
         const u = flat[i].pts3.map(([x, y]) => [1 - (x - fminX) / fw, (y - fminY) / fh]);
         gExt.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(u.flat()), 2));
+        // artwork replaces the base map (tinted so prints on kraft keep the
+        // warm base); the paper's fibre bump stays underneath either way
         const mExt = new THREE.MeshStandardMaterial({
-          color: t.texture ? 0xffffff : sur.out,
-          map: t.texture || null,
-          roughness: 0.88,
+          color: t.texture ? def.artworkTint : def.ext.color,
+          map: t.texture || extMap,
+          bumpMap: extBump,
+          bumpScale: def.ext.bump || 0,
+          roughness: def.ext.rough,
           metalness: 0,
         });
         const ext = new THREE.Mesh(gExt, mExt);
@@ -222,9 +249,17 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
         const gInn = new THREE.BufferGeometry();
         gInn.setIndex([0, 1, 2, 0, 2, 3]);
         gInn.setAttribute("position", new THREE.BufferAttribute(new Float32Array(12), 3));
+        gInn.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(u.flat()), 2));
         const tone = 1 - (faces[i].tone || 0) * 0.18;
-        const cInn = new THREE.Color(sur.inn).multiplyScalar(tone);
-        const inn = new THREE.Mesh(gInn, new THREE.MeshStandardMaterial({ color: cInn, roughness: 0.95, metalness: 0 }));
+        const cInn = new THREE.Color(def.inn.color).multiplyScalar(tone);
+        const inn = new THREE.Mesh(gInn, new THREE.MeshStandardMaterial({
+          color: cInn,
+          map: innMap,
+          bumpMap: innBump,
+          bumpScale: def.inn.bump || 0,
+          roughness: def.inn.rough,
+          metalness: 0,
+        }));
         inn.castShadow = true;
         inn.receiveShadow = true;
 
