@@ -33,7 +33,7 @@ const UPRIGHT_STYLES = new Set(["carton", "sleeve", "paperbag", "dcutbag"]);
 const ease = (v) => (v <= 0 ? 0 : v >= 1 ? 1 : v * v * (3 - 2 * v));
 
 const Fold3DViewer = forwardRef(function Fold3DViewer(
-  { panels, foldT, artwork = null, backdrop = "studio", surface = "kraft", styleId = "" },
+  { panels, foldT, artwork = null, backdrop = "studio", surface = "kraft", styleId = "", dieMask = null },
   apiRef,
 ) {
   const hostRef = useRef(null);
@@ -42,8 +42,8 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
     dragging: false, lx: 0, ly: 0, vyaw: 0, vpitch: 0,
   });
   const threeRef = useRef(null); // { renderer, scene, camera, group, meshes, ... }
-  const propsRef = useRef({ panels, foldT, artwork, surface, styleId });
-  propsRef.current = { panels, foldT, artwork, surface, styleId };
+  const propsRef = useRef({ panels, foldT, artwork, surface, styleId, dieMask });
+  propsRef.current = { panels, foldT, artwork, surface, styleId, dieMask };
 
   // ---------- scene setup (once) ----------
   useEffect(() => {
@@ -144,6 +144,7 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
       el.removeEventListener("wheel", wheel);
       disposeMeshes();
       threeRef.current.texture?.dispose();
+      threeRef.current.maskTex?.dispose();
       for (const k in threeRef.current.surfTex || {}) threeRef.current.surfTex[k].dispose();
       pmrem.dispose();
       renderer.dispose();
@@ -167,8 +168,22 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
   // ---------- build / update panel meshes ----------
   function syncScene() {
     const t = threeRef.current;
-    const { panels: rig, foldT: ft, artwork: art, surface: surf, styleId: sid } = propsRef.current;
+    const { panels: rig, foldT: ft, artwork: art, surface: surf, styleId: sid, dieMask: mask } = propsRef.current;
     if (!t || !rig) return;
+
+    // die-silhouette alpha mask — clips the rectangular fold panels to the
+    // true die outline (curved wings, notches, holes)
+    if (mask !== t.maskKey) {
+      t.maskKey = mask;
+      t.maskTex?.dispose();
+      t.maskTex = null;
+      if (mask) {
+        const mt = new THREE.CanvasTexture(mask);
+        mt.anisotropy = t.renderer.capabilities.getMaxAnisotropy();
+        t.maskTex = mt;
+      }
+      disposeMeshes(); // materials change with the mask
+    }
 
     // artwork texture (recreate only when the image object changes)
     if (art !== t.texKey) {
@@ -216,6 +231,11 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
     const extBump = def.ext.bump ? mkTex("extb", def.ext.canvas, false) : null;
     const innMap = mkTex("inn", def.inn.canvas, true);
     const innBump = def.inn.bump ? mkTex("innb", def.inn.canvas, false) : null;
+    // paper grain is mm-scale — tile one texture per ~150 mm of blank so
+    // fibres don't blow up into blotches on large blanks
+    for (const tex of [extMap, extBump, innMap, innBump]) {
+      if (tex) tex.repeat.set(Math.max(1, fw / 150), Math.max(1, fh / 150));
+    }
 
     // (re)build meshes if the rig shape changed
     if (t.meshes.length !== faces.length * 2) {
@@ -240,10 +260,13 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
           bumpScale: def.ext.bump || 0,
           roughness: def.ext.rough,
           metalness: 0,
+          alphaMap: t.maskTex,
+          alphaTest: t.maskTex ? 0.5 : 0,
         });
         const ext = new THREE.Mesh(gExt, mExt);
         ext.castShadow = true;
         ext.receiveShadow = true;
+        if (t.maskTex) ext.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaMap: t.maskTex, alphaTest: 0.5 });
 
         // interior (unprinted board, local +Z)
         const gInn = new THREE.BufferGeometry();
@@ -259,9 +282,12 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
           bumpScale: def.inn.bump || 0,
           roughness: def.inn.rough,
           metalness: 0,
+          alphaMap: t.maskTex,
+          alphaTest: t.maskTex ? 0.5 : 0,
         }));
         inn.castShadow = true;
         inn.receiveShadow = true;
+        if (t.maskTex) inn.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaMap: t.maskTex, alphaTest: 0.5 });
 
         t.group.add(ext, inn);
         t.meshes.push(ext, inn);
@@ -326,7 +352,7 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
   useEffect(() => {
     syncScene();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panels, foldT, artwork, surface, styleId]);
+  }, [panels, foldT, artwork, surface, styleId, dieMask]);
 
   useImperativeHandle(apiRef, () => ({
     async exportPng(size = 2048) {
