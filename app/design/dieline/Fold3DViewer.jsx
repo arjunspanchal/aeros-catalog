@@ -285,7 +285,9 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
           alphaMap: t.maskTex,
           alphaTest: t.maskTex ? 0.5 : 0,
         }));
-        inn.castShadow = true;
+        // only the exterior ply casts shadows — the plies are coplanar and
+        // double-casting produces acne stripes on flat poses
+        inn.castShadow = false;
         inn.receiveShadow = true;
         if (t.maskTex) inn.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaMap: t.maskTex, alphaTest: 0.5 });
 
@@ -340,10 +342,15 @@ const Fold3DViewer = forwardRef(function Fold3DViewer(
     s.left = -radius * 1.6; s.right = radius * 1.6; s.top = radius * 1.6; s.bottom = -radius * 1.6;
     s.near = radius * 0.2; s.far = radius * 8;
     s.updateProjectionMatrix();
+    // bias scaled to scene size — kills self-shadow acne on flat poses
+    t.key.shadow.bias = -0.0002;
+    t.key.shadow.normalBias = radius * 0.008;
     t.fill.position.set(c.x - radius * 2, c.y + radius, c.z + radius);
 
+    // ground sits a hair below the model so a flat blank never lies exactly
+    // in the shadow-receiving plane
     t.ground.scale.set(radius * 30, radius * 30, 1);
-    t.ground.position.set(c.x, c.y, 0);
+    t.ground.position.set(c.x, c.y, -radius * 0.004);
 
     t.renderer.render(t.scene, t.camera);
   }
