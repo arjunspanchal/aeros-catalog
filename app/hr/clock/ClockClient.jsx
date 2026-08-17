@@ -45,7 +45,8 @@ const STR = {
     locating: "📍 Locating…",
     doneToday: "Done for today ✓",
     geoNoteWfo: "📍 You must be at the Bhiwandi office to check in or out. Allow location when asked.",
-    geoNoteWfh: "📍 Your location is recorded when you check in and out.",
+    geoNoteWfh: "📍 You must be at your registered home (or the office) to check in or out. Allow location when asked.",
+    geoNoteWfhNoHome: "⚠️ Your home location isn't registered yet — ask HR to set it before you can check in.",
     signOut: "Not you? Sign out",
     // Flashes
     flashCheckedIn: "Checked in. Have a good shift!",
@@ -59,9 +60,14 @@ const STR = {
     // Punch errors
     errCouldNotPunch: "Could not record punch.",
     errNeedLocation:
-      "Location required. Turn on GPS/location and allow it, then try again — office staff must punch at the Bhiwandi office.",
+      "Location required. Turn on GPS/location and allow it, then try again.",
+    errPoorAccuracy: (m) =>
+      `Location too imprecise (±${fmtDist(m, "km", "m")}). Turn on precise GPS, step near a window, then try again.`,
     errOutside: (m) =>
       `You appear to be about ${fmtDist(m, "km", "m")} from the office. Office staff must check in/out at the Bhiwandi factory.`,
+    errOutsideHome: (m) =>
+      `You appear to be about ${fmtDist(m, "km", "m")} from your registered home. WFH staff must check in/out from home (or the office).`,
+    errNoHome: "Your home location isn't registered yet. Ask HR to set it, then try again.",
     errOpenSince: (t) => `You're still checked in from yesterday (since ${t}). Check out first.`,
     errAlreadyIn: (t) => `Already checked in at ${t}.`,
     errAlreadyOut: (t) => `Already checked out at ${t}.`,
@@ -111,7 +117,8 @@ const STR = {
     locating: "📍 लोकेशन ले रहे हैं…",
     doneToday: "आज के लिए पूरा ✓",
     geoNoteWfo: "📍 चेक-इन/चेक-आउट के लिए आपको भिवंडी ऑफ़िस में होना ज़रूरी है। पूछे जाने पर लोकेशन की अनुमति दें।",
-    geoNoteWfh: "📍 चेक-इन और चेक-आउट के समय आपकी लोकेशन दर्ज होती है।",
+    geoNoteWfh: "📍 चेक-इन/चेक-आउट के लिए आपको अपने दर्ज घर (या ऑफ़िस) पर होना ज़रूरी है। पूछे जाने पर लोकेशन की अनुमति दें।",
+    geoNoteWfhNoHome: "⚠️ आपका घर का पता अभी दर्ज नहीं है — चेक-इन से पहले HR से इसे सेट करवाएँ।",
     signOut: "आप नहीं? साइन आउट करें",
     // Flashes
     flashCheckedIn: "चेक-इन हो गया। आपकी शिफ्ट अच्छी रहे!",
@@ -125,9 +132,14 @@ const STR = {
     // Punch errors
     errCouldNotPunch: "पंच दर्ज नहीं हो सका।",
     errNeedLocation:
-      "लोकेशन ज़रूरी है। GPS/लोकेशन चालू करके अनुमति दें, फिर कोशिश करें — ऑफ़िस स्टाफ़ को भिवंडी ऑफ़िस में ही पंच करना है।",
+      "लोकेशन ज़रूरी है। GPS/लोकेशन चालू करके अनुमति दें, फिर कोशिश करें।",
+    errPoorAccuracy: (m) =>
+      `लोकेशन सटीक नहीं है (±${fmtDist(m, "किमी", "मीटर")})। सटीक GPS चालू करें, खिड़की के पास जाएँ, फिर कोशिश करें।`,
     errOutside: (m) =>
       `आप ऑफ़िस से लगभग ${fmtDist(m, "किमी", "मीटर")} दूर लगते हैं। ऑफ़िस स्टाफ़ को भिवंडी फ़ैक्ट्री में ही चेक-इन/आउट करना है।`,
+    errOutsideHome: (m) =>
+      `आप अपने दर्ज घर से लगभग ${fmtDist(m, "किमी", "मीटर")} दूर लगते हैं। WFH स्टाफ़ को घर (या ऑफ़िस) से ही चेक-इन/आउट करना है।`,
+    errNoHome: "आपका घर का पता अभी दर्ज नहीं है। HR से सेट करवाएँ, फिर कोशिश करें।",
     errOpenSince: (t) => `आप कल से (${t} बजे से) अभी भी चेक-इन हैं। पहले चेक-आउट करें।`,
     errAlreadyIn: (t) => `आप पहले ही ${t} बजे चेक-इन कर चुके हैं।`,
     errAlreadyOut: (t) => `आप पहले ही ${t} बजे चेक-आउट कर चुके हैं।`,
@@ -199,7 +211,10 @@ function prettyDate(ymd, locale) {
 // users get Hindi even though the server sends English in `error`.
 function punchErrorMsg(data, t) {
   if (data.needLocation) return t.errNeedLocation;
+  if (data.poorAccuracy && data.accuracyM != null) return t.errPoorAccuracy(data.accuracyM);
   if (data.outsideGeofence && data.distanceM != null) return t.errOutside(data.distanceM);
+  if (data.outsideHome && data.distanceM != null) return t.errOutsideHome(data.distanceM);
+  if (data.noHome) return t.errNoHome;
   if (data.openSince) return t.errOpenSince(data.openSince);
   if (data.inTime) return t.errAlreadyIn(data.inTime);
   if (data.outTime) return t.errAlreadyOut(data.outTime);
@@ -453,7 +468,7 @@ function ClockFace({ status, busy, locating, t, onPunch, onSignOut }) {
       )}
       {!done && (
         <p className="text-[11px] text-center text-ink-400">
-          {wfo ? t.geoNoteWfo : t.geoNoteWfh}
+          {wfo ? t.geoNoteWfo : employee?.homeSet === false ? t.geoNoteWfhNoHome : t.geoNoteWfh}
         </p>
       )}
       {done && (

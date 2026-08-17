@@ -24,6 +24,8 @@ const EMPTY = {
   phone: "", // local 10-digit number; +91 is prefixed on save
   employeeCode: "",
   workMode: "WFO",
+  homeLat: "",
+  homeLng: "",
   weeklyOffDays: [0],
   monthlySalary: "",
   joiningDate: "",
@@ -36,6 +38,19 @@ const EMPTY = {
 // Strip any country code / formatting to the local 10-digit number for editing.
 function localTen(p) {
   return String(p || "").replace(/\D/g, "").slice(-10);
+}
+
+const mapsUrl = (lat, lng) => `https://www.google.com/maps?q=${lat},${lng}`;
+
+// Pull "lat, lng" out of free text: a bare "19.24, 73.05" pair or a Google
+// Maps URL (…/@19.24,73.05,17z or ?q=19.24,73.05). Returns null when unsure.
+function parseLatLng(text) {
+  const m = String(text || "").match(/(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/);
+  if (!m) return null;
+  const lat = Number(m[1]);
+  const lng = Number(m[2]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { lat, lng };
 }
 
 export default function EmployeesAdmin({ initialEmployees, factoryManagers, isAdmin = true, currentUserId = null }) {
@@ -136,6 +151,8 @@ export default function EmployeesAdmin({ initialEmployees, factoryManagers, isAd
       phone: localTen(e.phone),
       employeeCode: e.employeeCode || "",
       workMode: e.workMode || "WFO",
+      homeLat: e.homeLat != null ? String(e.homeLat) : "",
+      homeLng: e.homeLng != null ? String(e.homeLng) : "",
       weeklyOffDays: Array.isArray(e.weeklyOffDays) ? e.weeklyOffDays : [0],
       monthlySalary: e.monthlySalary ? String(e.monthlySalary) : "",
       joiningDate: e.joiningDate || "",
@@ -189,6 +206,8 @@ export default function EmployeesAdmin({ initialEmployees, factoryManagers, isAd
       phone: localPhone ? `+91 ${localPhone}` : "",
       employeeCode: form.employeeCode.trim(),
       workMode: form.workMode === "WFH" ? "WFH" : "WFO",
+      homeLat: form.homeLat === "" ? null : Number(form.homeLat),
+      homeLng: form.homeLng === "" ? null : Number(form.homeLng),
       weeklyOffDays: Array.isArray(form.weeklyOffDays) ? form.weeklyOffDays : [0],
       monthlySalary: Number(form.monthlySalary) || 0,
       joiningDate: form.joiningDate || null,
@@ -412,6 +431,16 @@ export default function EmployeesAdmin({ initialEmployees, factoryManagers, isAd
             Work-from-office (on-site) or work-from-home. Defaults to Office.
           </p>
         </div>
+
+        {form.workMode === "WFH" && (
+          <HomeLocationField
+            form={form}
+            setForm={setForm}
+            employeeId={editingId}
+            labelCls={labelCls}
+            inputCls={inputCls}
+          />
+        )}
 
         <div>
           <label className={labelCls}>Weekly off</label>
@@ -684,6 +713,14 @@ export default function EmployeesAdmin({ initialEmployees, factoryManagers, isAd
                         >
                           {e.workMode === "WFH" ? "WFH" : "WFO"}
                         </span>
+                        {e.workMode === "WFH" && e.active && (e.homeLat == null || e.homeLng == null) && (
+                          <span
+                            className="ml-1 text-[10px] px-1 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                            title="WFH but no home location registered — this person cannot check in until you set one"
+                          >
+                            no home
+                          </span>
+                        )}
                         {!e.active && <span className="ml-2 text-xs text-gray-400">(inactive)</span>}
                       </div>
                       {e.designation && <div className="text-xs text-gray-500 dark:text-gray-400">{e.designation}</div>}
@@ -773,6 +810,11 @@ export default function EmployeesAdmin({ initialEmployees, factoryManagers, isAd
                       >
                         {e.workMode === "WFH" ? "WFH" : "WFO"}
                       </span>
+                      {e.workMode === "WFH" && e.active && (e.homeLat == null || e.homeLng == null) && (
+                        <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                          no home
+                        </span>
+                      )}
                       {!e.active && <span className="ml-2 text-xs text-gray-400">(inactive)</span>}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{e.designation || "—"}</p>
@@ -807,6 +849,124 @@ export default function EmployeesAdmin({ initialEmployees, factoryManagers, isAd
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+
+// Registered home geofence for WFH staff. The punch clock only accepts a WFH
+// punch within ~300 m of this point (or at the office), so it must be set
+// before the person can check in. HR can paste "lat, lng" / a Google Maps
+// link, or pick from where the person recently punched.
+function HomeLocationField({ form, setForm, employeeId, labelCls, inputCls }) {
+  const [paste, setPaste] = useState("");
+  const [recent, setRecent] = useState(null); // null = not loaded
+  const [loading, setLoading] = useState(false);
+  const has = form.homeLat !== "" && form.homeLng !== "";
+
+  async function loadRecent() {
+    if (!employeeId) return;
+    setLoading(true);
+    const res = await fetch(`/api/hr/employees/${employeeId}/punch-locations`);
+    setLoading(false);
+    if (!res.ok) { setRecent([]); return; }
+    setRecent((await res.json()).locations || []);
+  }
+
+  function applyPaste() {
+    const p = parseLatLng(paste);
+    if (!p) return;
+    setForm({ ...form, homeLat: String(p.lat), homeLng: String(p.lng) });
+    setPaste("");
+  }
+
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-800 dark:bg-amber-900/10">
+      <label className={labelCls}>Home location (WFH geofence)</label>
+      {has ? (
+        <p className="text-sm text-gray-800 dark:text-gray-100">
+          📍 {Number(form.homeLat).toFixed(5)}, {Number(form.homeLng).toFixed(5)}{" "}
+          <a
+            href={mapsUrl(form.homeLat, form.homeLng)}
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-600 hover:underline dark:text-blue-400 text-xs"
+          >
+            open in Maps ↗
+          </a>
+          <button
+            type="button"
+            onClick={() => setForm({ ...form, homeLat: "", homeLng: "" })}
+            className="ml-2 text-xs text-red-600 hover:underline"
+          >
+            clear
+          </button>
+        </p>
+      ) : (
+        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+          ⚠️ Not set — this person cannot check in until a home location is registered.
+        </p>
+      )}
+
+      <div className="mt-2 flex gap-2">
+        <input
+          className={inputCls}
+          value={paste}
+          onChange={(e) => setPaste(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyPaste(); } }}
+          placeholder="Paste “19.2461, 73.0538” or a Google Maps link"
+        />
+        <button
+          type="button"
+          onClick={applyPaste}
+          disabled={!parseLatLng(paste)}
+          className="shrink-0 rounded-md border border-gray-300 px-3 text-sm disabled:opacity-40 dark:border-gray-600"
+        >
+          Use
+        </button>
+      </div>
+
+      {employeeId && (
+        <div className="mt-2">
+          {recent === null ? (
+            <button
+              type="button"
+              onClick={loadRecent}
+              disabled={loading}
+              className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+            >
+              {loading ? "Loading…" : "Pick from recent punch locations →"}
+            </button>
+          ) : recent.length === 0 ? (
+            <p className="text-xs text-gray-500">No located punches yet.</p>
+          ) : (
+            <ul className="space-y-1 max-h-40 overflow-auto">
+              {recent.map((r, i) => (
+                <li key={i} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-gray-700 dark:text-gray-200">
+                    {r.date} {r.inTime} · {r.lat.toFixed(4)}, {r.lng.toFixed(4)}
+                    {r.accuracy != null ? ` ±${Math.round(r.accuracy)}m` : ""}
+                    {" "}
+                    <a href={mapsUrl(r.lat, r.lng)} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400">
+                      map ↗
+                    </a>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, homeLat: String(r.lat), homeLng: String(r.lng) })}
+                    className="shrink-0 rounded border border-gray-300 px-2 py-0.5 dark:border-gray-600"
+                  >
+                    Use
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+        Punches are accepted within ~300 m of this point, or at the Bhiwandi office. Anywhere else is blocked.
+      </p>
     </div>
   );
 }

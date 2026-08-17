@@ -4,7 +4,7 @@ import { getSession, hasModule } from "@/lib/auth/session";
 import { resolveFactoryosUserId } from "@/lib/hub/users";
 import { isHrAdmin } from "@/lib/factoryos/hrScope";
 import { listEmployees, listAttendance, listUsers, listHolidays } from "@/lib/factoryos/repo";
-import { ROLES } from "@/lib/factoryos/constants";
+import { ROLES, OFFICE_GEOFENCE, HOME_GEOFENCE_RADIUS_M } from "@/lib/factoryos/constants";
 import { todayYmdIST } from "@/lib/factoryos/hr";
 import MarkAttendance from "./MarkAttendance";
 
@@ -68,6 +68,7 @@ export default async function AttendancePage({ searchParams }) {
           canViewAll={isAdmin}
           showingAll={showAll}
           currentUserId={myUserId}
+          geofence={{ office: OFFICE_GEOFENCE, homeRadiusM: HOME_GEOFENCE_RADIUS_M }}
         />
       </main>
     </div>

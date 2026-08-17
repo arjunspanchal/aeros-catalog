@@ -46,6 +46,27 @@ export async function PATCH(req, { params }) {
       }
       patch.monthlySalary = n;
     }
+    // Home geofence: both coords or neither. Empty/null clears it. Stamp who
+    // registered it; the client can't set that.
+    delete patch.homeSetBy;
+    delete patch.homeSetAt;
+    if (patch.homeLat !== undefined || patch.homeLng !== undefined) {
+      const la = patch.homeLat === "" || patch.homeLat == null ? null : Number(patch.homeLat);
+      const ln = patch.homeLng === "" || patch.homeLng == null ? null : Number(patch.homeLng);
+      if (la == null && ln == null) {
+        patch.homeLat = null;
+        patch.homeLng = null;
+      } else if (
+        !Number.isFinite(la) || !Number.isFinite(ln) ||
+        Math.abs(la) > 90 || Math.abs(ln) > 180 || (la === 0 && ln === 0)
+      ) {
+        return Response.json({ error: "Home location needs a valid latitude and longitude" }, { status: 400 });
+      } else {
+        patch.homeLat = la;
+        patch.homeLng = ln;
+        patch.homeSetBy = session.email || session.name || "hr";
+      }
+    }
     // OT rate is computed from salary + OT_MULTIPLIER — not stored.
     delete patch.otRate;
     const employee = await updateEmployee(params.id, patch);

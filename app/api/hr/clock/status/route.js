@@ -39,6 +39,9 @@ export async function GET() {
       designation: employee.designation,
       otEligible: employee.otEligible,
       workMode: String(employee.workMode || "WFO").toUpperCase() === "WFH" ? "WFH" : "WFO",
+      // WFH only: whether HR has registered a home geofence. Drives the
+      // "ask HR to set it" note before the worker even tries to punch.
+      homeSet: employee.homeLat != null && employee.homeLng != null,
     },
     date,
     checkedIn: !!row?.inTime,
