@@ -12,7 +12,7 @@
 import { getEmpSession } from "@/lib/factoryos/empAuth";
 import { getEmployee, findAttendance, upsertAttendance, computeOtHours } from "@/lib/factoryos/repo";
 import { todayYmdIST, nowHmIST, isLate, distanceMeters, addDaysYmd, overnightShiftActive } from "@/lib/factoryos/hr";
-import { SHIFT_END, OFFICE_GEOFENCE, OT_CUTOFF_HM } from "@/lib/factoryos/constants";
+import { SHIFT_END, OFFICE_GEOFENCE, OT_CUTOFF_HM, HOME_GEOFENCE_RADIUS_M, MAX_PUNCH_ACCURACY_M } from "@/lib/factoryos/constants";
 
 export const runtime = "nodejs";
 
@@ -47,37 +47,84 @@ async function autoCloseShift(employeeId, date, row, otEligible) {
 // locking out on-site staff, without turning a wild fix into a free pass.
 const ACCURACY_BUFFER_CAP_M = 200;
 
-// Geofence gate for WFO workers: they may only punch at the Bhiwandi office.
-// Returns an error Response to block, or null to allow. WFH workers are exempt.
+function fmtDist(m) {
+  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
+}
+
+// True when the fix is inside the circle (radius + capped accuracy buffer).
+function inside(geo, centre, radiusM) {
+  const dist = distanceMeters(geo.lat, geo.lng, centre.lat, centre.lng);
+  const buffer = Math.min(geo.accuracy || 0, ACCURACY_BUFFER_CAP_M);
+  return { ok: Math.max(0, dist - buffer) <= radiusM, dist };
+}
+
+// Geofence gate. Location is mandatory for EVERY punch. Then:
+//   WFO → must be at the Bhiwandi office.
+//   WFH → must be at their registered home (employees.home_lat/lng) OR at the
+//         office. No registered home = cannot punch until HR sets one.
+// Returns an error Response to block, or null to allow. Structured flags on
+// the body let the clock UI localise the message.
 function geofenceBlock(employee, geo) {
-  const isWfo = String(employee.workMode || "WFO").toUpperCase() !== "WFH";
-  if (!isWfo) return null; // WFH: no geofence.
+  const isWfh = String(employee.workMode || "WFO").toUpperCase() === "WFH";
 
   if (geo.lat == null) {
     return Response.json(
       {
         error:
-          "Location required. Turn on GPS/location for this site and allow it, then try again — office staff must punch at the Bhiwandi office.",
+          "Location required. Turn on GPS/location for this site and allow it, then try again.",
         needLocation: true,
       },
       { status: 422 },
     );
   }
 
-  const dist = distanceMeters(geo.lat, geo.lng, OFFICE_GEOFENCE.lat, OFFICE_GEOFENCE.lng);
-  const buffer = Math.min(geo.accuracy || 0, ACCURACY_BUFFER_CAP_M);
-  if (Math.max(0, dist - buffer) > OFFICE_GEOFENCE.radiusM) {
-    const away = dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${Math.round(dist)} m`;
+  // A kilometre-wide "fix" is a network guess, not a position — refuse it
+  // rather than let a wide accuracy circle swallow the geofence.
+  if (geo.accuracy != null && geo.accuracy > MAX_PUNCH_ACCURACY_M) {
     return Response.json(
       {
-        error: `You appear to be about ${away} from the office. Office staff must check in/out at the Bhiwandi factory.`,
-        outsideGeofence: true,
-        distanceM: Math.round(dist),
+        error: `Location too imprecise (±${fmtDist(geo.accuracy)}). Turn on precise GPS / step outside or near a window, then try again.`,
+        poorAccuracy: true,
+        accuracyM: Math.round(geo.accuracy),
       },
       { status: 422 },
     );
   }
-  return null;
+
+  const office = inside(geo, OFFICE_GEOFENCE, OFFICE_GEOFENCE.radiusM);
+  if (office.ok) return null;
+
+  if (!isWfh) {
+    return Response.json(
+      {
+        error: `You appear to be about ${fmtDist(office.dist)} from the office. Office staff must check in/out at the Bhiwandi factory.`,
+        outsideGeofence: true,
+        distanceM: Math.round(office.dist),
+      },
+      { status: 422 },
+    );
+  }
+
+  // WFH: fall back to the registered home.
+  if (employee.homeLat == null || employee.homeLng == null) {
+    return Response.json(
+      {
+        error: "Your home location isn't registered yet. Ask HR to set it, then try again.",
+        noHome: true,
+      },
+      { status: 422 },
+    );
+  }
+  const home = inside(geo, { lat: employee.homeLat, lng: employee.homeLng }, HOME_GEOFENCE_RADIUS_M);
+  if (home.ok) return null;
+  return Response.json(
+    {
+      error: `You appear to be about ${fmtDist(home.dist)} from your registered home. WFH staff must check in/out from home (or the office).`,
+      outsideHome: true,
+      distanceM: Math.round(home.dist),
+    },
+    { status: 422 },
+  );
 }
 
 export async function POST(req) {
@@ -96,8 +143,8 @@ export async function POST(req) {
   }
 
   // GPS the device shared with the punch clock. Sanity-bound lat/lng so junk
-  // never persists. For WFH workers this is best-effort (recorded, never
-  // required); for WFO workers it gates the punch via the office geofence.
+  // never persists. Mandatory for everyone: WFO punches are gated by the
+  // office geofence, WFH punches by the registered home geofence.
   const geo = parseGeo(body);
 
   const blocked = geofenceBlock(employee, geo);

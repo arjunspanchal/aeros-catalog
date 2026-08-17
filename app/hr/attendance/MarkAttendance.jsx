@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { inputCls } from "@/app/factoryos/_components/ui";
 import { MANUAL_ATTENDANCE_STATUSES, SHIFT_END, SHIFT_START } from "@/lib/factoryos/constants";
-import { otHourlyRate, isWorkingDay, isLate, pad2 } from "@/lib/factoryos/hr";
+import { otHourlyRate, isWorkingDay, isLate, pad2, distanceMeters } from "@/lib/factoryos/hr";
 
 // Enumerate calendar dates from..to inclusive (both "YYYY-MM-DD").
 function datesBetween(from, to) {
@@ -25,6 +25,36 @@ const isWorkStatus = (s) => s === "P" || s === "H";
 
 // Google Maps link for a captured punch coordinate.
 const mapsUrl = (lat, lng) => `https://www.google.com/maps?q=${lat},${lng}`;
+
+const fmtDist = (m) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`);
+
+// Classify a punch fix against the office geofence and (for WFH staff) the
+// registered home. Mirrors the server rule in /api/hr/clock/punch, including
+// the capped accuracy buffer, so what HR sees matches what the clock enforced.
+// Returns { site: "office" | "home" | "away", distM } or null when no fix.
+function classifyPunch(lat, lng, accuracy, employee, geofence) {
+  if (lat == null || lng == null || !geofence?.office) return null;
+  const buffer = Math.min(accuracy || 0, 200);
+  const dOffice = distanceMeters(lat, lng, geofence.office.lat, geofence.office.lng);
+  if (Math.max(0, dOffice - buffer) <= geofence.office.radiusM) return { site: "office", distM: dOffice };
+  if (employee?.workMode === "WFH" && employee.homeLat != null && employee.homeLng != null) {
+    const dHome = distanceMeters(lat, lng, employee.homeLat, employee.homeLng);
+    if (Math.max(0, dHome - buffer) <= geofence.homeRadiusM) return { site: "home", distM: dHome };
+  }
+  return { site: "away", distM: dOffice };
+}
+
+function SiteBadge({ tag }) {
+  if (!tag) return null;
+  const cls =
+    tag.site === "office"
+      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+      : tag.site === "home"
+        ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
+  const label = tag.site === "office" ? "office" : tag.site === "home" ? "home" : `off-site · ${fmtDist(tag.distM)} from office`;
+  return <span className={`text-[10px] px-1 py-0.5 rounded ${cls}`}>{label}</span>;
+}
 
 const STATUS_BTN = {
   P:  "bg-emerald-600 text-white",
@@ -57,6 +87,7 @@ export default function MarkAttendance({
   canViewAll,
   showingAll,
   currentUserId,
+  geofence = null,
 }) {
   const router = useRouter();
 
@@ -219,6 +250,7 @@ export default function MarkAttendance({
             key={row.employeeId}
             row={row}
             managerMap={managerMap}
+            geofence={geofence}
             canMark={canViewAll || row.employee.managerId === currentUserId}
             onChange={(patch) => updateRow(row.employeeId, patch)}
             onSave={() => saveRow(row)}
@@ -229,7 +261,7 @@ export default function MarkAttendance({
   );
 }
 
-function AttendanceRow({ row, managerMap, canMark, onChange, onSave }) {
+function AttendanceRow({ row, managerMap, geofence, canMark, onChange, onSave }) {
   const { employee, status, inTime, outTime, dirty, saving, saved, selfMarked, error } = row;
   const otPreview = employee.otEligible && status === "P" ? computeOtPreview(inTime, outTime) : 0;
   const otRate = otHourlyRate(employee);
@@ -292,6 +324,7 @@ function AttendanceRow({ row, managerMap, canMark, onChange, onSave }) {
                   📍 In{row.inAccuracy ? ` ±${row.inAccuracy}m` : ""}
                 </a>
               )}
+              <SiteBadge tag={classifyPunch(row.inLat, row.inLng, row.inAccuracy, employee, geofence)} />
               {row.outLat != null && (
                 <a
                   href={mapsUrl(row.outLat, row.outLng)}
@@ -302,6 +335,9 @@ function AttendanceRow({ row, managerMap, canMark, onChange, onSave }) {
                 >
                   📍 Out{row.outAccuracy ? ` ±${row.outAccuracy}m` : ""}
                 </a>
+              )}
+              {row.outLat != null && (
+                <SiteBadge tag={classifyPunch(row.outLat, row.outLng, row.outAccuracy, employee, geofence)} />
               )}
             </div>
           )}

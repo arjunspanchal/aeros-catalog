@@ -4,6 +4,15 @@ import { hrScope } from "@/lib/factoryos/hrScope";
 
 export const runtime = "nodejs";
 
+// Optional WFH home geofence on create: valid pair → set + stamp who; else omit.
+function homeGeo(body, session) {
+  const la = Number(body.homeLat);
+  const ln = Number(body.homeLng);
+  const ok = body.homeLat != null && body.homeLat !== "" && Number.isFinite(la) && Number.isFinite(ln) &&
+    Math.abs(la) <= 90 && Math.abs(ln) <= 180 && !(la === 0 && ln === 0);
+  return ok ? { homeLat: la, homeLng: ln, homeSetBy: session.email || session.name || "hr" } : {};
+}
+
 // HR Admin sees the whole roster; HR Manager is scoped to their own reports.
 export async function GET(req) {
   const session = getSession();
@@ -53,6 +62,7 @@ export async function POST(req) {
       phone: body.phone || "",
       employeeCode: (body.employeeCode || "").trim(),
       workMode: body.workMode === "WFH" ? "WFH" : "WFO",
+      ...homeGeo(body, session),
       monthlySalary,
       joiningDate: body.joiningDate || null,
       managerId,
