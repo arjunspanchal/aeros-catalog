@@ -11,6 +11,7 @@ import { buildBurgerboxDieline } from "@/lib/dieline/burgerbox";
 import { buildPaperbagKeyline, BAG_TYPES } from "@/lib/dieline/paperbag";
 import { buildDcutbagDieline } from "@/lib/dieline/dcutbag";
 import { buildSandwichboxDieline } from "@/lib/dieline/sandwichbox";
+import { buildBowlsleeveDieline } from "@/lib/dieline/bowlsleeve";
 import { buildTuckboxDieline } from "@/lib/dieline/tuckbox";
 import { buildCartonDieline, CARTON_TYPES } from "@/lib/dieline/carton";
 import { buildSleeveDieline, buildCupSleeveDieline } from "@/lib/dieline/sleeves";
@@ -28,7 +29,7 @@ import { buildDieMask } from "@/lib/dieline/mask";
 
 // styles whose 3D flat pose lays out on the same grid as the die blank —
 // their panels get clipped to the true die silhouette (curved wings, notches)
-const DIE_MASK_STYLES = new Set(["snackbox", "sandwichbox"]);
+const DIE_MASK_STYLES = new Set(["snackbox", "sandwichbox", "bowlsleeve"]);
 import { buildRig, RIGGED_STYLES } from "@/lib/dieline/fold3d";
 import Fold3DViewer from "./Fold3DViewer";
 
@@ -263,6 +264,24 @@ const STYLES = {
     depthLabel: "Bottom fold",
     note:
       "Flat blank for print/artwork — seam | front | gusset | back | gusset, SOS diamond folds at the gusset centres. Blank maths matches the bag rate calculator exactly (seam 15/20/25 by width, bottom = 0.75×G, V-bottom +15).",
+  },
+  bowlsleeve: {
+    label: "Bowl Sleeve (round)",
+    build: buildBowlsleeveDieline,
+    defaultUnits: "mm",
+    defaults: { L: "137.8", W: "89", H: "148" },
+    fieldLabels: ["Bowl Ø at sleeve", "Sleeve height", "Disc Ø (0 = none)"],
+    hints: { L: "container diameter where the sleeve sits (wrap = π × Ø)", W: "band height", H: "medallion die-cut into the front panel" },
+    presets: [
+      { label: "Zepto Cafe 750 mL (Ø137.8 × 89, disc 148)", dims: [137.8, 89, 148], unit: "mm" },
+      { label: "Ø120 × 70, no disc", dims: [120, 70, 0], unit: "mm" },
+      { label: "Ø150 × 60, disc 160", dims: [150, 60, 160], unit: "mm" },
+    ],
+    allowZeroH: true,
+    defaultMaterial: { family: "duplex", idx: 1 },
+    depthLabel: "Glue flap",
+    note:
+      "Straight belly band for a round container, from the Zepto Cafe 750 mL anti-leak sleeve keyline — panels side | front (disc) | side | back at the reference proportions of the wrap, 15 mm glue flap tapered 2.96 mm per side, optional circular medallion die-cut through the band on the front panel. Duplex 280 gsm, side pasting.",
   },
   sandwichbox: {
     label: "Sandwich Box (wedge)",
