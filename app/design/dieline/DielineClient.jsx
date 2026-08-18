@@ -10,6 +10,7 @@ import { buildFoodboxDieline } from "@/lib/dieline/foodbox";
 import { buildBurgerboxDieline } from "@/lib/dieline/burgerbox";
 import { buildPaperbagKeyline, BAG_TYPES } from "@/lib/dieline/paperbag";
 import { buildDcutbagDieline } from "@/lib/dieline/dcutbag";
+import { buildSandwichboxDieline } from "@/lib/dieline/sandwichbox";
 import { buildTuckboxDieline } from "@/lib/dieline/tuckbox";
 import { buildCartonDieline, CARTON_TYPES } from "@/lib/dieline/carton";
 import { buildSleeveDieline, buildCupSleeveDieline } from "@/lib/dieline/sleeves";
@@ -27,7 +28,7 @@ import { buildDieMask } from "@/lib/dieline/mask";
 
 // styles whose 3D flat pose lays out on the same grid as the die blank —
 // their panels get clipped to the true die silhouette (curved wings, notches)
-const DIE_MASK_STYLES = new Set(["snackbox"]);
+const DIE_MASK_STYLES = new Set(["snackbox", "sandwichbox"]);
 import { buildRig, RIGGED_STYLES } from "@/lib/dieline/fold3d";
 import Fold3DViewer from "./Fold3DViewer";
 
@@ -262,6 +263,25 @@ const STYLES = {
     depthLabel: "Bottom fold",
     note:
       "Flat blank for print/artwork — seam | front | gusset | back | gusset, SOS diamond folds at the gusset centres. Blank maths matches the bag rate calculator exactly (seam 15/20/25 by width, bottom = 0.75×G, V-bottom +15).",
+  },
+  sandwichbox: {
+    label: "Sandwich Box (wedge)",
+    build: buildSandwichboxDieline,
+    defaultUnits: "in",
+    defaults: { L: "4.5", W: "2.2", H: "0" },
+    fieldLabels: ["Side", "Depth", "—"],
+    hints: { L: "sandwich side (triangle leg)", W: "box depth", H: "not used" },
+    presets: [
+      { label: '4.5 × 2.2" (production die)', dims: [4.5, 2.2, 0], unit: "in" },
+      { label: '5 × 2.5"', dims: [5, 2.5, 0], unit: "in" },
+      { label: "125 × 65 mm", dims: [125, 65, 0], unit: "mm" },
+    ],
+    allowZeroH: true,
+    hasWindow: true,
+    defaultMaterial: { family: "white", idx: 4 },
+    depthLabel: "Depth",
+    note:
+      "Right-isosceles wedge box calibrated to the 4.5 × 2.2 in production punch (300 gsm) — base | end triangle | sloping face with window | end triangle | back wall, wings on the sloping face, 14 mm lock strips with slots on the triangle legs, tuck tabs top and bottom, glued spine flap. Window defaults to ~49% × 55% of the sloping face — enter 0 for no window.",
   },
   dcutbag: {
     label: "D-Cut Bag",
