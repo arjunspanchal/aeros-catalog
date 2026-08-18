@@ -29,7 +29,7 @@ const BACKDROPS = {
 };
 
 // formed pose lies flat on the ground for these — stand them up as t -> 1
-const UPRIGHT_STYLES = new Set(["carton", "sleeve", "paperbag", "dcutbag"]);
+const UPRIGHT_STYLES = new Set(["carton", "sleeve", "paperbag", "dcutbag", "bowlsleeve"]);
 const ease = (v) => (v <= 0 ? 0 : v >= 1 ? 1 : v * v * (3 - 2 * v));
 
 const Fold3DViewer = forwardRef(function Fold3DViewer(
