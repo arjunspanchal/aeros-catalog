@@ -12,6 +12,7 @@ import { buildPaperbagKeyline, BAG_TYPES } from "@/lib/dieline/paperbag";
 import { buildDcutbagDieline } from "@/lib/dieline/dcutbag";
 import { buildSandwichboxDieline } from "@/lib/dieline/sandwichbox";
 import { buildBowlsleeveDieline } from "@/lib/dieline/bowlsleeve";
+import { buildCutlerypouchDieline } from "@/lib/dieline/cutlerypouch";
 import { buildTuckboxDieline } from "@/lib/dieline/tuckbox";
 import { buildCartonDieline, CARTON_TYPES } from "@/lib/dieline/carton";
 import { buildSleeveDieline, buildCupSleeveDieline } from "@/lib/dieline/sleeves";
@@ -264,6 +265,24 @@ const STYLES = {
     depthLabel: "Bottom fold",
     note:
       "Flat blank for print/artwork — seam | front | gusset | back | gusset, SOS diamond folds at the gusset centres. Blank maths matches the bag rate calculator exactly (seam 15/20/25 by width, bottom = 0.75×G, V-bottom +15).",
+  },
+  cutlerypouch: {
+    label: "Cutlery Pouch",
+    build: buildCutlerypouchDieline,
+    defaultUnits: "mm",
+    defaults: { L: "60", W: "200", H: "0" },
+    fieldLabels: ["Face width", "Height", "—"],
+    hints: { L: "pouch face (visible front)", W: "pouch height", H: "not used" },
+    presets: [
+      { label: "Third Wave 60×200 (reference)", dims: [60, 200, 0], unit: "mm" },
+      { label: "50×180", dims: [50, 180, 0], unit: "mm" },
+      { label: "70×230", dims: [70, 230, 0], unit: "mm" },
+    ],
+    allowZeroH: true,
+    defaultMaterial: { family: "kraft", idx: 0 },
+    depthLabel: "Seal band",
+    note:
+      "Roll-fed flat pouch with a centre back seam, from the Third Wave Coffee reference (KOZO paper, surface print) — half-backs = face ÷ 2 meet behind, 10 mm lap seams, 10 mm top and bottom seal bands. This is a converting keyline for artwork placement, not a punched die.",
   },
   bowlsleeve: {
     label: "Bowl Sleeve (round)",
